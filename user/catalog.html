@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kho Học Liệu - Thư Viện ABC</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .book-shadow {
+            box-shadow: -5px 0 10px rgba(0, 0, 0, 0.1), 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        /* Subtle header pattern */
+        .subtle-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 cursor-pointer">
+                    <div
+                        class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                        <i class="ph-fill ph-books text-white text-2xl"></i>
+                    </div>
+                    <span
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span
+                            class="text-primary-600">Space</span></span>
+                </div>
+
+                <!-- Navigation Links (Desktop) -->
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="index.html"
+                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Trang
+                        chủ</a>
+                    <a href="catalog.html"
+                        class="text-primary-600 font-medium border-b-2 border-primary-600 px-1 py-1">Kho học liệu</a>
+                    <a href="rules.html"
+                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Quy định</a>
+                    <a href="about.html"
+                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Về chúng
+                        tôi</a>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-slate-500 p-2"><i class="ph ph-magnifying-glass text-xl"></i></button>
+                    <!-- Favorite List -->
+                    <button class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span
+                            class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <!-- Auth Buttons -->
+                    <div class="hidden sm:flex items-center gap-3">
+                        <a href="login.html"
+                            class="text-slate-600 font-medium hover:text-primary-600 transition-colors text-sm px-3">Đăng
+                            nhập</a>
+                        <a href="login.html"
+                            class="bg-primary-600 hover:bg-primary-700 text-white font-medium text-sm px-5 py-2.5 rounded-xl shadow-md shadow-primary-500/20 transition-all active:scale-95">Đăng
+                            ký ngay</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <header class="subtle-pattern border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+            <nav class="flex text-sm text-slate-500 mb-4" aria-label="Breadcrumb">
+                <ol class="inline-flex items-center space-x-1 md:space-x-3">
+                    <li class="inline-flex items-center">
+                        <a href="index.html" class="inline-flex items-center hover:text-primary-600 transition-colors">
+                            <i class="ph-fill ph-house mr-1.5 text-lg"></i>
+                            Trang chủ
+                        </a>
+                    </li>
+                    <li>
+                        <div class="flex items-center">
+                            <i class="ph ph-caret-right text-slate-400 mx-1"></i>
+                            <span class="text-slate-800 font-medium ml-1 md:ml-2">Kho học liệu</span>
+                        </div>
+                    </li>
+                </ol>
+            </nav>
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Tất cả tài liệu thư viện</h1>
+            <p class="mt-2 text-slate-600 max-w-2xl">Duyệt qua hơn 10.000 đầu sách, tài liệu nghiên cứu và ấn phẩm được
+                phân loại rõ ràng theo từng lĩnh vực.</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- LEFT SIDEBAR: Filters & Categories -->
+            <aside class="w-full lg:w-64 shrink-0">
+                <!-- Mobile Filter Toggle (Visible only on mobile) -->
+                <button
+                    class="lg:hidden w-full flex items-center justify-center gap-2 bg-white border border-slate-300 rounded-xl py-3 px-4 font-medium text-slate-700 mb-6 shadow-sm">
+                    <i class="ph ph-sliders text-lg"></i> Hiển thị bộ lọc
+                </button>
+
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sticky top-24 hidden lg:block">
+                    <!-- Search Input inside Sidebar -->
+                    <div class="relative mb-6">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" placeholder="Tìm kiếm nhanh..."
+                            class="w-full pl-10 pr-3 py-2 bg-slate-50 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors">
+                    </div>
+
+                    <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <i class="ph-bold ph-list-dashes text-primary-600"></i>
+                        Danh Mục Khoa
+                    </h3>
+
+                    <ul class="space-y-1 mt-4">
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 bg-primary-50 text-primary-700 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-squares-four text-lg text-primary-500"></i> Tất cả sách</span>
+                                <span
+                                    class="text-xs bg-white text-primary-600 py-0.5 px-2 rounded-full font-bold shadow-sm">1,245</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-code text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i>
+                                    CNTT - Phần mềm</span>
+                                <span class="text-xs text-slate-400 group-hover:text-slate-600">320</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-chart-line-up text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i>
+                                    Kinh tế - Quản trị</span>
+                                <span class="text-xs text-slate-400 group-hover:text-slate-600">415</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-brain text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i>
+                                    Tâm lý - Kỹ năng</span>
+                                <span class="text-xs text-slate-400 group-hover:text-slate-600">189</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-feather text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i>
+                                    Văn học - Nghệ thuật</span>
+                                <span class="text-xs text-slate-400 group-hover:text-slate-600">240</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="#"
+                                class="flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
+                                <span class="flex items-center gap-2.5"><i
+                                        class="ph ph-flask text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i>
+                                    Khoa học cơ bản</span>
+                                <span class="text-xs text-slate-400 group-hover:text-slate-600">81</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <div class="h-px bg-slate-100 my-6"></div>
+
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Trạng thái Mượn</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" checked
+                                class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer">
+                            <span
+                                class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Có
+                                sẵn (Trong kho)</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox"
+                                class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer">
+                            <span
+                                class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Đang
+                                hết (Chờ trả)</span>
+                        </label>
+                    </div>
+
+                    <div class="h-px bg-slate-100 my-6"></div>
+
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider">Ngôn ngữ</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox" checked
+                                class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer">
+                            <span
+                                class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Tiếng
+                                Việt</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer group">
+                            <input type="checkbox"
+                                class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer">
+                            <span
+                                class="text-sm font-medium text-slate-600 group-hover:text-slate-900 transition-colors">Tiếng
+                                Anh (English)</span>
+                        </label>
+                    </div>
+
+                    <div class="mt-8">
+                        <button
+                            class="w-full py-2.5 border border-slate-200 text-slate-600 font-medium rounded-xl hover:bg-slate-50 transition-colors text-sm">Xóa
+                            bộ lọc</button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- RIGHT CONTENT: Book Grid Layout -->
+            <section class="flex-1">
+
+                <!-- Active Filters & Sort -->
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm text-slate-500 mr-2">Đang lọc theo:</span>
+                        <span
+                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-lg border border-primary-100">
+                            Tất cả sách <button class="hover:text-primary-900"><i class="ph ph-x"></i></button>
+                        </span>
+                        <span
+                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-lg border border-emerald-100">
+                            Có sẵn <button class="hover:text-emerald-900"><i class="ph ph-x"></i></button>
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="text-sm font-medium text-slate-500">Sắp xếp theo:</span>
+                        <select
+                            class="form-select text-sm font-medium text-slate-800 bg-white border border-slate-200 rounded-xl px-4 py-2 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-colors cursor-pointer shadow-sm">
+                            <option>A-Z Tên sách</option>
+                            <option>Mới xuất bản</option>
+                            <option>Lượt mượn nhiều nhất</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Book Grid (4 Columns mostly) -->
+                <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6">
+
+                    <!-- Book Card 1 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <div
+                                class="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-emerald-600 font-bold text-[10px] uppercase tracking-wider rounded-lg shadow-sm border border-emerald-100 flex items-center gap-1">
+                                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Sẵn sàng
+                            </div>
+                            <img src="../assets/images/book_cover_2.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">CNTT -
+                                Phần mềm</div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Mastering
+                                Tailwind CSS Framework</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Markus Aurelius</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.9</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 2 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <img src="../assets/images/book_cover_3.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Tâm lý -
+                                Kỹ năng</div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">The
+                                Psychology of Money</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Morgan Housel</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.8</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 3 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div
+                                class="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-emerald-600 font-bold text-[10px] uppercase tracking-wider rounded-lg shadow-sm border border-emerald-100 flex items-center gap-1">
+                                <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div> Chỉ còn 2 cuốn
+                            </div>
+                            <img src="../assets/images/book_cover_1.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow filter mix-blend-multiply transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Self-help
+                            </div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Atomic
+                                Habits - Xây dựng thói quen</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">James Clear</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.9</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors tooltip"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 4 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <img src="../assets/images/book_cover_4.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Tiểu
+                                thuyết viễn tưởng</div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Dune
+                                Explorer - Biên niên sử xứ cát</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Frank Herbert</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.5</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 5 (Repeated for volume) -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <!-- Out of stock Badge -->
+                        <div
+                            class="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-rose-600 font-bold text-[10px] uppercase tracking-wider rounded-lg shadow-sm border border-rose-100 flex items-center gap-1">
+                            Đã mượn hết
+                        </div>
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity">
+                            <img src="../assets/images/book_cover_2.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow filter hue-rotate-180 transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">CNTT -
+                                Phần mềm</div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">React
+                                Deep Dive</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Dan Abramov</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">5.0</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full text-slate-300 flex items-center justify-center cursor-not-allowed"
+                                    title="Hết sách">
+                                    <i class="ph-bold ph-bell-slash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 6 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <img src="../assets/images/book_cover_3.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow filter hue-rotate-45 transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Kỹ năng
+                                mềm</div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Deep
+                                Work Strategies</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Cal Newport</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.5</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 7 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <img src="../assets/images/book_cover_4.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow filter hue-rotate-90 transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Lịch sử
+                            </div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Sapiens
+                                - Lược sử loài người</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Yuval Noah Harari</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.9</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Book Card 8 -->
+                    <div
+                        class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300 hidden md:flex">
+                        <a href="book-detail.html"
+                            class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
+                            <img src="../assets/images/book_cover_1.png" alt="Cover"
+                                class="w-full h-full object-cover rounded-md book-shadow filter hue-rotate-180 transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
+                            <div
+                                class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                <span
+                                    class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">Xem
+                                    Chi Tiết</span>
+                            </div>
+                        </a>
+                        <div class="p-3 md:p-4 flex flex-col flex-1">
+                            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2">Kinh doanh
+                            </div>
+                            <a href="book-detail.html"
+                                class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">Marketing
+                                Management Tái Bản Số 3</a>
+                            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">Philip Kotler</p>
+                            <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
+                                <div class="flex items-center text-amber-400 text-xs md:text-sm">
+                                    <i class="ph-fill ph-star"></i><span
+                                        class="text-slate-600 font-medium ml-1">4.2</span>
+                                </div>
+                                <button
+                                    class="w-7 h-7 md:w-8 md:h-8 rounded-full bg-slate-50 text-slate-600 flex items-center justify-center hover:bg-primary-50 hover:text-primary-600 transition-colors"
+                                    title="Thêm vào giỏ">
+                                    <i class="ph-bold ph-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Pagination -->
+                <div class="mt-12 flex items-center justify-between py-4 border-t border-slate-200">
+                    <p class="text-sm text-slate-500 hidden sm:block">Hiển thị <span
+                            class="font-medium text-slate-900">1</span> đến <span
+                            class="font-medium text-slate-900">8</span> trong tổng số <span
+                            class="font-medium text-slate-900">45</span> kết quả</p>
+                    <div class="flex items-center gap-2">
+                        <button
+                            class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-400 cursor-not-allowed"
+                            title="Trang trước">
+                            <i class="ph-bold ph-caret-left"></i>
+                        </button>
+                        <button
+                            class="w-10 h-10 rounded-xl bg-primary-600 text-white font-bold shadow-md shadow-primary-500/20">1</button>
+                        <button
+                            class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">2</button>
+                        <button
+                            class="w-10 h-10 rounded-xl bg-white border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors hidden sm:block">3</button>
+                        <span class="text-slate-400 font-medium px-2">...</span>
+                        <button
+                            class="w-10 h-10 rounded-xl border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-50 transition-colors"
+                            title="Trang tiếp theo">
+                            <i class="ph-bold ph-caret-right"></i>
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex justify-center md:justify-start items-center gap-2 mb-6 md:mb-0">
+                    <div class="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                        <i class="ph-fill ph-books text-white text-lg"></i>
+                    </div>
+                    <span class="text-lg font-bold text-slate-800">LibSpace Library</span>
+                </div>
+                <div class="flex justify-center space-x-6">
+                    <a href="index.html" class="text-slate-400 hover:text-slate-900 transition-colors">Trang chủ</a>
+                    <a href="#" class="text-slate-400 hover:text-slate-900 transition-colors">Kho học liệu</a>
+                    <a href="#" class="text-slate-400 hover:text-slate-900 transition-colors">Điều khoản</a>
+                    <a href="../admin/admin.html" class="text-slate-400 hover:text-primary-600 transition-colors"><i
+                            class="ph-bold ph-shield-check mr-1"></i>Trang Admin</a>
+                </div>
+            </div>
+            <div
+                class="mt-8 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+                <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
+                <p class="mt-2 md:mt-0">Xây dựng bằng Firebase & TailwindCSS</p>
+            </div>
+        </div>
+    </footer>
+
+</body>
+
+</html>
