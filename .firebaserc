@@ -1,6 +1,7 @@
 {
   "projects": {
-    "library-management-6a7ac": "library-management-6a7ac"
+    "library-management-6a7ac": "library-management-6a7ac",
+    "default": "library-management-6a7ac"
   },
   "targets": {},
   "etags": {}
