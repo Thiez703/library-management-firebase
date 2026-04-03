@@ -657,6 +657,47 @@
         </div>
     </footer>
 
+    <!-- Firebase Auth Logic -->
+    <script type="module" src="../assets/js/auth.js"></script>
+    <script type="module">
+        import { checkAuthState } from '../assets/js/auth.js';
+        
+        // Cập nhật giao diện dựa trên trạng thái đăng nhập
+        checkAuthState((user, userData) => {
+            const authButtons = document.querySelector('.sm\\:flex.items-center.gap-3');
+            if (user && authButtons) {
+                authButtons.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-right hidden md:block">
+                            <p class="text-xs text-slate-500 font-medium">Xin chào,</p>
+                            <p class="text-sm font-bold text-slate-900">${userData?.displayName || user.email}</p>
+                        </div>
+                        <div class="relative group">
+                            <button class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+                                <img src="https://ui-avatars.com/api/?name=${userData?.displayName || user.email}&background=0D8ABC&color=fff" alt="Avatar">
+                            </button>
+                            <!-- Dropdown -->
+                            <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
+                                <a href="borrow-history.html" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                                    <i class="ph ph-clock-counter-clockwise"></i> Lịch sử mượn
+                                </a>
+                                <div class="h-px bg-slate-100 my-1"></div>
+                                <button id="logoutBtn" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                    <i class="ph ph-sign-out"></i> Đăng xuất
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                // Gắn lại sự kiện cho nút logout mới tạo
+                document.getElementById('logoutBtn')?.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    import('../assets/js/auth.js').then(m => m.signOutUser());
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>
