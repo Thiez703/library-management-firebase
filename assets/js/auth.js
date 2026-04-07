@@ -110,7 +110,7 @@ const handleRouting = async (user) => {
         }
     } else {
         if (!isAuthPage) {
-            const publicPages = ['about.html', 'rules.html', 'catalog.html', 'index.html'];
+            const publicPages = ['about.html', 'rules.html', 'catalog.html', 'index.html', 'book-detail.html'];
             const isPublicPage = publicPages.some(page => path.includes(page));
 
             if (!isPublicPage) {
