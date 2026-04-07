@@ -47,6 +47,18 @@
             padding: 0 0.5rem;
             color: #2563eb;
         }
+
+        /* Hide browser default password reveal button */
+        input::-ms-reveal,
+        input::-ms-clear {
+            display: none;
+        }
+        input::-webkit-contacts-auto-fill-button,
+        input::-webkit-credentials-auto-fill-button {
+            visibility: hidden;
+            display: none !important;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-slate-50 font-sans antialiased text-slate-800 h-screen overflow-hidden flex">
@@ -136,8 +148,8 @@
                 <div class="relative mt-4 block">
                     <input type="password" id="password" class="form-input block w-full px-4 py-4 lg:py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all peer" placeholder=" " required>
                     <label for="password" class="form-label absolute left-4 top-4 lg:top-3.5 text-slate-500 text-sm cursor-text transition-all duration-200 origin-[0]">Mật khẩu</label>
-                    <button type="button" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
-                        <i class="ph ph-eye text-xl"></i>
+                    <button type="button" id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                        <i class="ph ph-eye-slash text-xl"></i>
                     </button>
                 </div>
 
