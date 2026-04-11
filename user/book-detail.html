@@ -560,7 +560,7 @@
     <!-- Firebase & Auth & Borrow -->
     <script type="module">
         import { borrowBook } from '../assets/js/borrow.js';
-        import { checkAuthState } from '../assets/js/auth.js';
+        import { showToast } from '../assets/js/auth.js';
 
         // Lấy bookId từ URL parameter
         const urlParams = new URLSearchParams(window.location.search);
@@ -568,18 +568,30 @@
         
         // Gắn onclick cho nút mượn sách
         document.addEventListener('DOMContentLoaded', () => {
-            const borrowBtn = document.querySelector('button:has(i.ph-plus)') || 
-                            document.querySelector('button:contains("Mượn")');
+            const borrowBtn = document.getElementById('borrowBookBtn');
             if (borrowBtn) {
-                borrowBtn.id = 'borrowBookBtn';
-                borrowBtn.onclick = async () => {
-                    const auth = (await checkAuthState());
-                    if (auth) {
-                        await borrowBook(auth.uid, bookId);
-                    } else {
+                borrowBtn.onclick = async (e) => {
+                    e.preventDefault();
+                    
+                    // Lấy user từ localStorage
+                    const cachedUser = localStorage.getItem('lib_user');
+                    if (!cachedUser) {
+                        showToast('Vui lòng đăng nhập trước!', 'error');
                         window.location.href = 'login.html';
+                        return;
+                    }
+                    
+                    try {
+                        const user = JSON.parse(cachedUser);
+                        console.log('📚 Mượn sách:', { userId: user.uid, bookId });
+                        await borrowBook(user.uid, bookId);
+                    } catch (error) {
+                        console.error('❌ Lỗi mượn sách:', error);
+                        showToast('Có lỗi xảy ra, vui lòng thử lại!', 'error');
                     }
                 };
+            } else {
+                console.warn('⚠️ Button mượn sách không tìm thấy!');
             }
         });
     </script>
