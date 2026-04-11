@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Đăng Nhập - Thư Viện ABC</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .split-image {
+            background-image: url('https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&q=80');
+            background-size: cover;
+            background-position: center;
+        }
+        
+        /* Floating label Animation */
+        .form-input:focus ~ .form-label,
+        .form-input:not(:placeholder-shown) ~ .form-label {
+            transform: translateY(-1.5rem) scale(0.85);
+            background-color: white;
+            padding: 0 0.5rem;
+            color: #2563eb;
+        }
+
+        /* Hide browser default password reveal button */
+        input::-ms-reveal,
+        input::-ms-clear {
+            display: none;
+        }
+        input::-webkit-contacts-auto-fill-button,
+        input::-webkit-credentials-auto-fill-button {
+            visibility: hidden;
+            display: none !important;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans antialiased text-slate-800 h-screen overflow-hidden flex">
+
+    <!-- Left Side: Image / Branding (Hidden on Mobile) -->
+    <div class="hidden lg:flex w-1/2 relative split-image">
+        <!-- Overlay -->
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/50 to-primary-900/30"></div>
+        
+        <!-- Content -->
+        <div class="relative z-10 flex flex-col justify-end p-16 h-full text-white">
+            <div class="w-16 h-16 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center mb-8 border border-white/30 shadow-2xl">
+                <i class="ph-fill ph-books text-white text-4xl"></i>
+            </div>
+            <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight">Mở cánh cửa <br><span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-300 to-primary-200">tri thức vô tận.</span></h1>
+            <p class="text-lg text-slate-200 font-light max-w-md leading-relaxed">Hàng ngàn cuốn sách, tài liệu giáo trình và tiểu thuyết kinh điển đang chờ bạn khám phá. Đăng nhập ngay để bắt đầu hành trình!</p>
+            
+            <div class="mt-12 flex items-center gap-4 text-sm text-slate-300">
+                <div class="flex -space-x-3">
+                    <img class="w-10 h-10 rounded-full border-2 border-slate-900" src="https://i.pravatar.cc/100?img=1" alt="Reader">
+                    <img class="w-10 h-10 rounded-full border-2 border-slate-900" src="https://i.pravatar.cc/100?img=2" alt="Reader">
+                    <img class="w-10 h-10 rounded-full border-2 border-slate-900" src="https://i.pravatar.cc/100?img=3" alt="Reader">
+                    <div class="w-10 h-10 rounded-full border-2 border-slate-900 bg-primary-600 flex items-center justify-center text-xs font-bold text-white">+5k</div>
+                </div>
+                <p>Độc giả đã tham gia khóa học tuần này.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Side: Form -->
+    <div class="w-full lg:w-1/2 flex flex-col bg-white h-full relative overflow-y-auto">
+        
+        <!-- Top controls -->
+        <div class="absolute top-6 right-6 lg:right-10 flex items-center gap-4 z-10">
+            <a href="index.html" class="flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors bg-slate-100 hover:bg-slate-200 px-4 py-2 rounded-xl">
+                <i class="ph-bold ph-arrow-left"></i> Về trang chủ
+            </a>
+        </div>
+
+        <!-- Form Container -->
+        <div class="flex-1 flex flex-col justify-center max-w-md w-full mx-auto px-6 py-12 lg:py-0">
+            
+            <!-- Mobile Logo -->
+            <div class="lg:hidden flex items-center gap-2 mb-10">
+                <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                    <i class="ph-fill ph-books text-white text-2xl"></i>
+                </div>
+                <span class="text-2xl font-bold text-slate-800 tracking-tight">Lib<span class="text-primary-600">Space</span></span>
+            </div>
+
+            <div class="mb-10 text-center lg:text-left">
+                <h2 class="text-3xl font-extrabold text-slate-800 mb-2">Chào mừng trở lại! 👋</h2>
+                <p class="text-slate-500">Vui lòng đăng nhập tài khoản thư viện của bạn.</p>
+            </div>
+
+            <!-- Tabs -->
+            <div class="flex bg-slate-100 p-1.5 rounded-2xl mb-8">
+                <a href="login.html" class="flex-1 bg-white text-slate-900 font-bold py-2.5 rounded-xl shadow-sm text-sm transition-all text-center block">Đăng Nhập</a>
+                <a href="register.html" class="flex-1 text-slate-500 hover:text-slate-900 font-medium py-2.5 rounded-xl text-sm transition-all text-center block">Tạo Tài Khoản Mới</a>
+            </div>
+
+            <!-- Auth Form -->
+            <form id="authForm" class="space-y-6">
+                <!-- Social Login -->
+                <button id="googleLoginBtn" type="button" class="w-full flex items-center justify-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:shadow-sm transition-all">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.16v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.16C1.43 8.55 1 10.22 1 12s.43 3.45 1.16 4.93l3.68-2.84z" fill="#FBBC05"/>
+                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.16 7.07l3.68 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    Đăng nhập nhanh với Google
+                </button>
+
+                <div class="relative flex items-center justify-center py-2">
+                    <div class="w-full border-t border-slate-200"></div>
+                    <div class="absolute bg-white px-4 text-xs font-semibold uppercase text-slate-400">Hoặc tiếp tục với Email</div>
+                </div>
+
+                <!-- Input Group: Email -->
+                <div class="relative mt-2">
+                    <input type="email" id="email" class="form-input block w-full px-4 py-4 lg:py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all peer" placeholder=" " required>
+                    <label for="email" class="form-label absolute left-4 top-4 lg:top-3.5 text-slate-500 text-sm cursor-text transition-all duration-200 origin-[0]">Địa chỉ Email</label>
+                </div>
+
+                <!-- Input Group: Password -->
+                <div class="relative mt-4 block">
+                    <input type="password" id="password" class="form-input block w-full px-4 py-4 lg:py-3.5 bg-white border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500 transition-all peer" placeholder=" " required>
+                    <label for="password" class="form-label absolute left-4 top-4 lg:top-3.5 text-slate-500 text-sm cursor-text transition-all duration-200 origin-[0]">Mật khẩu</label>
+                    <button type="button" id="togglePassword" class="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1">
+                        <i class="ph ph-eye-slash text-xl"></i>
+                    </button>
+                </div>
+
+                <!-- Extra Links -->
+                <div class="flex items-center justify-between mt-4">
+                    <label class="flex items-center gap-2 cursor-pointer group">
+                        <input type="checkbox" checked class="w-4 h-4 text-primary-600 border-slate-300 rounded focus:ring-primary-500 cursor-pointer">
+                        <span class="text-sm text-slate-600 group-hover:text-slate-900 transition-colors">Ghi nhớ tài khoản</span>
+                    </label>
+                    <a href="#" class="text-sm font-semibold text-primary-600 hover:text-primary-700 transition-colors">Quên mật khẩu?</a>
+                </div>
+
+                <!-- Submit Action -->
+                <button type="submit" class="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 lg:py-3.5 rounded-xl shadow-xl shadow-slate-900/20 transition-all active:scale-[0.98] mt-8 flex items-center justify-center gap-2">
+                    Đăng Nhập <i class="ph-bold ph-arrow-right"></i>
+                </button>
+            </form>
+            
+            <p class="text-center text-xs text-slate-500 mt-10">
+                Khi đăng nhập, bạn đồng ý với <a href="rules.html" class="text-primary-600 hover:underline">Điều khoản dịch vụ</a> và <a href="rules.html" class="text-primary-600 hover:underline">Chính sách bảo mật</a> của thư viện.
+            </p>
+        </div>
+    </div>
+
+    <!-- Firebase Auth Logic -->
+    <script type="module" src="../assets/js/auth.js"></script>
+</body>
+</html>
