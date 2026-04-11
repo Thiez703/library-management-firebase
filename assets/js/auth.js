@@ -19,6 +19,134 @@ import {
 
 const googleProvider = new GoogleAuthProvider();
 
+const getAuthSlot = () => document.querySelector('[data-auth-slot]');
+
+const MAIN_NAV_LINK_SELECTOR = '#site-navbar .hidden.md\\:flex a[href]';
+
+const NAV_CLASSES = {
+    active: ['text-primary-600', 'font-medium', 'border-b-2', 'border-primary-600'],
+    inactive: ['text-slate-500', 'hover:text-slate-900', 'font-medium', 'transition-colors'],
+    pending: ['opacity-70']
+};
+
+const normalizeFilePath = (value) => {
+    if (!value) return 'index.html';
+    const clean = value.split('?')[0].split('#')[0];
+    const file = clean.substring(clean.lastIndexOf('/') + 1);
+    return file || 'index.html';
+};
+
+const setPendingNavLink = (targetLink) => {
+    const navLinks = document.querySelectorAll('[data-main-nav-link="true"]');
+    navLinks.forEach((link) => link.classList.remove(...NAV_CLASSES.pending));
+    if (targetLink) targetLink.classList.add(...NAV_CLASSES.pending);
+};
+
+const applyMainNavActiveState = () => {
+    const navLinks = document.querySelectorAll(MAIN_NAV_LINK_SELECTOR);
+    if (!navLinks.length) return;
+
+    const currentPath = normalizeFilePath(window.location.pathname);
+    navLinks.forEach((link) => {
+        const hrefPath = normalizeFilePath(link.getAttribute('href'));
+        const isActive = hrefPath === currentPath;
+
+        link.dataset.mainNavLink = 'true';
+        link.classList.remove(...NAV_CLASSES.active, ...NAV_CLASSES.inactive, ...NAV_CLASSES.pending);
+        link.classList.add('px-1', 'py-1');
+        link.classList.add(...(isActive ? NAV_CLASSES.active : NAV_CLASSES.inactive));
+        link.setAttribute('aria-current', isActive ? 'page' : 'false');
+    });
+};
+
+const bindNavInteractionFeedback = () => {
+    if (window.__libNavFeedbackBound) return;
+    window.__libNavFeedbackBound = true;
+
+    document.addEventListener('click', (e) => {
+        const targetLink = e.target.closest('[data-main-nav-link="true"]');
+        if (!targetLink) return;
+        setPendingNavLink(targetLink);
+    });
+
+    document.addEventListener('turbo:before-visit', (e) => {
+        const targetUrl = e.detail?.url;
+        if (!targetUrl) return;
+
+        const navLinks = document.querySelectorAll('[data-main-nav-link="true"]');
+        const targetPath = normalizeFilePath(targetUrl);
+        const targetLink = [...navLinks].find((link) => normalizeFilePath(link.getAttribute('href')) === targetPath);
+        setPendingNavLink(targetLink || null);
+    });
+
+    document.addEventListener('turbo:load', () => {
+        applyMainNavActiveState();
+    });
+};
+
+const getCachedUser = () => {
+    const cached = localStorage.getItem('lib_user');
+    if (!cached) return null;
+
+    try {
+        return JSON.parse(cached);
+    } catch {
+        return null;
+    }
+};
+
+const getUserName = (userLike) => userLike?.displayName || userLike?.email || 'Người dùng';
+
+const syncNavbarAuth = (userLike) => {
+    const authSlot = getAuthSlot();
+    if (!authSlot) return;
+
+    const signedOut = authSlot.querySelector('[data-auth-signed-out]');
+    const signedIn = authSlot.querySelector('[data-auth-signed-in]');
+    const nameNodes = authSlot.querySelectorAll('[data-auth-name]');
+    const avatarNodes = authSlot.querySelectorAll('[data-auth-avatar]');
+    const greetingNodes = authSlot.querySelectorAll('[data-auth-greeting]');
+    const isSignedIn = Boolean(userLike);
+    const userName = getUserName(userLike);
+
+    authSlot.classList.add('justify-end', 'min-w-[220px]');
+
+    if (signedOut) {
+        signedOut.classList.add('flex', 'items-center', 'gap-3', 'flex-nowrap', 'whitespace-nowrap');
+    }
+
+    if (signedIn) {
+        signedIn.classList.add('flex', 'items-center', 'gap-3', 'flex-nowrap', 'whitespace-nowrap', 'min-w-0');
+        const textBlock = signedIn.querySelector('div.text-right');
+        if (textBlock) textBlock.classList.add('leading-tight');
+    }
+
+    if (signedOut) signedOut.classList.toggle('hidden', isSignedIn);
+    if (signedIn) signedIn.classList.toggle('hidden', !isSignedIn);
+
+    if (isSignedIn) {
+        nameNodes.forEach((node) => {
+            node.textContent = userName;
+            node.classList.add('truncate', 'max-w-[170px]');
+        });
+
+        greetingNodes.forEach((node) => {
+            node.textContent = '';
+            node.classList.add('hidden');
+        });
+
+        const avatarUrl = userLike?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userName)}&background=0D8ABC&color=fff`;
+        avatarNodes.forEach((node) => {
+            node.classList.add('block', 'w-full', 'h-full', 'object-cover');
+            node.src = avatarUrl;
+            node.alt = `${userName} avatar`;
+
+            const avatarBtn = node.closest('button');
+            if (avatarBtn) avatarBtn.classList.add('shrink-0');
+        });
+    }
+};
+
 // --- HELPER: VIỆT HÓA LỖI THÂN THIỆN ---
 const getErrorMessage = (errorCode) => {
     switch (errorCode) {
@@ -56,6 +184,23 @@ const saveUserCache = (user, userData) => {
         role: userData?.role || 'user'
     };
     localStorage.setItem('lib_user', JSON.stringify(cacheData));
+};
+
+export const checkAuthState = (callback) => {
+    return onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+            callback(null, null);
+            return;
+        }
+
+        try {
+            const userDoc = await getDoc(doc(db, 'users', user.uid));
+            callback(user, userDoc.exists() ? userDoc.data() : null);
+        } catch (error) {
+            console.error('❌ Lỗi kiểm tra trạng thái xác thực:', error);
+            callback(user, null);
+        }
+    });
 };
 
 // --- TOAST NOTIFICATION ---
@@ -99,37 +244,7 @@ export const showToast = (message, type = 'success') => {
 
 // --- LOGIC CẬP NHẬT GIAO DIỆN NAVBAR ---
 const updateNavbarUI = (cachedUser) => {
-    const authContainer = document.querySelector('.hidden.sm\\:flex.items-center.gap-3');
-    if (cachedUser && authContainer) {
-        const name = cachedUser.displayName;
-        authContainer.innerHTML = `
-            <div class="flex items-center gap-3">
-                <div class="text-right hidden md:block">
-                    <p class="text-xs text-slate-500 font-medium">Chào mừng bạn,</p>
-                    <p class="text-sm font-bold text-slate-900">${name}</p>
-                </div>
-                <div class="relative group">
-                    <button class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
-                        <img src="https://ui-avatars.com/api/?name=${name}&background=0D8ABC&color=fff" alt="Avatar">
-                    </button>
-                    <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
-                        <a href="borrow-history.html" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                            <i class="ph ph-clock-counter-clockwise"></i> Lịch sử mượn
-                        </a>
-                        <div class="h-px bg-slate-100 my-1"></div>
-                        <button id="logoutBtnHeader" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
-                            <i class="ph ph-sign-out"></i> Đăng xuất
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.getElementById('logoutBtnHeader')?.addEventListener('click', (e) => {
-            e.preventDefault();
-            signOutUser();
-        });
-    }
+    syncNavbarAuth(cachedUser);
 };
 
 // --- LOGIC ĐIỀU HƯỚNG ---
@@ -139,16 +254,16 @@ const handleRouting = async (user) => {
     const root = path.includes('/library-management-firebase/') ? '/library-management-firebase/' : '/';
 
     if (user) {
-        const cached = localStorage.getItem('lib_user');
-        if (cached) updateNavbarUI(JSON.parse(cached));
-        else updateNavbarUI({ displayName: user.displayName || user.email });
+        const cached = getCachedUser();
+        if (cached) updateNavbarUI(cached);
+        else updateNavbarUI({ displayName: user.displayName || user.email, email: user.email, photoURL: user.photoURL });
 
         try {
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
                 const userData = userDoc.data();
                 saveUserCache(user, userData);
-                updateNavbarUI(JSON.parse(localStorage.getItem('lib_user')));
+                updateNavbarUI(getCachedUser());
                 
                 if (isAuthPage) {
                     setTimeout(() => {
@@ -161,6 +276,7 @@ const handleRouting = async (user) => {
         }
     } else {
         localStorage.removeItem('lib_user');
+        updateNavbarUI(null);
         if (!isAuthPage) {
             const publicPages = ['about.html', 'rules.html', 'catalog.html', 'index.html', 'book-detail.html'];
             const isPublicPage = publicPages.some(page => path.includes(page));
@@ -250,6 +366,7 @@ export const signIn = async (email, password) => {
 
 export const signOutUser = async () => {
     localStorage.removeItem('lib_user');
+    updateNavbarUI(null);
     await signOut(auth);
     showToast('Đã đăng xuất thành công. Chúc bạn có một ngày làm việc thật vui vẻ nhé! 👋');
     const root = window.location.pathname.includes('/library-management-firebase/') ? '/library-management-firebase/' : '/';
@@ -259,10 +376,11 @@ export const signOutUser = async () => {
 };
 
 // --- KHỞI TẠO ---
-document.addEventListener('DOMContentLoaded', () => {
-    const cachedData = localStorage.getItem('lib_user');
-    if (cachedData) updateNavbarUI(JSON.parse(cachedData));
+applyMainNavActiveState();
+bindNavInteractionFeedback();
+updateNavbarUI(getCachedUser());
 
+document.addEventListener('DOMContentLoaded', () => {
     const lForm = document.getElementById('authForm');
     if (lForm) lForm.addEventListener('submit', e => {
         e.preventDefault();
@@ -282,6 +400,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const loBtn = document.getElementById('logoutBtn');
     if (loBtn) loBtn.addEventListener('click', e => { e.preventDefault(); signOutUser(); });
+
+    document.addEventListener('click', (e) => {
+        const logoutHeader = e.target.closest('#logoutBtnHeader');
+        if (!logoutHeader) return;
+
+        e.preventDefault();
+        signOutUser();
+    });
 
     // --- LOGIC ẨN/HIỆN MẬT KHẨU ---
     const togglePassword = document.getElementById('togglePassword');
