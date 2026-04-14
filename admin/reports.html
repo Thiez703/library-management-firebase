@@ -107,14 +107,33 @@
                         class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover"
                         onerror="this.src='https://i.pravatar.cc/150?img=11'">
                     <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">Nguyễn
-                            Admin</p>
-                        <p class="text-xs text-slate-400 truncate">Quản trị
-                            viên</p>
+                        <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
+                        <p class="text-xs text-slate-400 truncate">Quản trị viên</p>
                     </div>
+                    <button id="adminLogoutBtn" class="text-slate-400 hover:text-white p-1 transition-colors" title="Đăng xuất">
+                        <i class="ph ph-sign-out text-lg"></i>
+                    </button>
                 </div>
             </div>
         </aside>
+
+        <script type="module">
+            import { checkAuthState, signOutUser } from '../assets/js/auth.js';
+            checkAuthState((user, userData) => {
+                if (!user || userData?.role !== 'admin') {
+                    window.location.href = '../user/login.html';
+                    return;
+                }
+                const adminName = document.getElementById('adminName');
+                const adminAvatar = document.querySelector('aside img');
+                if (adminName) adminName.innerText = userData.displayName || user.email;
+                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
+            });
+            document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                signOutUser();
+            });
+        </script>
 
         <!-- MAIN WRAPPER -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden">
