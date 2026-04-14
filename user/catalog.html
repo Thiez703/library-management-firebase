@@ -73,7 +73,7 @@
             background-size: 20px 20px;
         }
     </style>
-</head>
+<script type="module" src="../assets/js/public-books.js"></script></head>
 
 <body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
 
@@ -319,16 +319,8 @@
 
                 <!-- Active Filters & Sort -->
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-                    <div class="flex flex-wrap items-center gap-2">
-                        <span class="text-sm text-slate-500 mr-2">Đang lọc theo:</span>
-                        <span
-                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-primary-50 text-primary-700 text-xs font-medium rounded-lg border border-primary-100">
-                            Tất cả sách <button class="hover:text-primary-900"><i class="ph ph-x"></i></button>
-                        </span>
-                        <span
-                            class="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-medium rounded-lg border border-emerald-100">
-                            Có sẵn <button class="hover:text-emerald-900"><i class="ph ph-x"></i></button>
-                        </span>
+                    <div id="catalog-status-info" class="flex flex-wrap items-center gap-2">
+                        <span class="text-sm text-slate-500 mr-2">Đang tải dữ liệu...</span>
                     </div>
 
                     <div class="flex items-center gap-2 shrink-0">

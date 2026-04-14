@@ -120,8 +120,6 @@
             </div>
         </aside>
 
-        <!-- Firebase Auth Logic -->
-        <script type="module" src="../assets/js/auth.js"></script>
         <script type="module">
             import { checkAuthState, signOutUser } from '../assets/js/auth.js';
             
@@ -137,17 +135,17 @@
                 const adminName = document.getElementById('adminName');
                 const adminAvatar = document.getElementById('adminAvatar');
                 if (adminName) adminName.innerText = userData.displayName || user.email;
-                if (adminAvatar) adminAvatar.src = `https://ui-avatars.com/api/?name=${userData.displayName || user.email}&background=random`;
+                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
             });
 
             // Gắn sự kiện đăng xuất
             document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
                 e.preventDefault();
-                if(confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-                    signOutUser();
-                }
+                signOutUser();
             });
         </script>
+        <script type="module" src="../assets/js/admin.js" data-turbo-track="reload"></script>
+
 
         <!-- MAIN WRAPPER -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden">
@@ -197,10 +195,9 @@
                             <div class="flex-1">
                                 <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Tổng
                                     Cuốn Sách</p>
-                                <p class="text-4xl font-bold text-slate-800 mt-2">12,450</p>
+                                <p id="stat-total-books" class="text-4xl font-bold text-slate-800 mt-2">...</p>
                                 <p class="text-xs text-emerald-600 font-medium mt-3"><i
-                                        class="ph ph-trend-up inline mr-1"></i>+2.5%
-                                    so với tuần trước</p>
+                                        class="ph ph-trend-up inline mr-1"></i>Dữ liệu thực tế</p>
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-blue-100/80 flex items-center justify-center">
                                 <i class="ph-fill ph-books text-blue-600 text-2xl"></i>
@@ -215,10 +212,9 @@
                             <div class="flex-1">
                                 <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Đang
                                     Cho Mượn</p>
-                                <p class="text-4xl font-bold text-orange-600 mt-2">1,230</p>
+                                <p id="stat-borrowing" class="text-4xl font-bold text-orange-600 mt-2">...</p>
                                 <p class="text-xs text-orange-600 font-medium mt-3"><i
-                                        class="ph ph-trend-down inline mr-1"></i>-1.2%
-                                    so với tuần trước</p>
+                                        class="ph ph-clock inline mr-1"></i>Đang lưu hành</p>
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-orange-100/80 flex items-center justify-center">
                                 <i class="ph-fill ph-book-open text-orange-600 text-2xl"></i>
@@ -233,10 +229,9 @@
                             <div class="flex-1">
                                 <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Độc
                                     Giả Thẻ</p>
-                                <p class="text-4xl font-bold text-emerald-600 mt-2">8,920</p>
+                                <p id="stat-total-readers" class="text-4xl font-bold text-emerald-600 mt-2">...</p>
                                 <p class="text-xs text-emerald-600 font-medium mt-3"><i
-                                        class="ph ph-trend-up inline mr-1"></i>+5.3%
-                                    so với tuần trước</p>
+                                        class="ph ph-users inline mr-1"></i>Thành viên</p>
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
                                 <i class="ph-fill ph-users text-emerald-600 text-2xl"></i>
@@ -244,20 +239,18 @@
                         </div>
                     </div>
 
-                    <!-- Doanh Thu Phạt -->
+                    <!-- Thể Loại -->
                     <div
                         class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Doanh
-                                    Thu Phạt</p>
-                                <p class="text-4xl font-bold text-rose-600 mt-2">4.5M</p>
+                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Thể Loại</p>
+                                <p id="stat-total-categories" class="text-4xl font-bold text-rose-600 mt-2">...</p>
                                 <p class="text-xs text-rose-600 font-medium mt-3"><i
-                                        class="ph ph-trend-up inline mr-1"></i>+12%
-                                    so với tuần trước</p>
+                                        class="ph ph-bookmarks inline mr-1"></i>Phân loại</p>
                             </div>
                             <div class="w-12 h-12 rounded-xl bg-rose-100/80 flex items-center justify-center">
-                                <i class="ph-fill ph-currency-dollar text-rose-600 text-2xl"></i>
+                                <i class="ph-fill ph-bookmarks text-rose-600 text-2xl"></i>
                             </div>
                         </div>
                     </div>
@@ -270,81 +263,12 @@
                         <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
                             <h3 class="font-bold text-slate-800 text-lg">Hoạt
                                 Động Gần Đây</h3>
-                            <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">Xem
-                                tất cả</a>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <!-- Activity Item 1 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-4">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <i class="ph ph-book-open text-blue-600 text-lg"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-800">Lê
-                                            Văn Nam mượn
-                                            "Mastering Tailwind CSS"</p>
-                                        <p class="text-xs text-slate-500 mt-1">20/03/2026
-                                            lúc 14:30</p>
-                                    </div>
-                                    <span class="text-xs text-slate-400 flex-shrink-0">2
-                                        giờ trước</span>
-                                </div>
-                            </div>
-
-                            <!-- Activity Item 2 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-4">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <i class="ph ph-check-circle text-emerald-600 text-lg"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-800">Nguyễn
-                                            Thị B trả "Nhà Giả Kim"</p>
-                                        <p class="text-xs text-slate-500 mt-1">20/03/2026
-                                            lúc 10:15</p>
-                                    </div>
-                                    <span class="text-xs text-slate-400 flex-shrink-0">5
-                                        giờ trước</span>
-                                </div>
-                            </div>
-
-                            <!-- Activity Item 3 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-4">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <i class="ph ph-warning text-rose-600 text-lg"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-800">Trần
-                                            Thị Hoa quá hạn trả sách</p>
-                                        <p class="text-xs text-slate-500 mt-1">20/03/2026
-                                            lúc 08:00</p>
-                                    </div>
-                                    <span class="text-xs text-slate-400 flex-shrink-0">7
-                                        giờ trước</span>
-                                </div>
-                            </div>
-
-                            <!-- Activity Item 4 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-4">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                        <i class="ph ph-user-plus text-primary-600 text-lg"></i>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-medium text-slate-800">Độc
-                                            giả mới "Phạm Văn C" đăng ký</p>
-                                        <p class="text-xs text-slate-500 mt-1">19/03/2026
-                                            lúc 16:45</p>
-                                    </div>
-                                    <span class="text-xs text-slate-400 flex-shrink-0">1
-                                        ngày trước</span>
-                                </div>
+                        <div id="recent-activities" class="divide-y divide-slate-100 min-h-[300px]">
+                            <!-- Loading state -->
+                            <div class="px-6 py-12 text-center text-slate-400">
+                                <i class="ph ph-spinner animate-spin text-3xl mb-2"></i>
+                                <p class="text-sm">Đang tải hoạt động...</p>
                             </div>
                         </div>
                     </div>
@@ -352,94 +276,10 @@
                     <!-- Top 5 Sách Mượn Nhiều -->
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         <div class="px-6 py-5 border-b border-slate-200">
-                            <h3 class="font-bold text-slate-800 text-lg">Top
-                                5 Sách Mượn Nhiều</h3>
+                            <h3 class="font-bold text-slate-800 text-lg">Top Sách Mượn</h3>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <!-- Top Book 1 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-3 mb-2">
-                                    <span
-                                        class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">1</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 line-clamp-1">Clean
-                                            Architecture</p>
-                                        <p class="text-xs text-slate-500">234
-                                            lần mượn</p>
-                                    </div>
-                                </div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary-500" style="width: 100%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Top Book 2 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-3 mb-2">
-                                    <span
-                                        class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">2</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 line-clamp-1">Nhà
-                                            Giả Kim</p>
-                                        <p class="text-xs text-slate-500">198
-                                            lần mượn</p>
-                                    </div>
-                                </div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary-500" style="width: 85%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Top Book 3 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-3 mb-2">
-                                    <span
-                                        class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">3</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 line-clamp-1">Mastering
-                                            Tailwind CSS</p>
-                                        <p class="text-xs text-slate-500">156
-                                            lần mượn</p>
-                                    </div>
-                                </div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary-500" style="width: 67%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Top Book 4 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-3 mb-2">
-                                    <span
-                                        class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">4</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 line-clamp-1">Dạo
-                                            Bước Trên Đường</p>
-                                        <p class="text-xs text-slate-500">142
-                                            lần mượn</p>
-                                    </div>
-                                </div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary-500" style="width: 61%"></div>
-                                </div>
-                            </div>
-
-                            <!-- Top Book 5 -->
-                            <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
-                                <div class="flex items-start gap-3 mb-2">
-                                    <span
-                                        class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-slate-200 text-slate-700 text-xs font-bold">5</span>
-                                    <div class="flex-1 min-w-0">
-                                        <p class="text-sm font-semibold text-slate-800 line-clamp-1">Lập
-                                            Trình Python Cơ Bản</p>
-                                        <p class="text-xs text-slate-500">128
-                                            lần mượn</p>
-                                    </div>
-                                </div>
-                                <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                                    <div class="h-full bg-primary-500" style="width: 55%"></div>
-                                </div>
-                            </div>
+                        <div id="top-borrowed-books" class="divide-y divide-slate-100">
+                            <!-- JS render -->
                         </div>
                     </div>
                 </div>

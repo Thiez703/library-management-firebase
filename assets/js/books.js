@@ -1,405 +1,208 @@
 import { db, storage } from './firebase-config.js';
-import { 
-    collection, 
-    addDoc, 
-    getDocs, 
-    updateDoc, 
-    doc, 
-    deleteDoc,
-    increment,
-    serverTimestamp,
-    onSnapshot,
-    query,
-    orderBy,
-    where,
-    limit,
-    getDoc
-} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
+import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 
-// DOM Elements
 const getElem = (id) => document.getElementById(id);
 
-export async function uploadCoverImage(file, bookId, onProgress) {
-    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!file) {
-        throw new Error('Vui lòng chọn ảnh bìa trước khi tải lên');
-    }
-
-    if (!validTypes.includes(file.type)) {
-        throw new Error('Định dạng file không hợp lệ (chỉ nhận JPG, PNG, WebP)');
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-        throw new Error('Kích thước ảnh quá lớn (tối đa 5MB)');
-    }
-
-    const imagePath = `covers/${bookId}`;
-    const storageRef = ref(storage, imagePath);
-    const uploadTask = uploadBytesResumable(storageRef, file);
-
-    const coverUrl = await new Promise((resolve, reject) => {
-        uploadTask.on(
-            'state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                if (onProgress) onProgress(progress);
-            },
-            (error) => reject(error),
-            async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                resolve(downloadURL);
-            }
-        );
-    });
-
-    return {
-        coverUrl,
-        imagePath
-    };
-}
-
-export async function deleteCoverImage(coverUrl) {
-    if (!coverUrl || coverUrl.includes('placeholder')) return;
-
-    try {
-        const imageRef = ref(storage, coverUrl);
-        await deleteObject(imageRef);
-        console.log('Da xoa anh cu thanh cong');
-    } catch (error) {
-        console.error('Loi khi xoa anh:', error);
-    }
-}
-
-// --- UI Helpers (Toast & Confirm) ---
-
+// --- 1. Toast Thông báo (Cải tiến) ---
 const showToast = (message, type = 'success') => {
     const container = getElem('toast-container');
-    if (!container) return;
-
+    if (!container) return { update: () => {}, close: () => {} };
+    
     const toast = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
-    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
-
-    toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in transition-all`;
-    toast.innerHTML = `
-        <i class="ph-fill ${icon} text-xl"></i>
-        <span class="text-sm font-semibold">${message}</span>
-    `;
-
+    const bg = type === 'success' ? 'bg-emerald-500' : (type === 'info' ? 'bg-blue-500' : 'bg-rose-500');
+    toast.className = `${bg} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in mb-3 transition-all z-[100]`;
+    toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-info-circle'} text-xl"></i><span class="msg-text text-sm font-semibold">${message}</span>`;
+    
     container.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-};
-
-const showConfirmModal = (message, onConfirm) => {
-    const modal = getElem('deleteConfirmModal');
-    const msgElem = getElem('confirmMessage');
-    const btnConfirm = getElem('btn-confirm-delete');
-    const btnCancel = getElem('btn-cancel-delete');
-
-    if (!modal) return;
-
-    if (message) msgElem.textContent = message;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-
-    const handleConfirm = () => {
-        onConfirm();
-        closeConfirm();
-    };
-
-    const closeConfirm = () => {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-        btnConfirm.removeEventListener('click', handleConfirm);
-        btnCancel.removeEventListener('click', closeConfirm);
-    };
-
-    btnConfirm.addEventListener('click', handleConfirm);
-    btnCancel.addEventListener('click', closeConfirm);
-};
-
-// --- Functions ---
-
-const initCategoriesListener = () => {
-    const bookCategorySelect = getElem('book-category');
-    if (!bookCategorySelect) return;
-
-    onSnapshot(collection(db, 'categories'), (snapshot) => {
-        const currentValue = bookCategorySelect.value;
-        bookCategorySelect.innerHTML = '<option value="">Chọn thể loại...</option>';
-        
-        snapshot.docs.forEach((doc) => {
-            const data = doc.data();
-            const option = document.createElement('option');
-            option.value = doc.id;
-            option.setAttribute('data-name', data.categoryName);
-            option.textContent = data.categoryName;
-            bookCategorySelect.appendChild(option);
-        });
-        if (currentValue) bookCategorySelect.value = currentValue;
-    });
-};
-
-const openModal = (isEdit = false, data = null) => {
-    const modal = getElem('addBookModal');
-    const form = getElem('bookForm');
-    const modalTitle = getElem('modalTitle');
+    const close = () => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); };
+    if (type !== 'info') setTimeout(close, 3000);
     
-    if (!modal || !form) return;
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-    
-    if (isEdit && data) {
-        modalTitle.textContent = 'Chỉnh Sửa Sách';
-        getElem('book-id').value = data.id;
-        getElem('book-title').value = data.title;
-        getElem('book-author').value = data.author;
-        getElem('book-publisher').value = data.publisher || '';
-        getElem('book-category').value = data.categoryId;
-        getElem('book-year').value = data.publishYear || '';
-        getElem('book-quantity').value = data.totalQuantity;
-        getElem('book-duration').value = data.borrowDuration || 14;
-        getElem('book-description').value = data.description || '';
-        getElem('old-category-id').value = data.categoryId;
-        getElem('old-total-quantity').value = data.totalQuantity;
-        getElem('old-available-quantity').value = data.availableQuantity;
-    } else {
-        modalTitle.textContent = 'Thêm Sách Mới';
-        form.reset();
-        getElem('book-id').value = '';
-    }
+    return { 
+        update: (newMsg) => { const txt = toast.querySelector('.msg-text'); if(txt) txt.innerText = newMsg; },
+        close
+    };
 };
 
-const renderBooks = (books) => {
+// --- 2. Khởi tạo Trang ---
+const initAdminBooks = () => {
     const tableBody = getElem('books-table-body');
-    const totalSummary = getElem('total-books-summary');
     if (!tableBody) return;
 
-    tableBody.innerHTML = '';
-    let totalCount = 0;
+    console.log("System: Admin Books Module Loaded");
 
-    books.forEach(bookSnap => {
-        const book = bookSnap.data();
-        const id = bookSnap.id;
-        totalCount += 1;
-
-        const row = document.createElement('tr');
-        row.className = 'hover:bg-slate-50/80 transition-colors group';
-        
-        let statusClass = 'bg-emerald-50 text-emerald-700';
-        let statusDot = 'bg-emerald-500';
-        if (book.status === 'Hết sách') {
-            statusClass = 'bg-rose-50 text-rose-700';
-            statusDot = 'bg-rose-500';
-        } else if (book.status === 'Sắp hết' || (book.availableQuantity > 0 && book.availableQuantity < 5)) {
-            statusClass = 'bg-orange-50 text-orange-700';
-            statusDot = 'bg-orange-500';
-        }
-
-        row.innerHTML = `
-            <td class="px-3 py-2 font-semibold text-slate-800 truncate max-w-[200px]" title="${book.title}">${book.title}</td>
-            <td class="px-3 py-2 text-slate-600 truncate max-w-[150px]">${book.author}</td>
-            <td class="px-3 py-2 text-slate-600 truncate max-w-[150px]">${book.publisher || '--'}</td>
-            <td class="px-3 py-2">
-                <span class="inline-flex px-2 py-0.5 bg-blue-100/70 text-blue-700 text-xs font-medium rounded-full">
-                    ${book.categoryName}
-                </span>
-            </td>
-            <td class="px-3 py-2 text-center font-medium">${book.totalQuantity}</td>
-            <td class="px-3 py-2 text-center">
-                <span class="font-semibold ${book.availableQuantity > 0 ? 'text-emerald-600' : 'text-rose-600'}">
-                    ${book.availableQuantity}
-                </span>
-            </td>
-            <td class="px-3 py-2">
-                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">
-                    <span class="w-1.5 h-1.5 ${statusDot} rounded-full"></span>
-                    ${book.status}
-                </span>
-            </td>
-            <td class="px-1.5 py-2 text-right">
-                <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button class="edit-btn p-1 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" data-id="${id}" title="Chỉnh sửa">
-                        <i class="ph ph-pencil text-sm"></i>
-                    </button>
-                    <button class="delete-btn p-1 text-rose-600 hover:bg-rose-50/50 rounded-lg transition-colors" data-id="${id}" title="Xóa">
-                        <i class="ph ph-trash text-sm"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-
-        row.querySelector('.delete-btn').addEventListener('click', () => {
-            showConfirmModal(`Bạn có chắc muốn xóa sách "${book.title}"?`, () => deleteBook(id, book.title, book.categoryId, book.totalQuantity));
-        });
-        row.querySelector('.edit-btn').addEventListener('click', () => openModal(true, { id, ...book }));
-
-        tableBody.appendChild(row);
+    // Lắng nghe Thể loại
+    onSnapshot(collection(db, 'categories'), (snap) => {
+        const select = getElem('book-category');
+        if (!select) return;
+        const current = select.value;
+        select.innerHTML = '<option value="">Chọn thể loại...</option>' + 
+            snap.docs.map(d => `<option value="${d.id}" data-name="${d.data().categoryName}">${d.data().categoryName}</option>`).join('');
+        select.value = current;
     });
 
-    if (totalSummary) totalSummary.textContent = `${totalCount.toLocaleString()} cuốn`;
-};
+    // Lắng nghe Danh sách Sách
+    onSnapshot(query(collection(db, 'books'), orderBy('createdAt', 'desc')), (snap) => {
+        renderBooksTable(snap.docs);
+    });
 
-const deleteBook = async (id, title, categoryId, quantity) => {
-    try {
-        const borrowRecordsCol = collection(db, 'borrowRecords');
-        const qBorrowing = query(
-            borrowRecordsCol,
-            where('bookId', '==', id),
-            where('status', '==', 'borrowing'),
-            limit(1)
-        );
-        const loanSnapshot = await getDocs(qBorrowing);
-        
-        if (!loanSnapshot.empty) {
-            showToast("Sách đang được mượn, không thể xóa!", "error");
-            return;
-        }
-
-        const bookDoc = await getDoc(doc(db, 'books', id));
-        const bookData = bookDoc.data();
-
-        await deleteDoc(doc(db, 'books', id));
-        const categoryRef = doc(db, 'categories', categoryId);
-        await updateDoc(categoryRef, { bookCount: increment(-quantity) });
-
-        await deleteCoverImage(bookData?.coverUrl || bookData?.imagePath);
-
-        showToast("Đã xóa sách thành công!");
-    } catch (error) {
-        console.error("Error deleting book:", error);
-        showToast("Có lỗi xảy ra khi xóa sách.", "error");
-    }
-};
-
-const closeModal = () => {
-    const modal = getElem('addBookModal');
+    // Sự kiện Form
     const form = getElem('bookForm');
-    if (modal) {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
+    if (form) {
+        form.onsubmit = async (e) => {
+            e.preventDefault();
+            // Tìm nút submit của form này (có thể nằm ngoài thẻ form)
+            const submitBtn = document.querySelector('button[type="submit"][form="bookForm"]') || form.querySelector('button[type="submit"]');
+            
+            try {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="ph ph-spinner animate-spin mr-2"></i> Đang lưu...';
+                }
+                await handleSaveBook();
+            } catch (error) {
+                console.error("Save Error:", error);
+                showToast("Lỗi: " + error.message, "error");
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Lưu Sách';
+                }
+            }
+        };
     }
-    if (form) form.reset();
-    getElem('imagePreview')?.classList.add('hidden');
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    initCategoriesListener();
+const renderBooksTable = (docs) => {
+    const tableBody = getElem('books-table-body');
+    if (!tableBody) return;
 
-    // Set max year for publication year input to current year
-    const yearInput = getElem('book-year');
-    if (yearInput) {
-        yearInput.max = new Date().getFullYear();
+    tableBody.innerHTML = docs.map(snap => {
+        const book = snap.data();
+        const id = snap.id;
+        const avail = book.availableQuantity || 0;
+        const statusClass = avail === 0 ? 'bg-rose-50 text-rose-700' : (avail < 5 ? 'bg-orange-50 text-orange-700' : 'bg-emerald-50 text-emerald-700');
+        const statusDot = avail === 0 ? 'bg-rose-500' : (avail < 5 ? 'bg-orange-500' : 'bg-emerald-500');
+
+        return `
+            <tr class="hover:bg-slate-50/80 transition-colors group">
+                <td class="px-3 py-2"><div class="w-10 h-14 rounded-md overflow-hidden bg-slate-100 border border-slate-200"><img src="${book.coverUrl || '../assets/images/book_cover_2.png'}" class="w-full h-full object-cover" onerror="this.src='../assets/images/book_cover_2.png'"></div></td>
+                <td class="px-3 py-2 font-semibold text-slate-800 truncate max-w-[200px]">${book.title}</td>
+                <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.author}</td>
+                <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.publisher || '--'}</td>
+                <td class="px-3 py-2"><span class="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded-full">${book.categoryName}</span></td>
+                <td class="px-3 py-2 text-center">${book.totalQuantity}</td>
+                <td class="px-3 py-2 text-center font-bold ${avail > 0 ? 'text-emerald-600' : 'text-rose-600'}">${avail}</td>
+                <td class="px-3 py-2"><span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${statusClass}"><span class="w-1.5 h-1.5 ${statusDot} rounded-full"></span> ${avail > 0 ? 'Còn sách' : 'Hết sách'}</span></td>
+                <td class="px-1.5 py-2 text-right">
+                    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onclick="editBookAction('${id}')" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-lg"><i class="ph ph-pencil"></i></button>
+                        <button onclick="deleteBookAction('${id}', '${book.title.replace(/'/g, "\\'")}')" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"><i class="ph ph-trash"></i></button>
+                    </div>
+                </td>
+            </tr>`;
+    }).join('');
+
+    if (getElem('total-summary')) getElem('total-summary').innerText = docs.length;
+    if (getElem('pagination-info')) getElem('pagination-info').innerHTML = `Hiển thị <strong>${docs.length}</strong> / <strong>${docs.length}</strong> cuốn sách`;
+};
+
+// --- 3. Xử lý Lưu dữ liệu ---
+const handleSaveBook = async () => {
+    const id = getElem('book-id').value;
+    const title = getElem('book-title').value.trim();
+    const author = getElem('book-author').value.trim();
+    const catSelect = getElem('book-category');
+    const file = getElem('bookImage').files[0];
+
+    if (!title || !author || !catSelect.value) {
+        throw new Error("Vui lòng điền đầy đủ Tên sách, Tác giả và Thể loại!");
     }
 
-    onSnapshot(collection(db, 'books'), (snapshot) => {
-        const sortedDocs = snapshot.docs.sort((a, b) => {
-            const timeA = a.data().createdAt?.toMillis() || 0;
-            const timeB = b.data().createdAt?.toMillis() || 0;
-            return timeB - timeA;
-        });
-        renderBooks(sortedDocs);
-    });
+    const qty = parseInt(getElem('book-quantity').value) || 0;
+    const data = {
+        title, author,
+        publisher: getElem('book-publisher').value.trim(),
+        categoryId: catSelect.value,
+        categoryName: catSelect.options[catSelect.selectedIndex].getAttribute('data-name'),
+        publishYear: getElem('book-year').value || null,
+        totalQuantity: qty,
+        availableQuantity: qty,
+        borrowDuration: parseInt(getElem('book-duration').value) || 14,
+        description: getElem('book-description').value.trim(),
+        updatedAt: serverTimestamp()
+    };
 
-    getElem('btn-close-modal')?.addEventListener('click', closeModal);
-    getElem('btn-cancel-modal')?.addEventListener('click', closeModal);
+    let bookId = id;
+    if (id) {
+        await updateDoc(doc(db, 'books', id), data);
+    } else {
+        data.createdAt = serverTimestamp();
+        const newDoc = await addDoc(collection(db, 'books'), data);
+        bookId = newDoc.id;
+    }
 
-    getElem('bookForm')?.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    // Đóng modal và reset form ngay để tạo cảm giác nhanh
+    getElem('addBookModal').classList.replace('flex', 'hidden');
+    getElem('bookForm').reset();
 
-        const bookId = getElem('book-id').value;
-        const title = getElem('book-title').value.trim();
-        const author = getElem('book-author').value.trim();
-        const publisher = getElem('book-publisher').value.trim();
-        const categorySelect = getElem('book-category');
-        const categoryId = categorySelect.value;
-        const categoryName = categorySelect.options[categorySelect.selectedIndex].getAttribute('data-name');
-        const year = getElem('book-year').value;
-        const totalQuantity = parseInt(getElem('book-quantity').value);
-        const borrowDuration = parseInt(getElem('book-duration').value);
-        const description = getElem('book-description').value.trim();
-        const imageFile = getElem('bookImage')?.files?.[0] || null;
+    // Xử lý tải ảnh bìa (chạy ngầm)
+    if (file) {
+        const toast = showToast("Đang tải ảnh bìa (0%)...", "info");
+        const storageRef = ref(storage, `covers/${bookId}_${Date.now()}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
 
-        const currentYear = new Date().getFullYear();
-        if (year && parseInt(year) > currentYear) {
-            showToast(`Năm xuất bản không thể lớn hơn ${currentYear}!`, "error");
-            return;
-        }
-
-        if (!title || !author || !categoryId) {
-            showToast("Vui lòng điền đủ thông tin!", "error");
-            return;
-        }
-
-        try {
-            if (bookId) {
-                const oldTotalQty = parseInt(getElem('old-total-quantity').value);
-                const oldAvailQty = parseInt(getElem('old-available-quantity').value);
-                const oldCategoryId = getElem('old-category-id').value;
-                const diff = totalQuantity - oldTotalQty;
-                const newAvailQty = oldAvailQty + diff;
-
-                if (newAvailQty < 0) {
-                    showToast("Số lượng không hợp lệ!", "error");
-                    return;
-                }
-
-                const status = newAvailQty === 0 ? 'Hết sách' : (newAvailQty < 5 ? 'Sắp hết' : 'Còn sách');
-
-                const payload = {
-                    title, author, publisher, categoryId, categoryName,
-                    publishYear: year || null,
-                    totalQuantity, availableQuantity: newAvailQty,
-                    borrowDuration, description, status
-                };
-
-                if (imageFile) {
-                    showToast('Đang tải ảnh bìa...', 'success');
-                    const uploadResult = await uploadCoverImage(imageFile, bookId);
-                    payload.coverUrl = uploadResult.coverUrl;
-                    payload.imagePath = uploadResult.imagePath;
-                }
-
-                await updateDoc(doc(db, 'books', bookId), payload);
-
-                if (oldCategoryId === categoryId) {
-                    if (diff !== 0) await updateDoc(doc(db, 'categories', categoryId), { bookCount: increment(diff) });
-                } else {
-                    await updateDoc(doc(db, 'categories', oldCategoryId), { bookCount: increment(-oldTotalQty) });
-                    await updateDoc(doc(db, 'categories', categoryId), { bookCount: increment(totalQuantity) });
-                }
-                showToast("Cập nhật thành công!");
-            } else {
-                const newBookRef = await addDoc(collection(db, 'books'), {
-                    title, author, publisher, categoryId, categoryName,
-                    publishYear: year || null,
-                    totalQuantity, availableQuantity: totalQuantity,
-                    borrowDuration, description, status: 'Còn sách',
-                    createdAt: serverTimestamp()
-                });
-
-                if (imageFile) {
-                    showToast('Đang tải ảnh bìa...', 'success');
-                    const uploadResult = await uploadCoverImage(imageFile, newBookRef.id);
-                    await updateDoc(doc(db, 'books', newBookRef.id), {
-                        coverUrl: uploadResult.coverUrl,
-                        imagePath: uploadResult.imagePath
-                    });
-                }
-
-                await updateDoc(doc(db, 'categories', categoryId), { bookCount: increment(totalQuantity) });
-                showToast("Thêm sách thành công!");
+        uploadTask.on('state_changed', 
+            (snap) => {
+                const prog = Math.round((snap.bytesTransferred / snap.totalBytes) * 100);
+                toast.update(`Đang tải ảnh bìa (${prog}%)...`);
+            },
+            (err) => { toast.update("Lỗi tải ảnh!"); setTimeout(toast.close, 2000); },
+            async () => {
+                const url = await getDownloadURL(uploadTask.snapshot.ref);
+                await updateDoc(doc(db, 'books', bookId), { coverUrl: url });
+                toast.update("Lưu sách và ảnh thành công!"); 
+                setTimeout(toast.close, 1500);
             }
-            closeModal();
-        } catch (error) {
-            console.error("Error saving book:", error);
-            showToast("Lỗi khi lưu dữ liệu.", "error");
-        }
-    });
-});
+        );
+    } else {
+        showToast("Đã lưu sách thành công!");
+    }
+};
+
+// --- 4. Các hành động Global ---
+window.editBookAction = async (id) => {
+    try {
+        const snap = await getDoc(doc(db, 'books', id));
+        if (!snap.exists()) return;
+        const book = snap.data();
+        
+        getElem('book-id').value = id;
+        getElem('book-title').value = book.title;
+        getElem('book-author').value = book.author;
+        getElem('book-publisher').value = book.publisher || '';
+        getElem('book-category').value = book.categoryId;
+        getElem('book-year').value = book.publishYear || '';
+        getElem('book-quantity').value = book.totalQuantity;
+        getElem('book-duration').value = book.borrowDuration || 14;
+        getElem('book-description').value = book.description || '';
+        
+        getElem('modalTitle').textContent = "Chỉnh Sửa Sách";
+        getElem('addBookModal').classList.replace('hidden', 'flex');
+    } catch (e) { showToast("Lỗi khi lấy thông tin sách", "error"); }
+};
+
+window.deleteBookAction = async (id, title) => {
+    if (confirm(`Bạn có chắc chắn muốn xóa sách "${title}"?`)) {
+        try {
+            await deleteDoc(doc(db, 'books', id));
+            showToast("Đã xóa sách thành công.");
+        } catch (e) { showToast("Lỗi khi xóa sách", "error"); }
+    }
+};
+
+// --- 5. Khởi chạy ---
+document.addEventListener('turbo:load', initAdminBooks);
+document.addEventListener('turbo:render', initAdminBooks);
+if (document.readyState !== 'loading') initAdminBooks();
+else document.addEventListener('DOMContentLoaded', initAdminBooks);
