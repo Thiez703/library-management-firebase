@@ -33,7 +33,7 @@ const applyMainNavActiveState = () => {
 };
 
 // --- THÔNG BÁO (TOAST) ---
-const showToast = (message, type = 'success') => {
+export const showToast = (message, type = 'success') => {
     let toast = document.getElementById('auth-toast');
     if (!toast) {
         toast = document.createElement('div');
