@@ -1,5 +1,5 @@
 import { db, storage } from './firebase-config.js';
-import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, limit, startAfter, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 
 const getElem = (id) => document.getElementById(id);
@@ -25,6 +25,10 @@ const showToast = (message, type = 'success') => {
 };
 
 // --- 2. Khởi tạo Trang ---
+let adminAllBooks = [];
+let adminCurrentPage = 1;
+const adminPageSize = 10;
+
 const initAdminBooks = () => {
     const tableBody = getElem('books-table-body');
     if (!tableBody) return;
@@ -43,7 +47,8 @@ const initAdminBooks = () => {
 
     // Lắng nghe Danh sách Sách
     onSnapshot(query(collection(db, 'books'), orderBy('createdAt', 'desc')), (snap) => {
-        renderBooksTable(snap.docs);
+        adminAllBooks = snap.docs;
+        renderAdminPage();
     });
 
     // Sự kiện Form
@@ -73,7 +78,22 @@ const initAdminBooks = () => {
     }
 };
 
-const renderBooksTable = (docs) => {
+const renderAdminPage = () => {
+    const totalCount = adminAllBooks.length;
+    const totalPages = Math.ceil(totalCount / adminPageSize);
+    
+    if (adminCurrentPage > totalPages) adminCurrentPage = totalPages;
+    if (adminCurrentPage < 1) adminCurrentPage = 1;
+    
+    const startIdx = (adminCurrentPage - 1) * adminPageSize;
+    const endIdx = startIdx + adminPageSize;
+    const docsToRender = adminAllBooks.slice(startIdx, endIdx);
+    
+    renderBooksTable(docsToRender, totalCount);
+    renderAdminPagination(totalCount, totalPages);
+};
+
+const renderBooksTable = (docs, totalCount) => {
     const tableBody = getElem('books-table-body');
     if (!tableBody) return;
 
@@ -103,8 +123,72 @@ const renderBooksTable = (docs) => {
             </tr>`;
     }).join('');
 
-    if (getElem('total-summary')) getElem('total-summary').innerText = docs.length;
-    if (getElem('pagination-info')) getElem('pagination-info').innerHTML = `Hiển thị <strong>${docs.length}</strong> / <strong>${docs.length}</strong> cuốn sách`;
+    if (getElem('total-summary')) getElem('total-summary').innerText = totalCount;
+};
+
+const renderAdminPagination = (totalCount, totalPages) => {
+    const info = getElem('pagination-info');
+    const controls = getElem('pagination-controls');
+    
+    if (!info || !controls) return;
+    
+    if (totalCount === 0) {
+        info.innerHTML = `Không có sách nào`;
+        controls.classList.add('hidden');
+        return;
+    }
+    
+    const startItem = (adminCurrentPage - 1) * adminPageSize + 1;
+    const endItem = Math.min(adminCurrentPage * adminPageSize, totalCount);
+    info.innerHTML = `Hiển thị <strong>${startItem} - ${endItem}</strong> / <strong>${totalCount}</strong> cuốn sách`;
+    
+    if (totalPages <= 1) {
+        controls.classList.add('hidden');
+        return;
+    }
+    
+    controls.classList.remove('hidden');
+    let btnsHtml = `
+        <button class="btn-prev-page p-1 rounded hover:bg-slate-200 text-slate-500 transition-colors ${adminCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" title="Trang trước"><i class="ph-bold ph-caret-left"></i></button>
+    `;
+    
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= adminCurrentPage - 1 && i <= adminCurrentPage + 1)) {
+            if (i === adminCurrentPage) {
+                btnsHtml += `<button class="btn-page w-7 h-7 rounded bg-primary-600 text-white font-bold text-xs" data-page="${i}">${i}</button>`;
+            } else {
+                btnsHtml += `<button class="btn-page w-7 h-7 rounded hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors" data-page="${i}">${i}</button>`;
+            }
+        } else if (i === adminCurrentPage - 2 || i === adminCurrentPage + 2) {
+            btnsHtml += `<span class="text-slate-400 font-medium px-1 text-xs">...</span>`;
+        }
+    }
+    
+    btnsHtml += `
+        <button class="btn-next-page p-1 rounded hover:bg-slate-200 text-slate-500 transition-colors ${adminCurrentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" title="Trang sau"><i class="ph-bold ph-caret-right"></i></button>
+    `;
+    
+    controls.innerHTML = btnsHtml;
+    
+    const prevBtn = controls.querySelector('.btn-prev-page');
+    const nextBtn = controls.querySelector('.btn-next-page');
+    
+    if (adminCurrentPage > 1) {
+        prevBtn.onclick = () => { adminCurrentPage--; renderAdminPage(); };
+    }
+    if (adminCurrentPage < totalPages) {
+        nextBtn.onclick = () => { adminCurrentPage++; renderAdminPage(); };
+    }
+    
+    controls.querySelectorAll('.btn-page').forEach(btn => {
+        btn.onclick = (e) => {
+            const p = parseInt(e.target.getAttribute('data-page'));
+            if (p !== adminCurrentPage) {
+                adminCurrentPage = p;
+                renderAdminPage();
+            }
+        };
+    });
 };
 
 // --- 3. Xử lý Lưu dữ liệu ---
@@ -126,6 +210,7 @@ const handleSaveBook = async () => {
         categoryId: catSelect.value,
         categoryName: catSelect.options[catSelect.selectedIndex].getAttribute('data-name'),
         publishYear: getElem('book-year').value || null,
+        titleLower: title.toLowerCase(),
         totalQuantity: qty,
         availableQuantity: qty,
         borrowDuration: parseInt(getElem('book-duration').value) || 14,
@@ -206,3 +291,67 @@ document.addEventListener('turbo:load', initAdminBooks);
 document.addEventListener('turbo:render', initAdminBooks);
 if (document.readyState !== 'loading') initAdminBooks();
 else document.addEventListener('DOMContentLoaded', initAdminBooks);
+
+// --- 6. Thành viên 5 - Tìm kiếm & Phân trang ---
+export const loadBooksPage = async (lastDocNode = null, pageSize = 12) => {
+    let q;
+    if (lastDocNode) {
+        q = query(collection(db, 'books'), orderBy('createdAt', 'desc'), startAfter(lastDocNode), limit(pageSize));
+    } else {
+        q = query(collection(db, 'books'), orderBy('createdAt', 'desc'), limit(pageSize));
+    }
+    const snapshot = await getDocs(q);
+    return {
+        docs: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        lastDocNode: snapshot.docs[snapshot.docs.length - 1]
+    };
+};
+
+export const searchBooks = async (keyword) => {
+    const term = keyword.toLowerCase().trim();
+    // Prefix search with >= and <= trick
+    const q = query(
+        collection(db, 'books'),
+        where('titleLower', '>=', term),
+        where('titleLower', '<=', term + '\uf8ff'),
+        orderBy('titleLower') // Required when using range filter
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const filterByCategory = async (categoryId) => {
+    const q = query(
+        collection(db, 'books'),
+        where('categoryId', '==', categoryId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+// Kết hợp tìm kiếm và lọc: dùng trên client vì Firestore hạn chế
+export const searchAndFilterClientSide = async (keyword, categoryId) => {
+    let baseQuery;
+    
+    if (categoryId) {
+        // Lấy theo danh mục trước (tiện nhất). Loại bỏ orderBy để tương thích data cũ chưa có trường createdAt và không cần composite index
+        baseQuery = query(collection(db, 'books'), where('categoryId', '==', categoryId));
+    } else {
+        // Lấy tất cả gần đây (thay vì fetch all)
+        baseQuery = query(collection(db, 'books'), orderBy('createdAt', 'desc'), limit(200)); 
+    }
+    
+    const snapshot = await getDocs(baseQuery);
+    let results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Áp dụng bộ lọc từ khóa trên client-side
+    if (keyword) {
+        const term = keyword.toLowerCase().trim();
+        results = results.filter(b => 
+            (b.title && b.title.toLowerCase().includes(term)) || 
+            (b.author && b.author.toLowerCase().includes(term))
+        );
+    }
+    
+    return results;
+};
