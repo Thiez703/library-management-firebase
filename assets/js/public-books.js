@@ -239,7 +239,8 @@ function renderSection(container, books, badgeType) {
 }
 
 function createBookCardHTML(book, badgeText, badgeValue) {
-    const coverUrl = book.coverUrl || '../assets/images/book_cover_2.png';
+    const fallbackCover = 'https://placehold.co/400x600/e2e8f0/64748b?text=No+Cover';
+    const coverUrl = book.coverUrl || fallbackCover;
     const categoryName = book.categoryName || 'Sách';
     const author = book.author || 'Tác giả ẩn danh';
     const rating = (Math.random() * (0.3) + 4.7).toFixed(1);
@@ -262,7 +263,7 @@ function createBookCardHTML(book, badgeText, badgeValue) {
     <div class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 h-full">
         <a href="book-detail.html?id=${book.id}" class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 flex items-center justify-center shrink-0">
             ${badgeHtml}
-            <img src="${coverUrl}" alt="${book.title}" onerror="this.src='../assets/images/book_cover_2.png'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
+            <img src="${coverUrl}" alt="${book.title}" onerror="this.src='https://placehold.co/400x600/e2e8f0/64748b?text=No+Cover'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
             <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                 <span class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all">Xem Chi Tiết</span>
             </div>
