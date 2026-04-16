@@ -1,212 +1,367 @@
-import { db, auth } from './firebase-config.js';
+import { db } from './firebase-config.js';
 import { showToast } from './auth.js';
-
+import { clearCart } from './cart.js';
 import {
+    collection,
     doc,
+    getDocs,
+    onSnapshot,
+    query,
     runTransaction,
     serverTimestamp,
-    collection,
-    query,
-    where,
-    getDocs,
-    Timestamp
+    Timestamp,
+    where
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
-// =======================
-// ⚙️ CONFIG
-// =======================
-const LIMIT_BOOKS = 3000;
-const BORROW_DAYS = 14;
-const FINE_RATE = 50000;
+export const MAX_BOOKS_PER_TICKET = 5;
+export const ONE_ACTIVE_TICKET_ONLY = true;
+export const RESERVE_EXPIRY_HOURS = 24;
+export const BORROW_DURATION_DAYS = 14;
+export const FINE_PER_DAY = 5000;
 
-// =======================
-// 📚 MƯỢN SÁCH
-// =======================
-export const borrowBook = async (userId, bookId) => {
+const BORROW_COLLECTION = 'borrowRecords';
+
+const generateRecordId = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let code = '';
+    for (let i = 0; i < 6; i++) {
+        code += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `LIB-${code}`;
+};
+
+const normalizeMoney = (value) => {
+    const money = Number(value || 0);
+    if (!Number.isFinite(money) || money < 0) return 0;
+    return Math.round(money);
+};
+
+const toMillis = (tsLike) => {
+    if (!tsLike) return null;
+    if (typeof tsLike.toMillis === 'function') return tsLike.toMillis();
+    const dt = new Date(tsLike);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt.getTime();
+};
+
+const formatRecordBook = (item) => ({
+    bookId: item.bookId,
+    title: item.title || 'Không rõ tên sách',
+    author: item.author || 'Không rõ tác giả',
+    coverUrl: item.coverUrl || '',
+    price: normalizeMoney(item.price)
+});
+
+const ensureUserDetails = (userDetails) => {
+    const fullName = (userDetails?.fullName || '').trim();
+    const phone = (userDetails?.phone || '').trim();
+    const cccd = (userDetails?.cccd || '').trim();
+
+    if (!fullName || !phone || !cccd) {
+        throw new Error('Vui lòng nhập đầy đủ Họ tên, Số điện thoại và CCCD.');
+    }
+
+    return { fullName, phone, cccd };
+};
+
+const ensureCartItems = (cartItems) => {
+    if (!Array.isArray(cartItems) || cartItems.length === 0) {
+        throw new Error('Giỏ mượn đang trống.');
+    }
+    if (cartItems.length > MAX_BOOKS_PER_TICKET) {
+        throw new Error(`Mỗi phiếu chỉ được tối đa ${MAX_BOOKS_PER_TICKET} cuốn.`);
+    }
+
+    const seen = new Set();
+    const cleaned = cartItems.map((item) => {
+        const bookId = (item.bookId || item.id || '').trim();
+        if (!bookId) {
+            throw new Error('Dữ liệu giỏ mượn không hợp lệ.');
+        }
+        if (seen.has(bookId)) {
+            throw new Error('Giỏ mượn không được chứa sách trùng lặp.');
+        }
+        seen.add(bookId);
+        return formatRecordBook({ ...item, bookId });
+    });
+
+    return cleaned;
+};
+
+const hasExpiredPending = (recordData, nowMs) => {
+    if (recordData.status !== 'pending') return false;
+    const reqMs = toMillis(recordData.requestDate);
+    if (!reqMs) return false;
+    return nowMs - reqMs >= RESERVE_EXPIRY_HOURS * 60 * 60 * 1000;
+};
+
+const markCancelledAndRestore = async (recordDoc, reason) => {
+    await runTransaction(db, async (transaction) => {
+        const freshSnap = await transaction.get(recordDoc.ref);
+        if (!freshSnap.exists()) return;
+
+        const record = freshSnap.data() || {};
+        const nowMs = Date.now();
+        if (!hasExpiredPending(record, nowMs)) return;
+
+        const books = Array.isArray(record.books) ? record.books : [];
+        for (const item of books) {
+            if (!item?.bookId) continue;
+            const bookRef = doc(db, 'books', item.bookId);
+            const bookSnap = await transaction.get(bookRef);
+            if (!bookSnap.exists()) continue;
+            const current = Number(bookSnap.data()?.availableQuantity || 0);
+            const nextQty = current + 1;
+            transaction.update(bookRef, {
+                availableQuantity: nextQty,
+                status: nextQty > 0 ? 'available' : 'out_of_stock'
+            });
+        }
+
+        transaction.update(recordDoc.ref, {
+            status: 'cancelled',
+            adminNote: reason || 'Hệ thống tự huỷ sau thời gian giữ chỗ.',
+            cancelledAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+    });
+};
+
+const hasAnyActiveRecord = async (userId) => {
+    const activeStatuses = ['pending', 'borrowing'];
+    const activeSnap = await getDocs(
+        query(
+            collection(db, BORROW_COLLECTION),
+            where('userId', '==', userId),
+            where('status', 'in', activeStatuses)
+        )
+    );
+
+    if (activeSnap.empty) return false;
+
+    const nowMs = Date.now();
+    for (const docSnap of activeSnap.docs) {
+        const data = docSnap.data() || {};
+        if (hasExpiredPending(data, nowMs)) {
+            await markCancelledAndRestore(docSnap, 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.');
+            continue;
+        }
+        return true;
+    }
+
+    return false;
+};
+
+export const handleCheckout = async (userData, cartItems) => {
+    const userId = (userData?.uid || '').trim();
     if (!userId) {
-        showToast('Vui lòng đăng nhập!', 'error');
-        return;
+        showToast('Vui lòng đăng nhập để đăng ký mượn sách.', 'error');
+        return null;
     }
 
+    let books;
+    let userDetails;
     try {
-        await runTransaction(db, async (transaction) => {
-            const bookRef = doc(db, "books", bookId);
-            const userRef = doc(db, "users", userId);
-
-            // (1) Đọc dữ liệu
-            const bookSnap = await transaction.get(bookRef);
-            const userSnap = await transaction.get(userRef);
-
-            if (!bookSnap.exists())
-                throw new Error("Sách không tồn tại!");
-
-            if (!userSnap.exists())
-                throw new Error("Người dùng không tồn tại!");
-
-            const book = bookSnap.data();
-            const userData = userSnap.data();
-
-            if (book.availableQuantity <= 0)
-                throw new Error("Sách đã hết!");
-
-            if ((userData.borrowingCount || 0) >= LIMIT_BOOKS)
-                throw new Error(`Chỉ được mượn tối đa ${LIMIT_BOOKS} cuốn!`);
-
-            // (2) Giảm số lượng sách
-            const newQty = book.availableQuantity - 1;
-            transaction.update(bookRef, {
-                availableQuantity: newQty,
-                status: newQty === 0 ? "out_of_stock" : "available"
-            });
-
-            // (3) Tăng số lượng user
-            transaction.update(userRef, {
-                borrowingCount: (userData.borrowingCount || 0) + 1
-            });
-
-            // (4) Tạo record
-            const now = new Date();
-            const yy = now.getFullYear().toString().slice(2);
-            const mm = String(now.getMonth() + 1).padStart(2, '0');
-            const dd = String(now.getDate()).padStart(2, '0');
-            const datePart = `${yy}${mm}${dd}`;
-            const randomPart = Math.random().toString(36).substring(2, 5).toUpperCase();
-            const recordId = `REQ-${datePart}-${randomPart}`;
-
-            const dueDate = new Date();
-            dueDate.setDate(now.getDate() + BORROW_DAYS);
-
-            const recordRef = doc(db, "borrowRecords", recordId);
-
-            transaction.set(recordRef, {
-                userId: userId,
-                bookId: bookId,
-                bookTitle: book.title || '',
-                author: book.author || 'Unknown',
-                coverUrl: book.coverUrl || '',
-                borrowDate: serverTimestamp(),
-                dueDate: Timestamp.fromDate(dueDate),
-                status: "borrowing",
-                fineAmount: 0
-            });
-        });
-
-        showToast('🚀 Mượn sách thành công!');
-    } catch (error) {
-        showToast(error.message || error, 'error');
+        books = ensureCartItems(cartItems);
+        userDetails = ensureUserDetails(userData?.userDetails || userData);
+    } catch (err) {
+        showToast(err.message || 'Thông tin mượn chưa hợp lệ.', 'error');
+        return null;
     }
-};
 
-// =======================
-// 📦 TRẢ SÁCH
-// =======================
-export const returnBook = async (recordId) => {
+    if (ONE_ACTIVE_TICKET_ONLY && await hasAnyActiveRecord(userId)) {
+        showToast('Bạn đang có phiếu chờ duyệt hoặc đang mượn. Vui lòng hoàn tất phiếu hiện tại.', 'error');
+        return null;
+    }
+
+    const recordId = generateRecordId();
+
     try {
+        const ticketDocRef = doc(collection(db, BORROW_COLLECTION));
+
         await runTransaction(db, async (transaction) => {
-            const recordRef = doc(db, "borrowRecords", recordId);
-            const recordSnap = await transaction.get(recordRef);
+            const bookRefs = books.map((item) => doc(db, 'books', item.bookId));
+            const bookSnaps = await Promise.all(bookRefs.map((ref) => transaction.get(ref)));
 
-            if (!recordSnap.exists())
-                throw new Error("Bản ghi không tồn tại!");
-
-            const record = recordSnap.data();
-
-            if (record.status === "returned")
-                throw new Error("Sách đã được trả!");
-
-            const bookRef = doc(db, "books", record.bookId);
-            const userRef = doc(db, "users", record.userId);
-
-            const bookSnap = await transaction.get(bookRef);
-            if (!bookSnap.exists()) throw new Error("Dữ liệu sách không tồn tại!");
-
-            const userSnap = await transaction.get(userRef);
-            if (!userSnap.exists()) throw new Error("Dữ liệu người dùng không tồn tại!");
-
-            // 💰 Tính tiền phạt
-            const now = new Date();
-            const dueDate = record.dueDate.toDate();
-            let fine = 0;
-
-            if (now > dueDate) {
-                const diffDays = Math.ceil((now - dueDate) / (1000 * 60 * 60 * 24));
-                fine = diffDays * FINE_RATE;
+            for (let i = 0; i < bookSnaps.length; i++) {
+                if (!bookSnaps[i].exists()) {
+                    throw new Error(`Sách "${books[i].title}" không tồn tại.`);
+                }
+                const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
+                if (available <= 0) {
+                    throw new Error(`Sách "${books[i].title}" đã hết.`);
+                }
             }
 
-            // 📚 Update book
-            transaction.update(bookRef, {
-                availableQuantity: (bookSnap.data()?.availableQuantity || 0) + 1,
-                status: "available"
-            });
-
-            // 👤 Update user
-            transaction.update(userRef, {
-                borrowingCount: Math.max(0, (userSnap.data()?.borrowingCount || 1) - 1)
-            });
-
-            // 🧾 Update record
-            transaction.update(recordRef, {
-                status: "returned",
-                returnDate: serverTimestamp(),
-                fineAmount: fine
-            });
-        });
-
-        showToast('✅ Trả sách thành công!');
-    } catch (error) {
-        showToast(error.message || error, 'error');
-    }
-};
-
-// =======================
-// ⏰ CHECK QUÁ HẠN
-// =======================
-export const checkOverdue = async () => {
-    try {
-        const q = query(
-            collection(db, "borrowRecords"),
-            where("status", "==", "borrowing")
-        );
-
-        const snap = await getDocs(q);
-        const now = new Date();
-
-        const tasks = [];
-
-        snap.forEach((docSnap) => {
-            const data = docSnap.data();
-            const dueDate = data.dueDate.toDate();
-
-            if (now > dueDate) {
-                const diffDays = Math.ceil((now - dueDate) / (1000 * 60 * 60 * 24));
-                const fine = diffDays * FINE_RATE;
-
-                const task = runTransaction(db, async (transaction) => {
-                    const ref = doc(db, "borrowRecords", docSnap.id);
-                    const latestRecord = await transaction.get(ref);
-                    
-                    if (latestRecord.exists() && latestRecord.data().status === "borrowing") {
-                        transaction.update(ref, { fineAmount: fine });
-                    }
+            for (let i = 0; i < bookRefs.length; i++) {
+                const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
+                const nextQty = available - 1;
+                transaction.update(bookRefs[i], {
+                    availableQuantity: nextQty,
+                    status: nextQty > 0 ? 'available' : 'out_of_stock'
                 });
-
-                tasks.push(task);
             }
+
+            transaction.set(ticketDocRef, {
+                recordId,
+                userId,
+                userDetails,
+                books,
+                status: 'pending',
+                requestDate: serverTimestamp(),
+                borrowDate: null,
+                dueDate: null,
+                returnDate: null,
+                fineOverdue: 0,
+                fineDamage: 0,
+                adminNote: '',
+                updatedAt: serverTimestamp()
+            });
         });
 
-        await Promise.all(tasks);
-
-        console.log("✔ Đã cập nhật phí quá hạn!");
-    } catch (error) {
-        console.error("Lỗi checkOverdue:", error);
+        clearCart();
+        showToast(`Đăng ký thành công! Mã phiếu của bạn là ${recordId}.`);
+        return recordId;
+    } catch (err) {
+        showToast(err.message || 'Không thể tạo phiếu mượn.', 'error');
+        return null;
     }
 };
 
-// =======================
-// 🔁 HELPER: CONFIRM RETURN
-// =======================
-window.confirmReturnAction = (id) => {
-    if (confirm("Bạn có chắc muốn trả sách?")) {
-        returnBook(id);
+export const approveTicket = async (recordDocId, initialNote = '') => {
+    if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+
+    await runTransaction(db, async (transaction) => {
+        const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
+        const recordSnap = await transaction.get(recordRef);
+        if (!recordSnap.exists()) throw new Error('Phiếu mượn không tồn tại.');
+
+        const record = recordSnap.data() || {};
+        if (record.status !== 'pending') {
+            throw new Error('Phiếu này không ở trạng thái chờ duyệt.');
+        }
+
+        const dueDate = new Date();
+        dueDate.setDate(dueDate.getDate() + BORROW_DURATION_DAYS);
+
+        transaction.update(recordRef, {
+            status: 'borrowing',
+            borrowDate: serverTimestamp(),
+            dueDate: Timestamp.fromDate(dueDate),
+            adminNote: (initialNote || '').trim(),
+            updatedAt: serverTimestamp()
+        });
+    });
+};
+
+export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') => {
+    if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+
+    await runTransaction(db, async (transaction) => {
+        const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
+        const recordSnap = await transaction.get(recordRef);
+
+        if (!recordSnap.exists()) throw new Error('Phiếu mượn không tồn tại.');
+
+        const record = recordSnap.data() || {};
+        if (record.status !== 'borrowing') {
+            throw new Error('Phiếu không ở trạng thái đang mượn.');
+        }
+
+        const nowMs = Date.now();
+        const dueMs = toMillis(record.dueDate);
+        let fineOverdue = 0;
+        if (dueMs && nowMs > dueMs) {
+            const daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
+            fineOverdue = Math.max(0, daysLate) * FINE_PER_DAY;
+        }
+
+        const books = Array.isArray(record.books) ? record.books : [];
+        for (const item of books) {
+            if (!item?.bookId) continue;
+            const bookRef = doc(db, 'books', item.bookId);
+            const bookSnap = await transaction.get(bookRef);
+            if (!bookSnap.exists()) continue;
+
+            const currentQty = Number(bookSnap.data()?.availableQuantity || 0);
+            const nextQty = currentQty + 1;
+            transaction.update(bookRef, {
+                availableQuantity: nextQty,
+                status: 'available'
+            });
+        }
+
+        transaction.update(recordRef, {
+            status: 'returned',
+            returnDate: serverTimestamp(),
+            fineOverdue,
+            fineDamage: normalizeMoney(damageFee),
+            adminNote: (finalNote || '').trim(),
+            updatedAt: serverTimestamp()
+        });
+    });
+};
+
+export const autoCleanup = async () => {
+    const pendingSnap = await getDocs(
+        query(collection(db, BORROW_COLLECTION), where('status', '==', 'pending'))
+    );
+
+    let cleanedCount = 0;
+    const nowMs = Date.now();
+
+    for (const docSnap of pendingSnap.docs) {
+        const data = docSnap.data() || {};
+        if (!hasExpiredPending(data, nowMs)) continue;
+        await markCancelledAndRestore(docSnap, 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.');
+        cleanedCount += 1;
     }
+
+    return cleanedCount;
+};
+
+export const subscribeUserTickets = (userId, callback) => {
+    if (!userId) {
+        callback([]);
+        return () => {};
+    }
+
+    const q = query(collection(db, BORROW_COLLECTION), where('userId', '==', userId));
+
+    return onSnapshot(
+        q,
+        (snap) => {
+            const rows = snap.docs
+                .map((d) => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (toMillis(b.requestDate) || 0) - (toMillis(a.requestDate) || 0));
+            callback(rows);
+        },
+        (err) => {
+            console.error('subscribeUserTickets error:', err);
+            callback([]);
+        }
+    );
+};
+
+export const subscribeAllTickets = (callback) => {
+    return onSnapshot(
+        collection(db, BORROW_COLLECTION),
+        (snap) => {
+            const rows = snap.docs
+                .map((d) => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => (toMillis(b.requestDate) || 0) - (toMillis(a.requestDate) || 0));
+            callback(rows);
+        },
+        (err) => {
+            console.error('subscribeAllTickets error:', err);
+            callback([]);
+        }
+    );
+};
+
+export const getTicketStatusView = (ticket) => {
+    if (ticket.status !== 'borrowing') return ticket.status;
+    const dueMs = toMillis(ticket.dueDate);
+    if (dueMs && Date.now() > dueMs) return 'overdue';
+    return 'borrowing';
 };

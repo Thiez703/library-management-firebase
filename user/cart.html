@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Giỏ Mượn Sách - LibSpace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
+    <nav id="site-navbar" class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="index.html" class="font-bold text-xl">Lib<span class="text-primary-600">Space</span></a>
+            <a href="catalog.html" class="text-sm text-slate-600 hover:text-primary-600">Tiếp tục chọn sách</a>
+        </div>
+    </nav>
+
+    <main id="cartPageRoot" class="max-w-6xl mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <section class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
+                <div class="flex items-center justify-between mb-4">
+                    <h1 class="text-xl font-bold">Giỏ mượn của bạn</h1>
+                    <span class="text-xs px-2 py-1 rounded-full bg-primary-50 text-primary-700">Tối đa 5 cuốn</span>
+                </div>
+
+                <div id="cartEmpty" class="hidden text-center py-10 text-slate-500">
+                    Giỏ mượn đang trống.
+                </div>
+
+                <div id="cartList" class="space-y-3"></div>
+            </section>
+
+            <section class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
+                <h2 class="text-lg font-bold">Thông tin đăng ký</h2>
+
+                <div id="checkoutLocked" class="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                    Bạn cần đăng nhập để gửi phiếu mượn.
+                </div>
+
+                <form id="checkoutForm" class="hidden space-y-3">
+                    <div>
+                        <label class="text-sm font-medium text-slate-700">Họ và tên</label>
+                        <input id="checkoutFullName" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
+                        <input id="checkoutPhone" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-slate-700">Số CCCD</label>
+                        <input id="checkoutCccd" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+                    </div>
+                    <button id="checkoutBtn" type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5 transition-colors">
+                        Xác nhận đăng ký mượn
+                    </button>
+                </form>
+            </section>
+        </div>
+    </main>
+
+    <div id="checkoutSuccessModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
+        <div class="max-w-md mx-auto mt-28 bg-white rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-emerald-700 mb-2">Đăng ký thành công</h3>
+            <p class="text-sm text-slate-600">Mã phiếu của bạn là:</p>
+            <p id="ticketCode" class="font-mono text-xl font-bold text-slate-800 my-3">LIB-XXXXXX</p>
+            <p class="text-sm text-slate-600">Vui lòng đến thư viện trong vòng 24h để nhận sách.</p>
+            <button id="closeSuccessModalBtn" class="mt-5 w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5">Đã hiểu</button>
+        </div>
+    </div>
+
+    <script type="module" src="../assets/js/auth.js"></script>
+    <script type="module" src="../assets/js/cart-page.js"></script>
+</body>
+</html>

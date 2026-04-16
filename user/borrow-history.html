@@ -292,7 +292,6 @@
                                 <i class="ph-bold ph-calendar-plus mr-1"></i> Xin Gia Hạn
                             </button>
                             <button
-                                onclick="confirmReturnAction(this.parentElement.parentElement.dataset.recordId)"
                                 class="w-full bg-green-50 border-2 border-green-500 text-green-600 hover:bg-green-100 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm">
                                 <i class="ph-bold ph-book"></i> Trả Sách
                             </button>
@@ -347,7 +346,6 @@
                                 <i class="ph-bold ph-calendar-plus mr-1"></i> Xin Gia Hạn
                             </button>
                             <button
-                                onclick="confirmReturnAction(this.parentElement.parentElement.dataset.recordId)"
                                 class="w-full bg-green-50 border-2 border-green-500 text-green-600 hover:bg-green-100 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm">
                                 <i class="ph-bold ph-book"></i> Trả Sách
                             </button>
@@ -448,17 +446,8 @@
         </div>
     </footer>
 
-    <script type="module">
-        import { checkOverdue } from '../assets/js/borrow.js';
-        import { checkAuthState } from '../assets/js/auth.js';
-
-        // Kiểm tra quá hạn khi trang load
-        document.addEventListener('DOMContentLoaded', async () => {
-            await checkOverdue();
-        });
-    </script>
     <script type="module" src="../assets/js/auth.js"></script>
-    <script type="module" src="../assets/js/borrow.js"></script>
+    <script type="module" src="../assets/js/borrow-history.js"></script>
 
 </body>
 

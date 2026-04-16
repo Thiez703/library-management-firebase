@@ -1,6 +1,7 @@
 import { db } from './firebase-config.js';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { loadBooksPage, searchAndFilterClientSide } from './books.js';
+import { addToCart, ensureFloatingCartButton, showCartActionToast } from './cart.js';
 
 const initPublicBooks = () => {
     const featuredContainer = document.querySelector('[data-mock-books="featured"]');
@@ -10,6 +11,7 @@ const initPublicBooks = () => {
     if (!featuredContainer && !newArrivalContainer && !catalogGrid) return;
 
     console.log("Initializing Public Books...");
+    ensureFloatingCartButton();
 
     if (featuredContainer || newArrivalContainer) {
         const booksRef = collection(db, 'books');
@@ -251,6 +253,11 @@ function createBookCardHTML(book, badgeText, badgeValue) {
         badgeHtml = `<div class="absolute top-3 left-3 z-10 px-2.5 py-1 bg-white/90 backdrop-blur-sm text-rose-600 font-bold text-[10px] uppercase rounded-lg shadow-sm border border-rose-100">Đã mượn hết</div>`;
     }
 
+    const addDisabled = book.availableQuantity <= 0;
+    const addBtnClass = addDisabled
+        ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+        : 'bg-primary-50 text-primary-700 hover:bg-primary-100';
+
     return `
     <div class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 h-full">
         <a href="book-detail.html?id=${book.id}" class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 flex items-center justify-center shrink-0">
@@ -268,13 +275,39 @@ function createBookCardHTML(book, badgeText, badgeValue) {
                 <div class="flex items-center text-amber-400 text-xs md:text-sm">
                     <i class="ph-fill ph-star"></i><span class="text-slate-600 font-medium ml-1">${rating}</span>
                 </div>
-                <button class="w-8 h-8 rounded-full ${book.availableQuantity > 0 ? 'bg-slate-50 text-slate-600 hover:bg-primary-50 hover:text-primary-600' : 'text-slate-300 cursor-not-allowed'} flex items-center justify-center transition-colors">
-                    <i class="ph-bold ${book.availableQuantity > 0 ? 'ph-plus' : 'ph-bell-slash'}"></i>
+                <button
+                    data-add-cart="${book.id}"
+                    data-book-title="${(book.title || '').replace(/"/g, '&quot;')}"
+                    data-book-author="${(author || '').replace(/"/g, '&quot;')}"
+                    data-book-cover="${(coverUrl || '').replace(/"/g, '&quot;')}"
+                    data-book-price="${Number(book.price || 0)}"
+                    ${addDisabled ? 'disabled' : ''}
+                    class="px-3 h-8 rounded-full ${addBtnClass} flex items-center justify-center gap-1 text-xs font-semibold transition-colors"
+                    title="${addDisabled ? 'Hết sách' : 'Thêm vào giỏ mượn'}">
+                    <i class="ph-bold ${addDisabled ? 'ph-bell-slash' : 'ph-plus'}"></i>
+                    <span>${addDisabled ? 'Hết sách' : 'Thêm giỏ'}</span>
                 </button>
             </div>
         </div>
     </div>`;
 }
+
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-add-cart]');
+    if (!btn) return;
+    if (btn.disabled) return;
+
+    const payload = {
+        bookId: btn.getAttribute('data-add-cart'),
+        title: btn.getAttribute('data-book-title') || '',
+        author: btn.getAttribute('data-book-author') || '',
+        coverUrl: btn.getAttribute('data-book-cover') || '',
+        price: Number(btn.getAttribute('data-book-price') || 0)
+    };
+
+    const result = addToCart(payload);
+    showCartActionToast(result);
+});
 
 document.addEventListener('turbo:load', initPublicBooks);
 document.addEventListener('turbo:render', initPublicBooks);
