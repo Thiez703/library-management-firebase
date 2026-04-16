@@ -1,15 +1,20 @@
 import { db } from './firebase-config.js';
 import { showToast } from './auth.js';
 import { clearCart } from './cart.js';
+import { EmailJSService } from './emailjs-service.js';
 import {
     collection,
     doc,
+    addDoc,
+    deleteDoc,
     getDocs,
     onSnapshot,
     query,
     runTransaction,
     serverTimestamp,
     Timestamp,
+    increment,
+    writeBatch,
     where
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
@@ -20,6 +25,14 @@ export const BORROW_DURATION_DAYS = 14;
 export const FINE_PER_DAY = 5000;
 
 const BORROW_COLLECTION = 'borrowRecords';
+
+const isLegacyRecord = (record) => {
+    const recordId = (record?.recordId || '').toString().trim().toUpperCase();
+    const userDetails = record?.userDetails || {};
+    const hasValidUserDetails = !!(userDetails.fullName && userDetails.phone && userDetails.cccd);
+
+    return recordId.startsWith('REQ-') || !hasValidUserDetails;
+};
 
 const generateRecordId = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -127,6 +140,52 @@ const markCancelledAndRestore = async (recordDoc, reason) => {
     });
 };
 
+export const cleanupLegacyBorrowRecords = async () => {
+    const snapshot = await getDocs(collection(db, BORROW_COLLECTION));
+    let removedCount = 0;
+    let batch = writeBatch(db);
+    let batchOps = 0;
+
+    const flushBatch = async () => {
+        if (batchOps === 0) return;
+        await batch.commit();
+        batch = writeBatch(db);
+        batchOps = 0;
+    };
+
+    for (const docSnap of snapshot.docs) {
+        const record = docSnap.data() || {};
+        if (!isLegacyRecord(record)) continue;
+
+        const books = Array.isArray(record.books) ? record.books : [];
+        const isActiveLike = ['pending', 'borrowing'].includes((record.status || '').toString());
+
+        if (isActiveLike) {
+            for (const item of books) {
+                if (!item?.bookId) continue;
+                const bookRef = doc(db, 'books', item.bookId);
+                batch.update(bookRef, {
+                    availableQuantity: increment(1),
+                    status: 'available'
+                });
+                batchOps += 1;
+            }
+        }
+
+        batch.delete(docSnap.ref);
+        batchOps += 1;
+        removedCount += 1;
+
+        if (batchOps >= 450) {
+            await flushBatch();
+        }
+    }
+
+    await flushBatch();
+
+    return removedCount;
+};
+
 const hasAnyActiveRecord = async (userId) => {
     const activeStatuses = ['pending', 'borrowing'];
     const activeSnap = await getDocs(
@@ -221,6 +280,18 @@ export const handleCheckout = async (userData, cartItems) => {
 
         clearCart();
         showToast(`Đăng ký thành công! Mã phiếu của bạn là ${recordId}.`);
+
+        // Gửi email thông báo mã mượn qua EmailJS
+        const readerEmail = userDetails.email || userData.email;
+        if (readerEmail) {
+            EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.BORROW_CODE, {
+                user_name: userDetails.fullName,
+                record_id: recordId,
+                book_count: books.length,
+                reader_email: readerEmail
+            });
+        }
+
         return recordId;
     } catch (err) {
         showToast(err.message || 'Không thể tạo phiếu mượn.', 'error');
@@ -243,6 +314,7 @@ export const approveTicket = async (recordDocId, initialNote = '') => {
 
         const dueDate = new Date();
         dueDate.setDate(dueDate.getDate() + BORROW_DURATION_DAYS);
+        const dueDateStr = dueDate.toLocaleDateString('vi-VN');
 
         transaction.update(recordRef, {
             status: 'borrowing',
@@ -251,6 +323,17 @@ export const approveTicket = async (recordDocId, initialNote = '') => {
             adminNote: (initialNote || '').trim(),
             updatedAt: serverTimestamp()
         });
+
+        // Gửi email báo phiếu đã duyệt qua EmailJS
+        const readerEmail = record.userDetails?.email || record.email;
+        if (readerEmail) {
+            EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.APPROVED, {
+                user_name: record.userDetails?.fullName || 'Độc giả',
+                record_id: record.recordId,
+                due_date: dueDateStr,
+                reader_email: readerEmail
+            });
+        }
     });
 };
 
@@ -303,18 +386,53 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
 };
 
 export const autoCleanup = async () => {
-    const pendingSnap = await getDocs(
-        query(collection(db, BORROW_COLLECTION), where('status', '==', 'pending'))
+    const allActiveSnap = await getDocs(
+        query(collection(db, BORROW_COLLECTION), where('status', 'in', ['pending', 'borrowing']))
     );
 
     let cleanedCount = 0;
     const nowMs = Date.now();
 
-    for (const docSnap of pendingSnap.docs) {
+    for (const docSnap of allActiveSnap.docs) {
         const data = docSnap.data() || {};
-        if (!hasExpiredPending(data, nowMs)) continue;
-        await markCancelledAndRestore(docSnap, 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.');
-        cleanedCount += 1;
+        const readerEmail = data.userDetails?.email || data.email;
+        const readerName = data.userDetails?.fullName || 'Độc giả';
+
+        // 1. Logic Tự động hủy mã mượn quá hạn (24h)
+        if (data.status === 'pending' && hasExpiredPending(data, nowMs)) {
+            await markCancelledAndRestore(docSnap, 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.');
+            
+            // Thông báo hủy mã qua EmailJS
+            if (readerEmail) {
+                EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.WARNING, {
+                    user_name: readerName,
+                    record_id: data.recordId,
+                    warning_type: 'Mã mượn đã hết hạn',
+                    message_detail: 'Mã mượn của bạn đã quá hạn nhận sách (24h) và đã bị hệ thống hủy tự động.',
+                    reader_email: readerEmail
+                });
+            }
+            cleanedCount += 1;
+        }
+
+        // 2. Cảnh báo quá hạn trả sách
+        if (data.status === 'borrowing') {
+            const dueMs = toMillis(data.dueDate);
+            if (dueMs && nowMs > dueMs) {
+                const daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
+                
+                // Gửi email cảnh báo quá hạn qua EmailJS (có thể kèm phí phạt)
+                if (readerEmail) {
+                    EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.WARNING, {
+                        user_name: readerName,
+                        record_id: data.recordId,
+                        warning_type: 'Sách đã quá hạn trả',
+                        message_detail: `Bạn đã quá hạn ${daysLate} ngày. Phí phạt dự kiến: ${(daysLate * FINE_PER_DAY).toLocaleString('vi-VN')} VNĐ.`,
+                        reader_email: readerEmail
+                    });
+                }
+            }
+        }
     }
 
     return cleanedCount;

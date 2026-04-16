@@ -1,4 +1,4 @@
-import { autoCleanup, approveTicket, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
+import { autoCleanup, approveTicket, cleanupLegacyBorrowRecords, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
 import { showToast } from './auth.js';
 
 const getElem = (id) => document.getElementById(id);
@@ -195,6 +195,7 @@ const initAdminLoans = async () => {
     if (!getElem('loanTableBody')) return;
 
     bindUI();
+    await cleanupLegacyBorrowRecords();
     await autoCleanup();
 
     subscribeAllTickets((rows) => {

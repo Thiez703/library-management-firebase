@@ -124,7 +124,7 @@
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                             <i class="ph ph-magnifying-glass text-slate-400 group-focus-within:text-primary-500"></i>
                         </div>
-                        <input type="text"
+                        <input id="readerSearchInput" type="text"
                             class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
                             placeholder="Tìm kiếm độc giả...">
                     </div>
@@ -161,22 +161,22 @@
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng
                             độc giả</p>
-                        <p class="text-3xl font-bold text-slate-800">8,920</p>
+                        <p id="stat-total-readers" class="text-3xl font-bold text-slate-800">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Đang
                             hoạt động</p>
-                        <p class="text-3xl font-bold text-emerald-600">7,430</p>
+                        <p id="stat-active-readers" class="text-3xl font-bold text-emerald-600">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Đang
                             nợ sách</p>
-                        <p class="text-3xl font-bold text-orange-500">312</p>
+                        <p id="stat-borrowing-readers" class="text-3xl font-bold text-orange-500">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
                         <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Vi
                             phạm quá hạn</p>
-                        <p class="text-3xl font-bold text-rose-600">54</p>
+                        <p id="stat-overdue-records" class="text-3xl font-bold text-rose-600">0</p>
                     </div>
                 </div>
 
@@ -198,42 +198,9 @@
                                         Tác</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-sm">
-                                <tr class="hover:bg-slate-50/80 transition-colors group">
-                                    <td class="px-6 py-4">
-                                        <div class="flex items-center gap-3">
-                                            <div
-                                                class="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm">
-                                                LN</div>
-                                            <div>
-                                                <p class="font-semibold text-slate-800">Lê
-                                                    Văn Nam</p>
-                                                <p class="text-xs text-slate-500">0909
-                                                    123
-                                                    456</p>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-6 py-4 font-mono text-xs text-slate-600">US-202401</td>
-                                    <td class="px-6 py-4 text-slate-600">le.nam@example.com</td>
-                                    <td class="px-6 py-4 text-center font-semibold">2</td>
-                                    <td class="px-6 py-4"><span
-                                            class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700"><span
-                                                class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Hoạt
-                                            động</span></td>
-                                    <td class="px-6 py-4 text-right">
-                                        <div
-                                            class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button title="Xem chi tiết"
-                                                class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"><i
-                                                    class="ph ph-eye text-lg"></i></button><button title="Chỉnh sửa"
-                                                class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"><i
-                                                    class="ph ph-pencil-simple text-lg"></i></button><button
-                                                title="Khóa tài khoản"
-                                                class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-md"><i
-                                                    class="ph ph-lock text-lg"></i></button>
-                                        </div>
-                                    </td>
+                            <tbody id="readersTableBody" class="divide-y divide-slate-100 text-sm">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-10 text-center text-slate-500">Đang tải dữ liệu độc giả...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -242,6 +209,7 @@
             </div>
         </main>
     </div>
+    <script type="module" src="../assets/js/readers.js"></script>
 </body>
 
 </html>

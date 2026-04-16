@@ -36,6 +36,11 @@ const statTotalBooks = getElem('stat-total-books');
 const statPopularCategory = getElem('stat-popular-category');
 const statPopularCount = getElem('stat-popular-count');
 
+const state = {
+    categories: [],
+    books: []
+};
+
 // --- UI Helpers (Toast & Confirm) ---
 
 const showToast = (message, type = 'success') => {
@@ -139,21 +144,54 @@ const deleteCategory = async (id, name, bookCount) => {
     }
 };
 
-const renderCategories = (categories) => {
+const normalizeName = (value = '') => value.toString().trim().toLowerCase();
+
+const renderCategories = (categories, books) => {
     categoriesContainer.innerHTML = '';
-    let totalBooks = 0;
+    const countByCategoryId = new Map();
+    const countByCategoryName = new Map();
+
+    categories.forEach((cat) => {
+        const data = cat.data() || {};
+        countByCategoryId.set(cat.id, 0);
+        countByCategoryName.set(normalizeName(data.categoryName), 0);
+    });
+
+    books.forEach((bookSnap) => {
+        const book = bookSnap.data() || {};
+        const categoryId = (book.categoryId || '').toString().trim();
+        const categoryName = normalizeName(book.categoryName);
+
+        if (categoryId && countByCategoryId.has(categoryId)) {
+            countByCategoryId.set(categoryId, (countByCategoryId.get(categoryId) || 0) + 1);
+            return;
+        }
+
+        if (categoryName && countByCategoryName.has(categoryName)) {
+            countByCategoryName.set(categoryName, (countByCategoryName.get(categoryName) || 0) + 1);
+        }
+    });
+
+    const categoryCounts = categories.map((cat) => {
+        const data = cat.data() || {};
+        const byId = countByCategoryId.get(cat.id) || 0;
+        const byName = countByCategoryName.get(normalizeName(data.categoryName)) || 0;
+        return byId > 0 ? byId : byName;
+    });
+
+    const maxCount = Math.max(0, ...categoryCounts);
+    let totalBooks = books.length;
     let popularCat = { name: '--', count: 0 };
 
-    categories.forEach(cat => {
+    categories.forEach((cat, idx) => {
         const data = cat.data();
         const id = cat.id;
-        const bCount = data.bookCount || 0;
-        totalBooks += bCount;
+        const bCount = categoryCounts[idx] || 0;
         if (bCount > popularCat.count) popularCat = { name: data.categoryName, count: bCount };
 
         const card = document.createElement('div');
         card.className = 'bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-primary-200 transition-all group animate-fade-in';
-        const progress = Math.min((bCount / 1000) * 100, 100);
+        const progress = maxCount > 0 ? Math.round((bCount / maxCount) * 100) : 0;
         
         card.innerHTML = `
             <div class="flex items-start justify-between mb-4">
@@ -238,6 +276,16 @@ categoryForm.addEventListener('submit', async (e) => {
     }
 });
 
+const renderAll = () => {
+    renderCategories(state.categories, state.books);
+};
+
 onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {
-    renderCategories(snapshot.docs);
+    state.categories = snapshot.docs;
+    renderAll();
+});
+
+onSnapshot(collection(db, 'books'), (snapshot) => {
+    state.books = snapshot.docs;
+    renderAll();
 });
