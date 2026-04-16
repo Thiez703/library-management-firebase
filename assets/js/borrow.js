@@ -15,7 +15,7 @@ import {
 // =======================
 // ⚙️ CONFIG
 // =======================
-const LIMIT_BOOKS = 5;
+const LIMIT_BOOKS = 3000;
 const BORROW_DAYS = 14;
 const FINE_RATE = 50000;
 

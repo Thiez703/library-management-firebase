@@ -3,6 +3,7 @@ import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnaps
 import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 
 const getElem = (id) => document.getElementById(id);
+const MAX_BOOK_QUANTITY = 3000;
 
 // --- 1. Toast Thông báo (Cải tiến) ---
 const showToast = (message, type = 'success') => {
@@ -203,7 +204,14 @@ const handleSaveBook = async () => {
         throw new Error("Vui lòng điền đầy đủ Tên sách, Tác giả và Thể loại!");
     }
 
-    const qty = parseInt(getElem('book-quantity').value) || 0;
+    const qty = parseInt(getElem('book-quantity').value, 10);
+    if (!Number.isInteger(qty) || qty < 1) {
+        throw new Error("Số lượng sách phải là số nguyên lớn hơn 0.");
+    }
+    if (qty > MAX_BOOK_QUANTITY) {
+        throw new Error(`Số lượng sách tối đa là ${MAX_BOOK_QUANTITY} cuốn.`);
+    }
+
     const data = {
         title, author,
         publisher: getElem('book-publisher').value.trim(),
