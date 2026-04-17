@@ -105,6 +105,10 @@
                         <span data-favorite-count
                             class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">2</span>
                     </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
                     <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
                     <!-- User Account -->
                     <div class="hidden sm:flex items-center gap-3" data-auth-slot>
@@ -131,7 +135,7 @@
                                 </button>
                                 <div
                                     class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right scale-95 group-hover:scale-100 z-50">
-                                    <a href="#"
+                                    <a href="profile.html"
                                         class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-primary-600"><i
                                             class="ph ph-user mr-2"></i>Hồ sơ cá nhân</a>
                                     <a href="borrow-history.html"
@@ -177,11 +181,11 @@
 
                     <!-- Navigation Links -->
                     <nav class="p-3 space-y-1">
-                        <a href="#"
+                        <a href="profile.html"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
                             <i class="ph ph-user text-lg text-slate-400"></i> Hồ sơ cá nhân
                         </a>
-                        <a href="#"
+                        <a href="borrow-history.html"
                             class="flex items-center justify-between px-4 py-2.5 text-sm font-medium bg-primary-50 text-primary-700 rounded-xl transition-colors">
                             <div class="flex items-center gap-3">
                                 <i class="ph ph-books text-lg"></i> Quản lý Mượn/Trả
@@ -189,16 +193,16 @@
                             <span id="borrow-history-active-nav-count"
                                 class="w-5 h-5 rounded-full bg-primary-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
                         </a>
-                        <a href="#"
+                        <a href="favorites.html"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
                             <i class="ph ph-heart text-lg text-slate-400"></i> Sách yêu thích
                         </a>
-                        <a href="#"
+                        <a href="notifications.html"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
                             <i class="ph ph-bell-ringing text-lg text-slate-400"></i> Thông báo
                         </a>
                         <div class="h-px bg-slate-100 my-2 mx-4"></div>
-                        <a href="#"
+                        <a id="borrowHistoryLogoutBtn" href="#"
                             class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
                             <i class="ph ph-sign-out text-lg text-rose-400"></i> Đăng xuất
                         </a>

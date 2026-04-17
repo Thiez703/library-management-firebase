@@ -21,54 +21,83 @@
         }
     </script>
 </head>
-<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen">
-    <nav id="site-navbar" class="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <a href="index.html" class="font-bold text-xl">Lib<span class="text-primary-600">Space</span></a>
-            <a href="catalog.html" class="text-sm text-slate-600 hover:text-primary-600">Tiếp tục chọn sách</a>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen relative overflow-x-hidden">
+    <div class="pointer-events-none absolute inset-0 -z-10">
+        <div class="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-primary-200/40 blur-3xl"></div>
+        <div class="absolute -bottom-24 -right-20 w-80 h-80 rounded-full bg-rose-200/30 blur-3xl"></div>
+    </div>
+
+    <nav id="site-navbar" class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="index.html" class="font-bold text-xl tracking-tight">Lib<span class="text-primary-600">Space</span></a>
+            <a href="catalog.html" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary-200 bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 hover:border-primary-300 transition-colors shadow-sm" title="Quay lại kho học liệu">
+                <i class="ph ph-book-open"></i>
+                Tiếp tục chọn sách
+            </a>
         </div>
     </nav>
 
-    <main id="cartPageRoot" class="max-w-6xl mx-auto px-4 py-8">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <section class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5">
-                <div class="flex items-center justify-between mb-4">
-                    <h1 class="text-xl font-bold">Giỏ mượn của bạn</h1>
-                    <span class="text-xs px-2 py-1 rounded-full bg-primary-50 text-primary-700">Tối đa 5 cuốn</span>
-                </div>
+    <main id="cartPageRoot" class="flex-1 w-full px-4 py-8 md:py-12 flex items-center justify-center">
+        <div class="w-full max-w-5xl">
+            <div class="text-center mb-6 md:mb-8">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Quản lý đăng ký mượn</p>
+                <h1 class="text-3xl md:text-4xl font-black tracking-tight text-slate-900 mt-2">Giỏ mượn của bạn</h1>
+                <p class="text-slate-500 mt-2">Xem lại đầu sách đã chọn và hoàn tất thông tin trước khi gửi phiếu mượn.</p>
+            </div>
 
-                <div id="cartEmpty" class="hidden text-center py-10 text-slate-500">
-                    Giỏ mượn đang trống.
-                </div>
-
-                <div id="cartList" class="space-y-3"></div>
-            </section>
-
-            <section class="bg-white border border-slate-200 rounded-2xl p-5 space-y-4">
-                <h2 class="text-lg font-bold">Thông tin đăng ký</h2>
-
-                <div id="checkoutLocked" class="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
-                    Bạn cần đăng nhập để gửi phiếu mượn.
-                </div>
-
-                <form id="checkoutForm" class="hidden space-y-3">
-                    <div>
-                        <label class="text-sm font-medium text-slate-700">Họ và tên</label>
-                        <input id="checkoutFullName" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white/75 backdrop-blur-sm border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/60 p-4 md:p-6">
+                <section class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 md:p-6 min-h-[340px]">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">Danh sách sách mượn</h2>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 font-semibold">Tối đa 5 cuốn</span>
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
-                        <input id="checkoutPhone" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+
+                    <div class="h-px bg-slate-100 mb-4"></div>
+
+                    <div id="cartEmpty" class="hidden text-center py-16 text-slate-500">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <i class="ph ph-books text-2xl"></i>
+                        </div>
+                        Giỏ mượn đang trống.
                     </div>
-                    <div>
-                        <label class="text-sm font-medium text-slate-700">Số CCCD</label>
-                        <input id="checkoutCccd" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+
+                    <div id="cartList" class="space-y-3"></div>
+                </section>
+
+                <section class="bg-gradient-to-b from-white to-slate-50 border border-slate-200 rounded-2xl p-5 md:p-6 space-y-4">
+                    <h2 class="text-lg font-bold">Thông tin đăng ký</h2>
+                    <p class="text-sm text-slate-500">Điền thông tin để thư viện xác nhận và tạo mã phiếu mượn.</p>
+
+                    <div id="checkoutLocked" class="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                        Bạn cần đăng nhập để gửi phiếu mượn.
                     </div>
-                    <button id="checkoutBtn" type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5 transition-colors">
-                        Xác nhận đăng ký mượn
-                    </button>
-                </form>
-            </section>
+
+                    <form id="checkoutForm" class="hidden space-y-3">
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Họ và tên</label>
+                            <input id="checkoutFullName" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
+                            <input id="checkoutPhone" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Số CCCD</label>
+                            <input id="checkoutCccd" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                        </div>
+                        <button id="checkoutBtn" type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5 transition-colors shadow-lg shadow-primary-500/20">
+                            Xác nhận đăng ký mượn
+                        </button>
+                    </form>
+                </section>
+            </div>
+
+            <div class="text-center mt-5">
+                <a href="catalog.html" class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
+                    <i class="ph ph-arrow-left"></i>
+                    Quay lại kho học liệu
+                </a>
+            </div>
         </div>
     </main>
 

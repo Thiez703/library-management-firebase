@@ -2,6 +2,7 @@ import { auth, db } from './firebase-config.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { autoCleanup, cleanupLegacyBorrowRecords, getTicketStatusView, subscribeUserTickets } from './borrow.js';
+import { signOutUser } from './auth.js';
 
 const formatDate = (tsLike) => {
     if (!tsLike || typeof tsLike.toDate !== 'function') return '--';
@@ -229,6 +230,17 @@ const bindTabs = () => {
     });
 };
 
+const bindSidebarActions = () => {
+    const logoutBtn = document.getElementById('borrowHistoryLogoutBtn');
+    if (logoutBtn && logoutBtn.dataset.bound !== '1') {
+        logoutBtn.dataset.bound = '1';
+        logoutBtn.addEventListener('click', async (event) => {
+            event.preventDefault();
+            await signOutUser();
+        });
+    }
+};
+
 const initBorrowHistory = async () => {
     const root = document.querySelector('[data-mock-books="borrow-history-list"]');
     if (!root) return;
@@ -243,6 +255,7 @@ const initBorrowHistory = async () => {
     }
 
     bindTabs();
+    bindSidebarActions();
     setActiveTab('borrowing');
     historyState.tickets = [];
 

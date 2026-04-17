@@ -1,29 +1,10 @@
 import { db, storage } from './firebase-config.js';
 import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, limit, startAfter, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
+import { showToast, showConfirm } from './notify.js';
 
 const getElem = (id) => document.getElementById(id);
 const MAX_BOOK_QUANTITY = 3000;
-
-// --- 1. Toast Thông báo (Cải tiến) ---
-const showToast = (message, type = 'success') => {
-    const container = getElem('toast-container');
-    if (!container) return { update: () => {}, close: () => {} };
-    
-    const toast = document.createElement('div');
-    const bg = type === 'success' ? 'bg-emerald-500' : (type === 'info' ? 'bg-blue-500' : 'bg-rose-500');
-    toast.className = `${bg} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in mb-3 transition-all z-[100]`;
-    toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-info-circle'} text-xl"></i><span class="msg-text text-sm font-semibold">${message}</span>`;
-    
-    container.appendChild(toast);
-    const close = () => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); };
-    if (type !== 'info') setTimeout(close, 3000);
-    
-    return { 
-        update: (newMsg) => { const txt = toast.querySelector('.msg-text'); if(txt) txt.innerText = newMsg; },
-        close
-    };
-};
 
 // --- 2. Khởi tạo Trang ---
 let adminAllBooks = [];
@@ -286,11 +267,20 @@ window.editBookAction = async (id) => {
 };
 
 window.deleteBookAction = async (id, title) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa sách "${title}"?`)) {
-        try {
-            await deleteDoc(doc(db, 'books', id));
-            showToast("Đã xóa sách thành công.");
-        } catch (e) { showToast("Lỗi khi xóa sách", "error"); }
+    const ok = await showConfirm(`Bạn có chắc chắn muốn xóa sách "${title}"?`, {
+        title: 'Xác nhận xóa sách',
+        confirmText: 'Xóa sách',
+        cancelText: 'Hủy',
+        type: 'warning'
+    });
+
+    if (!ok) return;
+
+    try {
+        await deleteDoc(doc(db, 'books', id));
+        showToast("Đã xóa sách thành công.");
+    } catch (e) {
+        showToast("Lỗi khi xóa sách", "error");
     }
 };
 

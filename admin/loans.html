@@ -62,28 +62,55 @@
                     </button>
                 </div>
 
-                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left whitespace-nowrap">
-                            <thead>
-                                <tr class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
-                                    <th class="px-6 py-4">Mã phiếu</th>
-                                    <th class="px-6 py-4">Độc giả</th>
-                                    <th class="px-6 py-4">Sách</th>
-                                    <th class="px-6 py-4">Ngày đăng ký</th>
-                                    <th class="px-6 py-4">Hạn trả</th>
-                                    <th class="px-6 py-4">Trạng thái</th>
-                                    <th class="px-6 py-4 text-right">Thao tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="loanTableBody" class="divide-y divide-slate-100 text-sm">
-                                <tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
+                <div id="loanCardsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+                    <div class="xl:col-span-3 md:col-span-2 rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">Đang tải dữ liệu...</div>
                 </div>
             </div>
         </main>
+    </div>
+
+    <div id="loanDetailModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
+        <div class="max-w-3xl mx-auto mt-12 bg-white rounded-2xl shadow-2xl p-6">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h3 class="text-xl font-bold text-slate-800">Chi tiết phiếu mượn</h3>
+                    <p class="text-sm text-slate-500 mt-1">Mã phiếu: <span id="detailRecordId" class="font-mono text-slate-700">--</span></p>
+                </div>
+                <button id="closeLoanDetailModalBtn" type="button" class="w-9 h-9 rounded-lg border border-slate-200 text-slate-500 hover:text-slate-700 hover:bg-slate-50">
+                    <i class="ph ph-x"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-5">
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <p class="text-xs uppercase tracking-wider text-slate-400">Độc giả</p>
+                    <p id="detailReaderName" class="text-sm font-semibold text-slate-800 mt-1">--</p>
+                    <p id="detailReaderPhone" class="text-sm text-slate-600 mt-1">--</p>
+                    <p id="detailReaderCccd" class="text-xs text-slate-500 mt-1">--</p>
+                </div>
+                <div class="rounded-xl border border-slate-200 p-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-400">Ngày đăng ký</p>
+                            <p id="detailRequestDate" class="text-sm font-medium text-slate-700 mt-1">--</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wider text-slate-400">Hạn trả</p>
+                            <p id="detailDueDate" class="text-sm font-medium text-slate-700 mt-1">--</p>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <p class="text-xs uppercase tracking-wider text-slate-400">Trạng thái</p>
+                        <div class="mt-1"><span id="detailStatus" class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">--</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-5">
+                <p class="text-sm font-semibold text-slate-700 mb-3">Danh sách sách trong phiếu</p>
+                <div id="detailBookList" class="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[360px] overflow-y-auto pr-1"></div>
+            </div>
+        </div>
     </div>
 
     <div id="returnModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
@@ -106,6 +133,24 @@
                 <div class="flex justify-end gap-2 pt-2">
                     <button id="closeReturnModalBtn" type="button" class="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600">Đóng</button>
                     <button type="submit" class="px-4 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-semibold">Xác nhận hoàn tất trả sách</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="handoverModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
+        <div class="max-w-md mx-auto mt-24 bg-white rounded-2xl shadow-2xl p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-1">Bàn giao sách</h3>
+            <p class="text-sm text-slate-500 mb-4">Nhập ghi chú tình trạng sách trước khi xác nhận bàn giao.</p>
+
+            <form id="handoverForm" class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700">Ghi chú tình trạng sách</label>
+                    <textarea id="handoverNote" rows="3" placeholder="Ví dụ: Sách mới, không rách, không ghi chú tay..." class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="closeHandoverModalBtn" type="button" class="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600">Đóng</button>
+                    <button type="submit" class="px-4 py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Xác nhận bàn giao</button>
                 </div>
             </form>
         </div>

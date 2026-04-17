@@ -12,6 +12,7 @@ import {
     getDocs,
     limit
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { showToast } from './notify.js';
 
 // DOM Elements
 const getElem = (id) => document.getElementById(id);
@@ -42,22 +43,6 @@ const state = {
 };
 
 // --- UI Helpers (Toast & Confirm) ---
-
-const showToast = (message, type = 'success') => {
-    const container = getElem('toast-container');
-    if (!container) return;
-    const toast = document.createElement('div');
-    const bgColor = type === 'success' ? 'bg-emerald-500' : 'bg-rose-500';
-    const icon = type === 'success' ? 'ph-check-circle' : 'ph-x-circle';
-    toast.className = `${bgColor} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in transition-all`;
-    toast.innerHTML = `<i class="ph-fill ${icon} text-xl"></i><span class="text-sm font-semibold">${message}</span>`;
-    container.appendChild(toast);
-    setTimeout(() => {
-        toast.style.opacity = '0';
-        toast.style.transform = 'translateX(20px)';
-        setTimeout(() => toast.remove(), 300);
-    }, 3000);
-};
 
 const showConfirmModal = (message, onConfirm) => {
     const modal = getElem('deleteConfirmModal');

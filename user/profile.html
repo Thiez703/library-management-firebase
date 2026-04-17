@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hồ Sơ Cá Nhân - LibSpace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+    <nav id="site-navbar" class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <a href="index.html" class="text-xl font-bold text-slate-800">Lib<span class="text-primary-600">Space</span></a>
+                <div class="hidden md:flex space-x-8 items-center">
+                    <a href="index.html" class="text-slate-500 hover:text-slate-900 font-medium">Trang chủ</a>
+                    <a href="catalog.html" class="text-slate-500 hover:text-slate-900 font-medium">Kho học liệu</a>
+                    <a href="borrow-history.html" class="text-slate-500 hover:text-slate-900 font-medium">Mượn/Trả</a>
+                    <a href="profile.html" class="text-primary-600 font-medium border-b-2 border-primary-600">Hồ sơ</a>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 flex-1">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900">Hồ sơ cá nhân</h1>
+            <p class="text-slate-500 mt-2">Thông tin tài khoản và trạng thái thành viên của bạn.</p>
+        </header>
+
+        <section class="bg-white border border-slate-200 rounded-2xl p-6 space-y-6">
+            <div class="flex items-center gap-4">
+                <img src="../assets/images/avatar-placeholder.svg" alt="Avatar" class="w-20 h-20 rounded-full border border-slate-200 object-cover">
+                <div>
+                    <p class="text-lg font-semibold text-slate-800">Thông tin độc giả</p>
+                    <p class="text-sm text-slate-500">Dữ liệu sẽ đồng bộ theo tài khoản đăng nhập.</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Họ và tên</p>
+                    <p class="mt-1 font-medium text-slate-800">Đang cập nhật từ hệ thống</p>
+                </div>
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Email</p>
+                    <p class="mt-1 font-medium text-slate-800">Đang cập nhật từ hệ thống</p>
+                </div>
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Vai trò</p>
+                    <p class="mt-1 font-medium text-slate-800">Độc giả</p>
+                </div>
+                <div class="p-4 rounded-xl border border-slate-200 bg-slate-50">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Trạng thái</p>
+                    <p class="mt-1 font-medium text-emerald-700">Đang hoạt động</p>
+                </div>
+            </div>
+
+            <a href="borrow-history.html" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors">
+                <i class="ph ph-clock-counter-clockwise"></i>
+                Xem lịch sử mượn trả
+            </a>
+        </section>
+    </main>
+
+    <script type="module" src="../assets/js/auth.js"></script>
+</body>
+</html>

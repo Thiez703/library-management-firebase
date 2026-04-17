@@ -7,6 +7,8 @@ const state = {
     tickets: [],
     activeTab: 'pending',
     search: '',
+    selectedApproveId: '',
+    selectedDetailId: '',
     selectedReturnId: ''
 };
 
@@ -65,67 +67,106 @@ const renderCounts = () => {
 };
 
 const renderRows = () => {
-    const body = getElem('loanTableBody');
-    if (!body) return;
+    const container = getElem('loanCardsContainer');
+    if (!container) return;
 
     const rows = getFiltered();
 
     if (!rows.length) {
-        body.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-500">Không có dữ liệu phù hợp.</td></tr>';
+        container.innerHTML = `
+            <div class="xl:col-span-3 md:col-span-2 rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">
+                Không có dữ liệu phù hợp.
+            </div>
+        `;
         return;
     }
 
-    body.innerHTML = rows.map((ticket) => {
+    container.innerHTML = rows.map((ticket) => {
         const books = Array.isArray(ticket.books) ? ticket.books : [];
-        const booksText = books.slice(0, 2).map((b) => escapeHtml(b.title)).join(', ');
-        const more = books.length > 2 ? ` +${books.length - 2}` : '';
+        const firstBook = books[0]?.title || '--';
         const dueMs = toMs(ticket.dueDate);
         const daysLeft = dueMs ? Math.ceil((dueMs - Date.now()) / (1000 * 60 * 60 * 24)) : null;
         const statusView = getTicketStatusView(ticket);
 
-        let statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Đã huỷ</span>';
-        if (ticket.status === 'pending') statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Chờ duyệt</span>';
-        if (statusView === 'borrowing') statusHtml = `<span class="px-2 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Đang mượn (${daysLeft ?? '--'} ngày)</span>`;
-        if (statusView === 'overdue') statusHtml = '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700">Quá hạn</span>';
+        let statusHtml = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Đã huỷ</span>';
+        if (ticket.status === 'pending') statusHtml = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Chờ duyệt</span>';
+        if (statusView === 'borrowing') statusHtml = `<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Đang mượn (${daysLeft ?? '--'} ngày)</span>`;
+        if (statusView === 'overdue') statusHtml = '<span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700">Quá hạn</span>';
 
         let actionHtml = '-';
         if (ticket.status === 'pending') {
-            actionHtml = `<button data-approve="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100">Bàn giao sách</button>`;
+            actionHtml = `<button data-approve="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100">Bàn giao sách</button>`;
         } else if (statusView === 'borrowing' || statusView === 'overdue') {
-            actionHtml = `<button data-return="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả sách</button>`;
+            actionHtml = `<button data-return="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả sách</button>`;
         }
 
         return `
-            <tr class="hover:bg-slate-50/80 transition-colors">
-                <td class="px-6 py-4 font-mono text-xs text-slate-500">${escapeHtml(ticket.recordId || ticket.id)}</td>
-                <td class="px-6 py-4">
-                    <p class="font-medium text-slate-800">${escapeHtml(ticket.userDetails?.fullName || '--')}</p>
-                    <p class="text-xs text-slate-500">${escapeHtml(ticket.userDetails?.phone || '--')}</p>
-                    <p class="text-xs text-slate-500">CCCD: ${escapeHtml(ticket.userDetails?.cccd || '--')}</p>
-                </td>
-                <td class="px-6 py-4 text-slate-700">${booksText}${more}</td>
-                <td class="px-6 py-4 text-slate-500">${formatDate(ticket.requestDate)}</td>
-                <td class="px-6 py-4 text-slate-500">${formatDate(ticket.dueDate)}</td>
-                <td class="px-6 py-4">${statusHtml}</td>
-                <td class="px-6 py-4 text-right">${actionHtml}</td>
-            </tr>
+            <article class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow h-full min-h-[300px] flex flex-col">
+                <div class="flex items-start justify-between gap-2">
+                    <p class="font-mono text-sm font-semibold text-slate-700 truncate">${escapeHtml(ticket.recordId || ticket.id)}</p>
+                    ${statusHtml}
+                </div>
+
+                <div class="mt-3 space-y-2">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider text-slate-400">Độc giả</p>
+                        <p class="font-semibold text-slate-900 truncate">${escapeHtml(ticket.userDetails?.fullName || '--')}</p>
+                        <p class="text-sm text-slate-600 truncate">${escapeHtml(ticket.userDetails?.phone || '--')}</p>
+                    </div>
+
+                    <div>
+                        <p class="text-xs uppercase tracking-wider text-slate-400">Sách</p>
+                        <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(firstBook)}</p>
+                        <p class="text-xs text-slate-500 mt-1">${books.length} cuốn</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="rounded-lg bg-slate-50 p-2">
+                            <p class="text-slate-400">Ngày đăng ký</p>
+                            <p class="font-medium text-slate-700 mt-1">${formatDate(ticket.requestDate)}</p>
+                        </div>
+                        <div class="rounded-lg bg-slate-50 p-2">
+                            <p class="text-slate-400">Hạn trả</p>
+                            <p class="font-medium text-slate-700 mt-1">${formatDate(ticket.dueDate)}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-auto pt-3 border-t border-slate-100 flex flex-wrap gap-2">
+                    <button data-view="${ticket.id}" class="flex-1 min-w-[120px] px-3 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem chi tiết</button>
+                    ${actionHtml !== '-' ? actionHtml.replace('px-3.5 py-2', 'flex-1 min-w-[120px] px-3 py-2') : ''}
+                </div>
+            </article>
         `;
     }).join('');
 
-    body.querySelectorAll('[data-approve]').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-            const id = btn.getAttribute('data-approve');
-            const note = window.prompt('Ghi chú tình trạng sách khi bàn giao:', '') || '';
-            try {
-                await approveTicket(id, note);
-                showToast('Đã chuyển phiếu sang trạng thái đang mượn.', 'success');
-            } catch (err) {
-                showToast(err.message || 'Không thể bàn giao sách.', 'error');
-            }
+    container.querySelectorAll('[data-view]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-view');
+            if (!id) return;
+
+            const ticket = state.tickets.find((t) => t.id === id);
+            if (!ticket) return;
+
+            state.selectedDetailId = id;
+            renderDetailModal(ticket);
+            getElem('loanDetailModal')?.classList.remove('hidden');
         });
     });
 
-    body.querySelectorAll('[data-return]').forEach((btn) => {
+    container.querySelectorAll('[data-approve]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-approve');
+            if (!id) return;
+
+            state.selectedApproveId = id;
+            const noteInput = getElem('handoverNote');
+            if (noteInput) noteInput.value = '';
+            getElem('handoverModal')?.classList.remove('hidden');
+        });
+    });
+
+    container.querySelectorAll('[data-return]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-return');
             const ticket = state.tickets.find((t) => t.id === id);
@@ -143,6 +184,62 @@ const renderRows = () => {
             getElem('returnModal')?.classList.remove('hidden');
         });
     });
+};
+
+const renderDetailModal = (ticket) => {
+    const books = Array.isArray(ticket?.books) ? ticket.books : [];
+    const statusView = getTicketStatusView(ticket || {});
+
+    getElem('detailRecordId').textContent = ticket?.recordId || ticket?.id || '--';
+    getElem('detailReaderName').textContent = ticket?.userDetails?.fullName || '--';
+    getElem('detailReaderPhone').textContent = ticket?.userDetails?.phone || '--';
+    getElem('detailReaderCccd').textContent = ticket?.userDetails?.cccd || '--';
+    getElem('detailRequestDate').textContent = formatDate(ticket?.requestDate);
+    getElem('detailDueDate').textContent = formatDate(ticket?.dueDate);
+
+    const statusEl = getElem('detailStatus');
+    if (statusEl) {
+        statusEl.className = 'inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700';
+        statusEl.textContent = 'Đã huỷ';
+        if (ticket?.status === 'pending') {
+            statusEl.className = 'inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700';
+            statusEl.textContent = 'Chờ duyệt';
+        }
+        if (statusView === 'borrowing') {
+            statusEl.className = 'inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700';
+            statusEl.textContent = 'Đang mượn';
+        }
+        if (statusView === 'overdue') {
+            statusEl.className = 'inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700';
+            statusEl.textContent = 'Quá hạn';
+        }
+        if (ticket?.status === 'returned') {
+            statusEl.className = 'inline-flex px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700';
+            statusEl.textContent = 'Đã trả';
+        }
+    }
+
+    const list = getElem('detailBookList');
+    if (!list) return;
+
+    if (!books.length) {
+        list.innerHTML = '<p class="text-sm text-slate-500">Không có dữ liệu sách trong phiếu.</p>';
+        return;
+    }
+
+    list.innerHTML = books.map((book, index) => {
+        const cover = book?.coverUrl || '../assets/images/book-cover-placeholder-gray.svg';
+        return `
+            <div class="flex items-center gap-3 rounded-xl border border-slate-200 p-3">
+                <img src="${escapeHtml(cover)}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" alt="Bìa sách" class="w-12 h-16 rounded-md border border-slate-200 object-cover">
+                <div class="min-w-0">
+                    <p class="text-xs text-slate-400">Sách #${index + 1}</p>
+                    <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(book?.title || '--')}</p>
+                    <p class="text-xs text-slate-500 truncate">${escapeHtml(book?.author || 'Tác giả chưa cập nhật')}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
 };
 
 const renderAll = () => {
@@ -173,6 +270,32 @@ const bindUI = () => {
         getElem('returnModal')?.classList.add('hidden');
     });
 
+    getElem('closeHandoverModalBtn')?.addEventListener('click', () => {
+        getElem('handoverModal')?.classList.add('hidden');
+        state.selectedApproveId = '';
+    });
+
+    getElem('closeLoanDetailModalBtn')?.addEventListener('click', () => {
+        getElem('loanDetailModal')?.classList.add('hidden');
+        state.selectedDetailId = '';
+    });
+
+    getElem('handoverForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.selectedApproveId) return;
+
+        const note = getElem('handoverNote')?.value || '';
+
+        try {
+            await approveTicket(state.selectedApproveId, note);
+            showToast('Đã chuyển phiếu sang trạng thái đang mượn.', 'success');
+            getElem('handoverModal')?.classList.add('hidden');
+            state.selectedApproveId = '';
+        } catch (err) {
+            showToast(err.message || 'Không thể bàn giao sách.', 'error');
+        }
+    });
+
     getElem('returnForm')?.addEventListener('submit', async (e) => {
         e.preventDefault();
         if (!state.selectedReturnId) return;
@@ -192,11 +315,19 @@ const bindUI = () => {
 };
 
 const initAdminLoans = async () => {
-    if (!getElem('loanTableBody')) return;
+    const hasLegacyTable = !!getElem('loanTableBody');
+    const hasCardContainer = !!getElem('loanCardsContainer');
+    if (!hasLegacyTable && !hasCardContainer) return;
 
     bindUI();
-    await cleanupLegacyBorrowRecords();
-    await autoCleanup();
+
+    // Do not block ticket subscription if cleanup tasks fail.
+    try {
+        await cleanupLegacyBorrowRecords();
+        await autoCleanup();
+    } catch (err) {
+        console.warn('Borrow cleanup failed, continuing to load tickets:', err);
+    }
 
     subscribeAllTickets((rows) => {
         state.tickets = rows;

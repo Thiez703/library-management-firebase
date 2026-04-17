@@ -2,6 +2,7 @@ import { auth, db } from './firebase-config.js';
 import { signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { initFavoriteFeature } from './favorites.js';
+import { showToast as notifyToast, showConfirm } from './notify.js';
 
 const googleProvider = new GoogleAuthProvider();
 const getAuthSlot = () => document.querySelector('[data-auth-slot]');
@@ -35,21 +36,7 @@ const applyMainNavActiveState = () => {
 };
 
 // --- THÔNG BÁO (TOAST) ---
-export const showToast = (message, type = 'success') => {
-    let toast = document.getElementById('auth-toast');
-    if (!toast) {
-        toast = document.createElement('div');
-        toast.id = 'auth-toast';
-        document.body.appendChild(toast);
-    }
-    const bgColor = type === 'success' ? '#10b981' : '#f43f5e';
-    toast.style.cssText = `position: fixed; top: 24px; right: 24px; background: ${bgColor}; color: white; padding: 16px 24px; border-radius: 12px; z-index: 99999; font-family: 'Inter', sans-serif; font-weight: 600; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); transition: all 0.4s; opacity: 1; display: flex; align-items: center; gap: 12px;`;
-    toast.innerHTML = `<span>${type === 'success' ? '✨' : '⚠️'}</span> <span>${message}</span>`;
-    
-    setTimeout(() => { toast.style.opacity = '0'; }, 3000);
-    setTimeout(() => { if (toast.parentNode) toast.style.display = 'none'; }, 3400);
-    toast.style.display = 'flex';
-};
+export const showToast = (message, type = 'success', options = {}) => notifyToast(message, type, options);
 
 // --- LOGIC TÀI KHOẢN ---
 export const checkAuthState = (callback) => {
@@ -171,7 +158,14 @@ export const signUp = async (email, password, displayName) => {
 };
 
 export const signOutUser = async () => {
-    if(!confirm("Bạn muốn đăng xuất?")) return;
+    const ok = await showConfirm('Bạn muốn đăng xuất?', {
+        title: 'Xác nhận đăng xuất',
+        confirmText: 'Đăng xuất',
+        cancelText: 'Ở lại',
+        type: 'warning'
+    });
+    if (!ok) return;
+
     localStorage.removeItem('lib_user');
     await signOut(auth);
     showToast('Hẹn gặp lại bạn nhé! 👋');

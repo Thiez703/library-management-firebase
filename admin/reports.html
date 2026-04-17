@@ -172,11 +172,11 @@
                             cáo chi tiết về hoạt động thư viện.</p>
                     </div>
                     <div class="flex gap-2">
-                        <input type="date" title="Ngày bắt đầu"
+                        <input id="reportStartDate" type="date" title="Ngày bắt đầu"
                             class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
-                        <input type="date" title="Ngày kết thúc"
+                        <input id="reportEndDate" type="date" title="Ngày kết thúc"
                             class="px-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
-                        <button
+                        <button id="exportReportPdfBtn"
                             class="px-5 py-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg transition-all">
                             <i class="ph ph-download mr-2"></i>Xuất PDF
                         </button>
@@ -190,9 +190,8 @@
                             <div class="flex-1">
                                 <p class="text-xs font-semibold text-slate-500 uppercase">Tổng
                                     Giao Dịch</p>
-                                <p class="text-3xl font-bold text-slate-800 mt-2">8,945</p>
-                                <p class="text-xs text-slate-400 mt-2">Tháng
-                                    này</p>
+                                <p id="statTotalTransactions" class="text-3xl font-bold text-slate-800 mt-2">0</p>
+                                <p id="statTotalTransactionsSub" class="text-xs text-slate-400 mt-2">Trong khoảng lọc</p>
                             </div>
                             <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                                 <i class="ph ph-arrows-left-right text-blue-600 text-lg"></i>
@@ -205,10 +204,8 @@
                             <div class="flex-1">
                                 <p class="text-xs font-semibold text-slate-500 uppercase">Độc
                                     Giả Mới</p>
-                                <p class="text-3xl font-bold text-slate-800 mt-2">523</p>
-                                <p class="text-xs text-emerald-600 font-medium mt-2"><i
-                                        class="ph ph-trend-up inline mr-1"></i>+12%
-                                    so với tháng trước</p>
+                                <p id="statNewReaders" class="text-3xl font-bold text-slate-800 mt-2">0</p>
+                                <p id="statNewReadersSub" class="text-xs text-slate-500 font-medium mt-2">So với kỳ trước: --</p>
                             </div>
                             <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center">
                                 <i class="ph ph-user-plus text-emerald-600 text-lg"></i>
@@ -221,10 +218,8 @@
                             <div class="flex-1">
                                 <p class="text-xs font-semibold text-slate-500 uppercase">Sách
                                     Quá Hạn</p>
-                                <p class="text-3xl font-bold text-rose-600 mt-2">154</p>
-                                <p class="text-xs text-rose-600 font-medium mt-2"><i
-                                        class="ph ph-trend-up inline mr-1"></i>+8%
-                                    so với tuần trước</p>
+                                <p id="statOverdueBooks" class="text-3xl font-bold text-rose-600 mt-2">0</p>
+                                <p id="statOverdueBooksSub" class="text-xs text-slate-500 font-medium mt-2">Sách đang quá hạn hiện tại</p>
                             </div>
                             <div class="w-10 h-10 bg-rose-100 rounded-lg flex items-center justify-center">
                                 <i class="ph ph-warning text-rose-600 text-lg"></i>
@@ -237,9 +232,8 @@
                             <div class="flex-1">
                                 <p class="text-xs font-semibold text-slate-500 uppercase">Tỉ
                                     Lệ Mượn</p>
-                                <p class="text-3xl font-bold text-orange-600 mt-2">78%</p>
-                                <p class="text-xs text-slate-400 mt-2">1,230
-                                    / 1,580 cuốn</p>
+                                <p id="statBorrowRate" class="text-3xl font-bold text-orange-600 mt-2">0%</p>
+                                <p id="statBorrowRateSub" class="text-xs text-slate-400 mt-2">0 / 0 cuốn</p>
                             </div>
                             <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center">
                                 <i class="ph ph-percent text-orange-600 text-lg"></i>
@@ -255,70 +249,10 @@
                         <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
                             <h3 class="font-bold text-slate-800">Độc Giả
                                 Mượn Nhiều Nhất</h3>
-                            <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">Chi
-                                tiết</a>
+                            <span class="text-sm text-slate-500 font-medium">Top 5</span>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm">
-                                        LN</div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800">Lê
-                                            Văn Nam</p>
-                                        <p class="text-xs text-slate-500">ID:
-                                            US-202401</p>
-                                    </div>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">45
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-sm">
-                                        TH</div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800">Trần
-                                            Thị Hoa</p>
-                                        <p class="text-xs text-slate-500">ID:
-                                            US-202115</p>
-                                    </div>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">38
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-sm">
-                                        PV</div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800">Phạm
-                                            Văn C</p>
-                                        <p class="text-xs text-slate-500">ID:
-                                            US-202289</p>
-                                    </div>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">32
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex items-center gap-3">
-                                    <div
-                                        class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center font-bold text-sm">
-                                        DT</div>
-                                    <div>
-                                        <p class="text-sm font-semibold text-slate-800">Đặng
-                                            Thị D</p>
-                                        <p class="text-xs text-slate-500">ID:
-                                            US-202334</p>
-                                    </div>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">29
-                                    lần</p>
-                            </div>
+                        <div id="topReadersList" class="divide-y divide-slate-100">
+                            <div class="px-6 py-6 text-sm text-slate-500">Đang tải dữ liệu...</div>
                         </div>
                     </div>
 
@@ -327,50 +261,10 @@
                         <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
                             <h3 class="font-bold text-slate-800">Sách Mượn
                                 Nhiều Nhất</h3>
-                            <a href="#" class="text-sm text-primary-600 hover:text-primary-700 font-medium">Chi
-                                tiết</a>
+                            <span class="text-sm text-slate-500 font-medium">Top 5</span>
                         </div>
-                        <div class="divide-y divide-slate-100">
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex-1">
-                                    <p class="text-sm font-semibold text-slate-800">Clean
-                                        Architecture</p>
-                                    <p class="text-xs text-slate-500">Robert
-                                        C. Martin</p>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">234
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex-1">
-                                    <p class="text-sm font-semibold text-slate-800">Nhà
-                                        Giả Kim</p>
-                                    <p class="text-xs text-slate-500">Paulo
-                                        Coelho</p>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">198
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex-1">
-                                    <p class="text-sm font-semibold text-slate-800">Mastering
-                                        Tailwind CSS</p>
-                                    <p class="text-xs text-slate-500">Mark
-                                        Otto</p>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">156
-                                    lần</p>
-                            </div>
-                            <div class="px-6 py-4 flex items-center justify-between hover:bg-slate-50/50">
-                                <div class="flex-1">
-                                    <p class="text-sm font-semibold text-slate-800">Dạo
-                                        Bước Trên Đường</p>
-                                    <p class="text-xs text-slate-500">Nguyễn
-                                        Nhật Ánh</p>
-                                </div>
-                                <p class="text-sm font-bold text-slate-800">142
-                                    lần</p>
-                            </div>
+                        <div id="topBooksList" class="divide-y divide-slate-100">
+                            <div class="px-6 py-6 text-sm text-slate-500">Đang tải dữ liệu...</div>
                         </div>
                     </div>
                 </div>
@@ -399,33 +293,9 @@
                                         Hạn</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 text-sm">
-                                <tr class="hover:bg-slate-50/80">
-                                    <td class="px-6 py-4 font-semibold">Tháng
-                                        3</td>
-                                    <td class="px-6 py-4 text-center">1,245</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">523</td>
-                                    <td class="px-6 py-4 text-center text-blue-600 font-semibold">8,920</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">8,766</td>
-                                    <td class="px-6 py-4 text-center text-rose-600 font-semibold">154</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/80">
-                                    <td class="px-6 py-4 font-semibold">Tháng
-                                        2</td>
-                                    <td class="px-6 py-4 text-center">1,156</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">456</td>
-                                    <td class="px-6 py-4 text-center text-blue-600 font-semibold">8,234</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">8,110</td>
-                                    <td class="px-6 py-4 text-center text-rose-600 font-semibold">124</td>
-                                </tr>
-                                <tr class="hover:bg-slate-50/80">
-                                    <td class="px-6 py-4 font-semibold">Tháng
-                                        1</td>
-                                    <td class="px-6 py-4 text-center">1,089</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">398</td>
-                                    <td class="px-6 py-4 text-center text-blue-600 font-semibold">7,856</td>
-                                    <td class="px-6 py-4 text-center text-emerald-600 font-semibold">7,712</td>
-                                    <td class="px-6 py-4 text-center text-rose-600 font-semibold">144</td>
+                            <tbody id="monthlyStatsBody" class="divide-y divide-slate-100 text-sm">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-6 text-center text-slate-500">Đang tải dữ liệu...</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -434,6 +304,7 @@
             </div>
         </main>
     </div>
+    <script type="module" src="../assets/js/reports.js"></script>
 </body>
 
 </html>
