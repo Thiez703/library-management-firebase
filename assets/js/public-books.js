@@ -2,6 +2,9 @@ import { db } from './firebase-config.js';
 import { collection, onSnapshot, query, orderBy, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { loadBooksPage, searchAndFilterClientSide } from './books.js';
 import { addToCart, ensureFloatingCartButton, showCartActionToast } from './cart.js';
+import { initFavoriteFeature, refreshFavoriteButtons } from './favorites.js';
+
+let addToCartClickBound = false;
 
 const initPublicBooks = () => {
     const featuredContainer = document.querySelector('[data-mock-books="featured"]');
@@ -12,6 +15,7 @@ const initPublicBooks = () => {
 
     console.log("Initializing Public Books...");
     ensureFloatingCartButton();
+    initFavoriteFeature();
 
     if (featuredContainer || newArrivalContainer) {
         const booksRef = collection(db, 'books');
@@ -228,6 +232,7 @@ function renderSection(container, books, badgeType) {
         container.classList.remove('hidden');
         if (loader && loader.classList.contains('text-center')) loader.classList.add('hidden');
         container.innerHTML = books.map((book, index) => createBookCardHTML(book, badgeType, index + 1)).join('');
+        refreshFavoriteButtons(container);
     } else {
         container.classList.add('hidden');
         if (loader && loader.classList.contains('text-center')) {
@@ -239,7 +244,7 @@ function renderSection(container, books, badgeType) {
 }
 
 function createBookCardHTML(book, badgeText, badgeValue) {
-    const fallbackCover = 'https://placehold.co/400x600/e2e8f0/64748b?text=No+Cover';
+    const fallbackCover = '../assets/images/book-cover-placeholder-gray.svg';
     const coverUrl = book.coverUrl || fallbackCover;
     const categoryName = book.categoryName || 'Sách';
     const author = book.author || 'Tác giả ẩn danh';
@@ -263,7 +268,7 @@ function createBookCardHTML(book, badgeText, badgeValue) {
     <div class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 h-full">
         <a href="book-detail.html?id=${book.id}" class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 flex items-center justify-center shrink-0">
             ${badgeHtml}
-            <img src="${coverUrl}" alt="${book.title}" onerror="this.src='https://placehold.co/400x600/e2e8f0/64748b?text=No+Cover'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
+            <img src="${coverUrl}" alt="${book.title}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
             <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                 <span class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all">Xem Chi Tiết</span>
             </div>
@@ -276,39 +281,60 @@ function createBookCardHTML(book, badgeText, badgeValue) {
                 <div class="flex items-center text-amber-400 text-xs md:text-sm">
                     <i class="ph-fill ph-star"></i><span class="text-slate-600 font-medium ml-1">${rating}</span>
                 </div>
-                <button
-                    data-add-cart="${book.id}"
-                    data-book-title="${(book.title || '').replace(/"/g, '&quot;')}"
-                    data-book-author="${(author || '').replace(/"/g, '&quot;')}"
-                    data-book-cover="${(coverUrl || '').replace(/"/g, '&quot;')}"
-                    data-book-price="${Number(book.price || 0)}"
-                    ${addDisabled ? 'disabled' : ''}
-                    class="px-3 h-8 rounded-full ${addBtnClass} flex items-center justify-center gap-1 text-xs font-semibold transition-colors"
-                    title="${addDisabled ? 'Hết sách' : 'Thêm vào giỏ mượn'}">
-                    <i class="ph-bold ${addDisabled ? 'ph-bell-slash' : 'ph-plus'}"></i>
-                    <span>${addDisabled ? 'Hết sách' : 'Thêm giỏ'}</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                        type="button"
+                        data-favorite-book="${book.id}"
+                        data-book-title="${(book.title || '').replace(/"/g, '&quot;')}"
+                        data-book-author="${(author || '').replace(/"/g, '&quot;')}"
+                        data-book-cover="${(coverUrl || '').replace(/"/g, '&quot;')}"
+                        data-book-category="${(categoryName || '').replace(/"/g, '&quot;')}"
+                        class="w-8 h-8 rounded-full border border-slate-300 bg-white text-slate-600 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 flex items-center justify-center transition-colors"
+                        title="Lưu vào yêu thích"
+                        aria-label="Lưu vào yêu thích">
+                        <i class="ph ph-heart text-sm"></i>
+                    </button>
+                    <button
+                        data-add-cart="${book.id}"
+                        data-book-title="${(book.title || '').replace(/"/g, '&quot;')}"
+                        data-book-author="${(author || '').replace(/"/g, '&quot;')}"
+                        data-book-cover="${(coverUrl || '').replace(/"/g, '&quot;')}"
+                        data-book-price="${Number(book.price || 0)}"
+                        ${addDisabled ? 'disabled' : ''}
+                        class="px-3 h-8 rounded-full ${addBtnClass} flex items-center justify-center gap-1 text-xs font-semibold transition-colors"
+                        title="${addDisabled ? 'Hết sách' : 'Thêm vào giỏ mượn'}">
+                        <i class="ph-bold ${addDisabled ? 'ph-bell-slash' : 'ph-plus'}"></i>
+                        <span>${addDisabled ? 'Hết sách' : 'Thêm giỏ'}</span>
+                    </button>
+                </div>
             </div>
         </div>
     </div>`;
 }
 
-document.addEventListener('click', (e) => {
-    const btn = e.target.closest('[data-add-cart]');
-    if (!btn) return;
-    if (btn.disabled) return;
+const bindAddToCartClicks = () => {
+    if (addToCartClickBound) return;
+    addToCartClickBound = true;
 
-    const payload = {
-        bookId: btn.getAttribute('data-add-cart'),
-        title: btn.getAttribute('data-book-title') || '',
-        author: btn.getAttribute('data-book-author') || '',
-        coverUrl: btn.getAttribute('data-book-cover') || '',
-        price: Number(btn.getAttribute('data-book-price') || 0)
-    };
+    document.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-add-cart]');
+        if (!btn) return;
+        if (btn.disabled) return;
 
-    const result = addToCart(payload);
-    showCartActionToast(result);
-});
+        const payload = {
+            bookId: btn.getAttribute('data-add-cart'),
+            title: btn.getAttribute('data-book-title') || '',
+            author: btn.getAttribute('data-book-author') || '',
+            coverUrl: btn.getAttribute('data-book-cover') || '',
+            price: Number(btn.getAttribute('data-book-price') || 0)
+        };
+
+        const result = addToCart(payload);
+        showCartActionToast(result);
+    });
+};
+
+bindAddToCartClicks();
 
 document.addEventListener('turbo:load', initPublicBooks);
 document.addEventListener('turbo:render', initPublicBooks);

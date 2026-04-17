@@ -85,5 +85,14 @@ export const ensureFloatingCartButton = () => {
 };
 
 export const showCartActionToast = (result) => {
+    const message = (result?.message || '').toLowerCase();
+    const isDuplicate = message.includes('đã có trong giỏ');
+
+    // Duplicate add is not a critical failure for users, show a positive toast.
+    if (isDuplicate) {
+        showToast('Sách đã có sẵn trong giỏ mượn.', 'success');
+        return;
+    }
+
     showToast(result.message, result.ok ? 'success' : 'error');
 };

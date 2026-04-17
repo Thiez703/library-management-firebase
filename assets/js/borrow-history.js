@@ -9,9 +9,15 @@ const formatDate = (tsLike) => {
 };
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
+const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
 
 let unsubscribeTickets = null;
 let unsubscribeAuth = null;
+
+const historyState = {
+    activeTab: 'borrowing',
+    tickets: []
+};
 
 const toMillis = (tsLike) => {
     if (!tsLike) return null;
@@ -37,7 +43,7 @@ const setHtml = (selector, value) => {
 
 const renderUserProfile = (user, userData) => {
     const displayName = formatFallback(userData?.displayName || user?.displayName || user?.email, 'Người dùng');
-    const avatarUrl = userData?.photoURL || user?.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+    const avatarUrl = userData?.photoURL || user?.photoURL || AVATAR_PLACEHOLDER;
     const accountLabel = userData?.memberCode || userData?.studentId || userData?.email || user?.email || user?.uid || 'Chưa cập nhật';
     const roleLabel = userData?.role === 'admin' ? 'Quản trị viên' : 'Độc giả';
 
@@ -45,6 +51,7 @@ const renderUserProfile = (user, userData) => {
     if (avatar) {
         avatar.src = avatarUrl;
         avatar.alt = displayName;
+        avatar.onerror = () => { avatar.src = AVATAR_PLACEHOLDER; };
     }
 
     setText('#borrow-history-name', displayName);
@@ -52,11 +59,19 @@ const renderUserProfile = (user, userData) => {
     setHtml('#borrow-history-role', `<i class="ph-fill ph-crown"></i> ${roleLabel}`);
 };
 
+const getTicketBucket = (ticket) => {
+    const view = getTicketStatusView(ticket);
+    if (ticket?.status === 'returned') return 'returned';
+    if (ticket?.status === 'pending' || view === 'overdue') return 'issues';
+    if (view === 'borrowing') return 'borrowing';
+    return 'others';
+};
+
 const renderStats = (tickets) => {
     const rows = Array.isArray(tickets) ? tickets : [];
-    const borrowing = rows.filter((ticket) => ticket.status === 'borrowing');
-    const returned = rows.filter((ticket) => ticket.status === 'returned');
-    const issues = rows.filter((ticket) => ticket.status === 'pending' || getTicketStatusView(ticket) === 'overdue');
+    const borrowing = rows.filter((ticket) => getTicketBucket(ticket) === 'borrowing');
+    const returned = rows.filter((ticket) => getTicketBucket(ticket) === 'returned');
+    const issues = rows.filter((ticket) => getTicketBucket(ticket) === 'issues');
 
     setText('#borrow-history-active-count', String(borrowing.length));
     setText('#borrow-history-active-nav-count', String(borrowing.length));
@@ -119,6 +134,22 @@ const isRealTicket = (ticket) => {
     return recordId.startsWith('LIB-') && hasUserDetails;
 };
 
+const setActiveTab = (tab) => {
+    historyState.activeTab = tab;
+    document.querySelectorAll('[data-borrow-tab]').forEach((button) => {
+        const isActive = button.getAttribute('data-borrow-tab') === tab;
+        button.classList.toggle('active', isActive);
+    });
+};
+
+const getVisibleTickets = () => historyState.tickets.filter((ticket) => getTicketBucket(ticket) === historyState.activeTab);
+
+const getEmptyMessage = () => {
+    if (historyState.activeTab === 'returned') return 'Bạn chưa có phiếu đã trả.';
+    if (historyState.activeTab === 'issues') return 'Không có phiếu vi phạm hoặc chờ xử lý.';
+    return 'Bạn chưa có phiếu đang mượn.';
+};
+
 const statusBadge = (ticket) => {
     const view = getTicketStatusView(ticket);
     if (ticket.status === 'pending') return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">Chờ duyệt</span>';
@@ -133,19 +164,25 @@ const renderTickets = (tickets) => {
     const empty = document.getElementById('borrow-history-empty');
     if (!list) return;
 
-    const realTickets = (Array.isArray(tickets) ? tickets : []).filter(isRealTicket);
-    renderStats(realTickets);
+    historyState.tickets = (Array.isArray(tickets) ? tickets : []).filter(isRealTicket);
+    renderStats(historyState.tickets);
 
-    if (!realTickets.length) {
+    const visibleTickets = getVisibleTickets();
+
+    if (!visibleTickets.length) {
         list.classList.add('hidden');
-        if (empty) empty.classList.remove('hidden');
+        if (empty) {
+            empty.classList.remove('hidden');
+            const emptyText = empty.querySelector('p');
+            if (emptyText) emptyText.textContent = getEmptyMessage();
+        }
         return;
     }
 
     if (empty) empty.classList.add('hidden');
     list.classList.remove('hidden');
 
-    list.innerHTML = realTickets.map((ticket) => {
+    list.innerHTML = visibleTickets.map((ticket) => {
         const books = Array.isArray(ticket.books) ? ticket.books : [];
         const bookLines = books.slice(0, 3).map((b) => `<li class="truncate">${b.title}</li>`).join('');
         const remain = books.length > 3 ? `<li>+${books.length - 3} sách khác</li>` : '';
@@ -176,6 +213,22 @@ const renderTickets = (tickets) => {
     }).join('');
 };
 
+const bindTabs = () => {
+    const tabButtons = Array.from(document.querySelectorAll('[data-borrow-tab]'));
+    if (!tabButtons.length) return;
+
+    tabButtons.forEach((button) => {
+        if (button.dataset.bound === '1') return;
+        button.dataset.bound = '1';
+
+        button.addEventListener('click', () => {
+            const tab = button.getAttribute('data-borrow-tab') || 'borrowing';
+            setActiveTab(tab);
+            renderTickets(historyState.tickets);
+        });
+    });
+};
+
 const initBorrowHistory = async () => {
     const root = document.querySelector('[data-mock-books="borrow-history-list"]');
     if (!root) return;
@@ -188,6 +241,10 @@ const initBorrowHistory = async () => {
         unsubscribeAuth();
         unsubscribeAuth = null;
     }
+
+    bindTabs();
+    setActiveTab('borrowing');
+    historyState.tickets = [];
 
     await cleanupLegacyBorrowRecords();
     await autoCleanup();

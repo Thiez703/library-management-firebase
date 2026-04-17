@@ -100,9 +100,9 @@
                     <button class="md:hidden text-slate-500 p-2" title="Tìm kiếm"><i
                             class="ph ph-magnifying-glass text-xl"></i></button>
                     <!-- Favorite List -->
-                    <button class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors">
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
                         <i class="ph ph-heart text-2xl"></i>
-                        <span
+                        <span data-favorite-count
                             class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">2</span>
                     </button>
                     <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
@@ -124,7 +124,7 @@
                             <div class="relative group">
                                 <button type="button"
                                     class="flex items-center gap-2 hover:bg-slate-50 py-1 pl-1 pr-3 rounded-full border border-slate-200 transition-colors">
-                                    <img data-auth-avatar src="https://i.pravatar.cc/100?img=1"
+                                    <img data-auth-avatar src="../assets/images/avatar-placeholder.svg"
                                         class="w-8 h-8 rounded-full border border-slate-200 object-cover"
                                         alt="User profile avatar">
                                     <i class="ph-bold ph-caret-down text-slate-400 text-xs"></i>
@@ -161,7 +161,7 @@
                     <!-- User Info Mini Profile -->
                     <div class="p-6 text-center border-b border-slate-100 bg-slate-50/50">
                         <div class="relative inline-block mb-3">
-                            <img id="borrow-history-avatar" src="https://i.pravatar.cc/100?img=1" alt="Avatar"
+                            <img id="borrow-history-avatar" src="../assets/images/avatar-placeholder.svg" alt="Avatar"
                                 class="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover">
                             <div
                                 class="absolute bottom-0 right-0 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full">
@@ -231,15 +231,18 @@
                 <!-- Tabs Navigation -->
                 <div class="flex border-b border-slate-200 mb-6">
                     <button
+                        data-borrow-tab="borrowing"
                         class="tab-btn active px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
                         Đang Mượn (<span id="borrow-history-active-count">2</span>)
                     </button>
                     <button
+                        data-borrow-tab="returned"
                         class="tab-btn px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors relative">
                         Đã Trả <span id="borrow-history-returned-count"
                             class="ml-1 text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold">14</span>
                     </button>
                     <button
+                        data-borrow-tab="issues"
                         class="tab-btn px-6 py-3 text-sm font-medium text-rose-500 hover:text-rose-600 transition-colors hidden sm:block">
                         Vi Phạm / Chờ Xử Lý (<span id="borrow-history-issue-count">0</span>)
                     </button>
@@ -313,7 +316,7 @@
                         <div class="p-5 flex gap-5 flex-1 items-start">
                             <div
                                 class="w-20 h-28 shrink-0 rounded bg-slate-100 shadow-sm border border-slate-200 overflow-hidden relative">
-                                <img src="../assets/images/book_cover_2.png" alt="Cover"
+                                <img src="../assets/images/book-cover-placeholder-gray.svg" alt="Cover"
                                     class="w-full h-full object-cover">
                             </div>
                             <div class="flex flex-col flex-1 h-full min-w-0">

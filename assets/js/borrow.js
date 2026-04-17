@@ -360,12 +360,18 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
         }
 
         const books = Array.isArray(record.books) ? record.books : [];
+        const bookReadResults = [];
+
         for (const item of books) {
             if (!item?.bookId) continue;
             const bookRef = doc(db, 'books', item.bookId);
             const bookSnap = await transaction.get(bookRef);
             if (!bookSnap.exists()) continue;
 
+            bookReadResults.push({ bookRef, bookSnap });
+        }
+
+        for (const { bookRef, bookSnap } of bookReadResults) {
             const currentQty = Number(bookSnap.data()?.availableQuantity || 0);
             const nextQty = currentQty + 1;
             transaction.update(bookRef, {

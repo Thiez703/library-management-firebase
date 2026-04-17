@@ -27,7 +27,7 @@ const renderCart = () => {
 
     list.innerHTML = items.map((item) => `
         <div class="flex items-center gap-3 border border-slate-200 rounded-xl p-3 bg-white">
-            <img src="${item.coverUrl || '../assets/images/book_cover_2.png'}" onerror="this.src='../assets/images/book_cover_2.png'" class="w-14 h-20 object-cover rounded-md border border-slate-200" alt="${item.title}">
+            <img src="${item.coverUrl || '../assets/images/book-cover-placeholder-gray.svg'}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-14 h-20 object-cover rounded-md border border-slate-200" alt="${item.title}">
             <div class="flex-1 min-w-0">
                 <p class="font-semibold text-slate-800 truncate">${item.title}</p>
                 <p class="text-sm text-slate-500 truncate">${item.author || 'Không rõ tác giả'}</p>

@@ -1,9 +1,11 @@
 import { auth, db } from './firebase-config.js';
 import { signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { initFavoriteFeature } from './favorites.js';
 
 const googleProvider = new GoogleAuthProvider();
 const getAuthSlot = () => document.querySelector('[data-auth-slot]');
+const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
 
 // --- LOGIC THANH ĐIỀU HƯỚNG (NAVBAR) ---
 const applyMainNavActiveState = () => {
@@ -89,7 +91,7 @@ const renderAuthUI = (userLike) => {
     if (!slot) return;
 
     if (userLike) {
-        const avatarUrl = userLike.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userLike.displayName)}&background=random`;
+        const avatarUrl = userLike.photoURL || AVATAR_PLACEHOLDER;
         slot.innerHTML = `
             <div class="flex items-center gap-3">
                 <div class="text-right hidden lg:block">
@@ -98,11 +100,12 @@ const renderAuthUI = (userLike) => {
                 </div>
                 <div class="relative group">
                     <button class="w-10 h-10 rounded-xl border-2 border-white shadow-sm overflow-hidden focus:ring-2 focus:ring-primary-500/20 transition-all">
-                        <img src="${avatarUrl}" class="w-full h-full object-cover">
+                        <img src="${avatarUrl}" onerror="this.src='${AVATAR_PLACEHOLDER}'" class="w-full h-full object-cover">
                     </button>
                     <div class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                         ${userLike.role === 'admin' ? `<a href="../admin/admin.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-layout mr-2"></i>Quản trị</a>` : ''}
                         <a href="borrow-history.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn</a>
+                        <a href="favorites.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-heart mr-2"></i>Sách yêu thích</a>
                         <hr class="my-2 border-slate-100">
                         <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-colors">
                             <i class="ph ph-sign-out mr-2"></i>Đăng xuất
@@ -181,6 +184,7 @@ export const signOutUser = async () => {
 const initAuth = () => {
     applyMainNavActiveState();
     renderAuthUI(getCachedUser());
+    initFavoriteFeature();
 
     // Password Toggle Logic
     const togglePasswordBtn = document.getElementById('togglePassword');

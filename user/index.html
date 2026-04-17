@@ -57,7 +57,10 @@
 
                 <!-- Actions -->
                 <div class="flex items-center gap-4">
-                    <button class="relative text-slate-500 hover:text-rose-500 p-2"><i class="ph ph-heart text-2xl"></i></button>
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
                     <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
                     <!-- Auth Logic will populate this -->
                     <div class="hidden sm:flex items-center gap-3" data-auth-slot></div>

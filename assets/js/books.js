@@ -107,7 +107,7 @@ const renderBooksTable = (docs, totalCount) => {
 
         return `
             <tr class="hover:bg-slate-50/80 transition-colors group">
-                <td class="px-3 py-2"><div class="w-10 h-14 rounded-md overflow-hidden bg-slate-100 border border-slate-200"><img src="${book.coverUrl || '../assets/images/book_cover_2.png'}" class="w-full h-full object-cover" onerror="this.src='../assets/images/book_cover_2.png'"></div></td>
+                <td class="px-3 py-2"><div class="w-10 h-14 rounded-md overflow-hidden bg-slate-100 border border-slate-200"><img src="${book.coverUrl || '../assets/images/book-cover-placeholder-gray.svg'}" class="w-full h-full object-cover" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'"></div></td>
                 <td class="px-3 py-2 font-semibold text-slate-800 truncate max-w-[200px]">${book.title}</td>
                 <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.author}</td>
                 <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.publisher || '--'}</td>
