@@ -112,10 +112,17 @@ const renderAuthUI = (userLike) => {
     }
 };
 
+const navigateToTarget = (role) => {
+    const isAuthPage = window.location.pathname.includes('login.html') || window.location.pathname.includes('register.html');
+    if (!isAuthPage) return;
+    window.location.replace(role === 'admin' ? '../admin/admin.html' : 'index.html');
+};
+
 export const signInWithGoogle = async () => {
     try {
         const result = await signInWithPopup(auth, googleProvider);
-        const userDoc = await getDoc(doc(db, "users", result.user.uid));
+        const userRef = doc(db, "users", result.user.uid);
+        const userDoc = await getDoc(userRef);
         let userData;
         if (userDoc.exists()) {
             userData = userDoc.data();
@@ -132,13 +139,11 @@ export const signInWithGoogle = async () => {
                 cccdHash: null,
                 createdAt: serverTimestamp()
             };
-            await setDoc(doc(db, "users", result.user.uid), userData);
+            await setDoc(userRef, userData);
         }
         saveUserCache(result.user, userData);
-        showToast('Chào mừng ' + (userData.displayName || result.user.email) + '! ✨');
-        setTimeout(() => {
-            window.location.href = userData.role === 'admin' ? '../admin/admin.html' : 'index.html';
-        }, 1000);
+        showToast(`Đăng nhập Google thành công! Chào ${userData.displayName || result.user.email} 👋`);
+        setTimeout(() => navigateToTarget(userData.role), 800);
     } catch (e) { 
         console.error("Chi tiết lỗi đăng nhập Google:", e);
         showToast("Lỗi đăng nhập Google: " + (e.message || ''), "error"); 
