@@ -8,6 +8,7 @@ const MAX_BOOK_QUANTITY = 3000;
 
 // --- 2. Khởi tạo Trang ---
 let adminAllBooks = [];
+let adminSearchTerm = '';
 let adminCurrentPage = 1;
 const adminPageSize = 10;
 
@@ -58,10 +59,29 @@ const initAdminBooks = () => {
             }
         };
     }
+
+    const searchInput = getElem('adminBookSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            adminSearchTerm = (e.target.value || '').trim().toLowerCase();
+            adminCurrentPage = 1;
+            renderAdminPage();
+        });
+    }
 };
 
 const renderAdminPage = () => {
-    const totalCount = adminAllBooks.length;
+    let filteredBooks = adminAllBooks;
+    if (adminSearchTerm) {
+        filteredBooks = adminAllBooks.filter(snap => {
+            const book = snap.data();
+            const title = (book.title || '').toLowerCase();
+            const author = (book.author || '').toLowerCase();
+            return title.includes(adminSearchTerm) || author.includes(adminSearchTerm);
+        });
+    }
+
+    const totalCount = filteredBooks.length;
     const totalPages = Math.ceil(totalCount / adminPageSize);
     
     if (adminCurrentPage > totalPages) adminCurrentPage = totalPages;
@@ -69,7 +89,7 @@ const renderAdminPage = () => {
     
     const startIdx = (adminCurrentPage - 1) * adminPageSize;
     const endIdx = startIdx + adminPageSize;
-    const docsToRender = adminAllBooks.slice(startIdx, endIdx);
+    const docsToRender = filteredBooks.slice(startIdx, endIdx);
     
     renderBooksTable(docsToRender, totalCount);
     renderAdminPagination(totalCount, totalPages);

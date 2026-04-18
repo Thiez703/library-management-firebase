@@ -41,7 +41,8 @@ const state = {
     categories: [],
     books: [],
     currentPage: 1,
-    itemsPerPage: 6
+    itemsPerPage: 6,
+    search: ''
 };
 
 const pageStartInfo = getElem('page-start-info');
@@ -183,8 +184,18 @@ const renderCategories = () => {
         if (bCount > popularCat.count) popularCat = { name: data.categoryName, count: bCount };
     });
 
+    // Lọc theo tìm kiếm
+    let filteredCategories = categories;
+    if (state.search) {
+        filteredCategories = categories.filter(cat => {
+            const data = cat.data();
+            const name = (data.categoryName || '').toLowerCase();
+            return name.includes(state.search);
+        });
+    }
+
     // Phân trang
-    const totalItems = categories.length;
+    const totalItems = filteredCategories.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
     
     // Đảm bảo trang hiện tại hợp lệ
@@ -199,10 +210,10 @@ const renderCategories = () => {
     if (pageEndInfo) pageEndInfo.textContent = endIndex;
     if (totalItemsInfo) totalItemsInfo.textContent = totalItems;
 
-    const currentCategories = categories.slice(startIndex, endIndex);
+    const currentCategories = filteredCategories.slice(startIndex, endIndex);
 
-    currentCategories.forEach((cat, indexInPage) => {
-        const originalIdx = startIndex + indexInPage;
+    currentCategories.forEach((cat) => {
+        const originalIdx = categories.findIndex(c => c.id === cat.id);
         const data = cat.data();
         const id = cat.id;
         const bCount = categoryCounts[originalIdx] || 0;
@@ -329,6 +340,15 @@ const renderPagination = (totalPages) => {
 };
 
 // --- Event Listeners ---
+
+const searchInput = getElem('adminCategorySearchInput');
+if (searchInput) {
+    searchInput.addEventListener('input', (e) => {
+        state.search = (e.target.value || '').trim().toLowerCase();
+        state.currentPage = 1;
+        renderAll();
+    });
+}
 
 iconBtns.forEach(btn => {
     btn.addEventListener('click', () => {
