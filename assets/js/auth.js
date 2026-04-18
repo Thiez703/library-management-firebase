@@ -210,6 +210,8 @@ export const signOutUser = async () => {
 };
 
 // --- KHỞI TẠO ---
+let _authUnsubscribe = null;
+
 const initAuth = () => {
     applyMainNavActiveState();
     renderAuthUI(getCachedUser());
@@ -222,7 +224,7 @@ const initAuth = () => {
         togglePasswordBtn.addEventListener('click', () => {
             const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
             passwordInput.setAttribute('type', type);
-            
+
             const icon = togglePasswordBtn.querySelector('i');
             if (icon) {
                 icon.classList.toggle('ph-eye');
@@ -241,13 +243,20 @@ const initAuth = () => {
     document.getElementById('googleLoginBtn')?.addEventListener('click', (e) => { e.preventDefault(); signInWithGoogle(); });
     document.getElementById('googleRegisterBtn')?.addEventListener('click', (e) => { e.preventDefault(); signInWithGoogle(); });
 
-    onAuthStateChanged(auth, async (user) => {
+    // Hủy listener cũ trước khi tạo listener mới để tránh tích lũy
+    if (_authUnsubscribe) _authUnsubscribe();
+
+    _authUnsubscribe = onAuthStateChanged(auth, async (user) => {
         if (user) {
             const userDoc = await getDoc(doc(db, "users", user.uid));
             if (userDoc.exists()) {
                 saveUserCache(user, userDoc.data());
-                renderAuthUI(getCachedUser());
+            } else {
+                // Document chưa tồn tại (race condition hoặc lần đầu đăng nhập)
+                // Vẫn giữ thông tin từ Firebase Auth để UI không bị reset
+                saveUserCache(user, null);
             }
+            renderAuthUI(getCachedUser());
         } else {
             localStorage.removeItem('lib_user');
             renderAuthUI(null);

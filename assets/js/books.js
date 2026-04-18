@@ -398,8 +398,11 @@ window.deleteBookAction = async (id, title) => {
     }
 };
 
-// Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initAdminBooks());
+// Khởi chạy — bảo vệ bằng admin guard (chỉ chạy khi ở trang admin)
+const guardedInit = () => {
+    if (!document.getElementById('books-table-body')) return;
+    requireAdmin(() => initAdminBooks());
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();
