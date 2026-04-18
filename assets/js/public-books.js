@@ -57,9 +57,11 @@ const initPublicBooks = () => {
 const initCatalog = async (catalogGrid) => {
     const searchInput = document.getElementById('catalog-search');
     const categoryList = document.getElementById('catalog-categories');
+    const sortSelect = document.getElementById('catalog-sort');
     
     let currentKeyword = '';
     let currentCategoryId = '';
+    let currentSortMode = sortSelect ? sortSelect.value : 'az';
     let currentPage = 1;
     let pageSize = 12;
     let allFilteredBooks = [];
@@ -144,7 +146,23 @@ const initCatalog = async (catalogGrid) => {
         catalogGrid.classList.remove('hidden');
 
         try {
-            allFilteredBooks = await searchAndFilterClientSide(currentKeyword, currentCategoryId);
+            let fetchedBooks = await searchAndFilterClientSide(currentKeyword, currentCategoryId);
+            
+            if (currentSortMode === 'az') {
+                fetchedBooks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+            } else if (currentSortMode === 'za') {
+                fetchedBooks.sort((a, b) => (b.title || '').localeCompare(a.title || ''));
+            } else if (currentSortMode === 'newest') {
+                fetchedBooks.sort((a, b) => {
+                    const timeA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+                    const timeB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+                    return timeB - timeA;
+                });
+            } else if (currentSortMode === 'popular') {
+                fetchedBooks.sort((a, b) => (b.borrowCount || 0) - (a.borrowCount || 0));
+            }
+            
+            allFilteredBooks = fetchedBooks;
             renderCurrentPage();
         } catch(e) {
             console.error(e);
@@ -239,6 +257,13 @@ const initCatalog = async (catalogGrid) => {
             clearTimeout(debounceTimer);
             currentKeyword = e.target.value.trim();
             debounceTimer = setTimeout(() => loadAndRenderCatalog(true), 500);
+        });
+    }
+
+    if (sortSelect) {
+        sortSelect.addEventListener('change', (e) => {
+            currentSortMode = e.target.value;
+            loadAndRenderCatalog(true);
         });
     }
 

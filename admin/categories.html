@@ -144,7 +144,7 @@
                                 <i
                                     class="ph ph-magnifying-glass text-slate-400 group-focus-within:text-primary-500"></i>
                             </div>
-                            <input type="text"
+                            <input type="text" id="adminCategorySearchInput"
                                 class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
                                 placeholder="Tìm kiếm nhanh...">
                         </div>
@@ -238,6 +238,18 @@
                         id="categories-container"
                         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
                         <!-- Categories will be rendered here via JS -->
+                    </div>
+
+                    <!-- Phân trang -->
+                    <div class="flex items-center justify-between border-t border-slate-200 pt-6 pb-4">
+                        <div class="text-sm text-slate-500">
+                            Hiển thị <span class="font-medium text-slate-900" id="page-start-info">0</span> đến 
+                            <span class="font-medium text-slate-900" id="page-end-info">0</span> trong tổng số 
+                            <span class="font-medium text-slate-900" id="total-items-info">0</span> thể loại
+                        </div>
+                        <div class="flex gap-2" id="pagination-controls">
+                            <!-- Buttons rendered by JS -->
+                        </div>
                     </div>
                 </div>
 
