@@ -83,7 +83,6 @@ const renderRows = () => {
 
     container.innerHTML = rows.map((ticket) => {
         const books = Array.isArray(ticket.books) ? ticket.books : [];
-        const firstBook = books[0]?.title || '--';
         const dueMs = toMs(ticket.dueDate);
         const daysLeft = dueMs ? Math.ceil((dueMs - Date.now()) / (1000 * 60 * 60 * 24)) : null;
         const statusView = getTicketStatusView(ticket);
@@ -116,8 +115,7 @@ const renderRows = () => {
 
                     <div>
                         <p class="text-xs uppercase tracking-wider text-slate-400">Sách</p>
-                        <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(firstBook)}</p>
-                        <p class="text-xs text-slate-500 mt-1">${books.length} cuốn</p>
+                        <p class="text-sm font-semibold text-slate-800">${books.length} cuốn</p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-2 text-xs">
