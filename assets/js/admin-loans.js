@@ -1,6 +1,19 @@
 import { autoCleanup, approveTicket, cleanupLegacyBorrowRecords, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
 import { showToast } from './auth.js';
 
+import { db } from './firebase-config.js';
+import {
+    collection,
+    onSnapshot,
+    Timestamp,
+    addDoc,
+    runTransaction,
+    doc,
+    increment,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+const BORROW_DURATION_DAYS = 14;
+
 const getElem = (id) => document.getElementById(id);
 
 const state = {
@@ -312,12 +325,246 @@ const bindUI = () => {
     });
 };
 
+    const createDirectBorrow = async (readerId, selectedBooks, durationDays = 14, adminNote = '') => {
+        if (!readerId) {
+            showToast('Vui lòng chọn độc giả.', 'error');
+            return;
+        }
+        if (!Array.isArray(selectedBooks) || selectedBooks.length === 0) {
+            showToast('Vui lòng chọn ít nhất một cuốn sách.', 'error');
+            return;
+        }
+        if (selectedBooks.length > 5) {
+            showToast('Tối đa 5 cuốn sách mỗi phiếu.', 'error');
+            return;
+        }
+
+        try {
+            const daysNum = Math.max(1, Math.min(90, Number(durationDays) || 14));
+            const dueDateObj = new Date();
+            dueDateObj.setDate(dueDateObj.getDate() + daysNum);
+
+            const recordId = `LIB-${String(Date.now()).slice(-6).toUpperCase()}`;
+
+            const ticketDocRef = doc(collection(db, 'borrowRecords'));
+
+            await runTransaction(db, async (transaction) => {
+                const bookRefs = selectedBooks.map((bookId) => doc(db, 'books', bookId));
+                const bookSnaps = await Promise.all(bookRefs.map((ref) => transaction.get(ref)));
+
+                for (let i = 0; i < bookSnaps.length; i++) {
+                    if (!bookSnaps[i].exists()) {
+                        throw new Error(`Sách không tồn tại.`);
+                    }
+                    const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
+                    if (available <= 0) {
+                        throw new Error(`Sách "${bookSnaps[i].data().title}" đã hết.`);
+                    }
+                }
+
+                // Prepare book details
+                const bookDetails = [];
+                for (let i = 0; i < bookSnaps.length; i++) {
+                    const bookData = bookSnaps[i].data();
+                    bookDetails.push({
+                        bookId: selectedBooks[i],
+                        title: bookData.title || 'Không rõ',
+                        author: bookData.author || 'Không rõ',
+                        coverUrl: bookData.coverUrl || '',
+                        price: Number(bookData.price || 0)
+                    });
+                }
+
+                // Update book availability
+                for (let i = 0; i < bookRefs.length; i++) {
+                    const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
+                    const nextQty = available - 1;
+                    transaction.update(bookRefs[i], {
+                        availableQuantity: nextQty,
+                        status: nextQty > 0 ? 'available' : 'out_of_stock'
+                    });
+                }
+
+                // Create borrow record as "pending" so admin must approve
+                transaction.set(ticketDocRef, {
+                    recordId,
+                    userId: readerId,
+                    userDetails: {
+                        fullName: getElem('borrowReaderName').value,
+                        phone: getElem('borrowReaderPhone').value,
+                        cccd: ''
+                    },
+                    books: bookDetails,
+                    status: 'pending',
+                    requestDate: serverTimestamp(),
+                    borrowDate: null,
+                    dueDate: null,
+                    returnDate: null,
+                    fineOverdue: 0,
+                    fineDamage: 0,
+                    adminNote: (adminNote || '').trim(),
+                    createdBy: 'admin',
+                    updatedAt: serverTimestamp()
+                });
+            });
+
+            showToast(`✓ Tạo phiếu mượn thành công! Mã: ${recordId}. Trạng thái: Chờ duyệt`, 'success');
+        
+            // Close modal and reset form
+            getElem('createBorrowModal')?.classList.add('hidden');
+            getElem('createBorrowForm')?.reset();
+        
+            return recordId;
+        } catch (error) {
+            console.error('Lỗi tạo phiếu mượn:', error);
+            showToast('Lỗi: ' + (error.message || 'Không thể tạo phiếu mượn'), 'error');
+        }
+    };
+
+    const loadReadersForBorrow = async () => {
+        const select = getElem('borrowReaderSelect');
+        if (!select) return;
+
+        onSnapshot(collection(db, 'users'), (snapshot) => {
+            const options = [{ id: '', name: '-- Chọn độc giả --' }];
+            snapshot.forEach((docSnap) => {
+                const user = docSnap.data() || {};
+                const role = (user.role || '').toLowerCase();
+                if (role === 'admin') return;
+
+                const displayName = user.displayName || user.email || 'Độc giả';
+                options.push({
+                    id: docSnap.id,
+                    name: displayName,
+                    phone: user.phone || user.userDetails?.phone || '',
+                    data: user
+                });
+            });
+
+            const current = select.value;
+            select.innerHTML = options.map((opt) => 
+                `<option value="${opt.id}" data-phone="${opt.phone || ''}" data-name="${opt.name || ''}">${opt.name}</option>`
+            ).join('');
+            select.value = current || '';
+        });
+    };
+
+    const loadBooksForBorrow = async () => {
+        onSnapshot(collection(db, 'books'), (snapshot) => {
+            const books = [];
+            snapshot.forEach((docSnap) => {
+                const book = docSnap.data() || {};
+                const available = Number(book.availableQuantity || 0);
+                if (available > 0) {
+                    books.push({
+                        id: docSnap.id,
+                        title: book.title || 'Không rõ',
+                        available
+                    });
+                }
+            });
+
+            const bookSelects = document.querySelectorAll('.book-select');
+            bookSelects.forEach((select) => {
+                const current = select.value;
+                select.innerHTML = '<option value="">-- Chọn sách --</option>' + 
+                    books.map((b) => `<option value="${b.id}">${b.title} (${b.available})</option>`).join('');
+                select.value = current || '';
+            });
+        });
+    };
+
+    const bindCreateBorrowModal = () => {
+        const openBtn = getElem('createDirectBorrowBtn');
+        const closeBtn = getElem('closeCreateBorrowModal');
+        const cancelBtn = getElem('cancelCreateBorrowBtn');
+        const modal = getElem('createBorrowModal');
+        const form = getElem('createBorrowForm');
+        const readerSelect = getElem('borrowReaderSelect');
+        const addBookBtn = getElem('addBookRowBtn');
+        const booksContainer = getElem('borrowBooksContainer');
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                modal?.classList.remove('hidden');
+                loadReadersForBorrow();
+                loadBooksForBorrow();
+            });
+        }
+
+        if (closeBtn || cancelBtn) {
+            const closeModal = () => modal?.classList.add('hidden');
+            closeBtn?.addEventListener('click', closeModal);
+            cancelBtn?.addEventListener('click', closeModal);
+        }
+
+        if (readerSelect) {
+            readerSelect.addEventListener('change', (e) => {
+                const option = e.target.options[e.target.selectedIndex];
+                getElem('borrowReaderName').value = option?.getAttribute('data-name') || '';
+                getElem('borrowReaderPhone').value = option?.getAttribute('data-phone') || '';
+            });
+        }
+
+        if (addBookBtn) {
+            addBookBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const newRow = document.createElement('div');
+                newRow.className = 'book-row grid grid-cols-1 sm:grid-cols-2 gap-2 items-end';
+                newRow.innerHTML = `
+                    <select class="book-select px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white" required>
+                        <option value="">-- Chọn sách --</option>
+                    </select>
+                    <button type="button" class="remove-book-btn px-3 py-2.5 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-medium">
+                        <i class="ph ph-trash mr-1"></i> Xoá
+                    </button>
+                `;
+                booksContainer?.appendChild(newRow);
+                loadBooksForBorrow();
+
+                const removeBtn = newRow.querySelector('.remove-book-btn');
+                removeBtn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    newRow.remove();
+                });
+            });
+        }
+
+        // Remove book row buttons
+        booksContainer?.addEventListener('click', (e) => {
+            if (e.target.closest('.remove-book-btn')) {
+                e.preventDefault();
+                e.target.closest('.book-row')?.remove();
+            }
+        });
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const readerId = getElem('borrowReaderSelect')?.value || '';
+                const durationDays = getElem('borrowDurationDays')?.value || 14;
+                const adminNote = getElem('borrowNote')?.value || '';
+
+                const bookSelects = form.querySelectorAll('.book-select');
+                const selectedBooks = [];
+                bookSelects.forEach((select) => {
+                    if (select.value) {
+                        selectedBooks.push(select.value);
+                    }
+                });
+
+                await createDirectBorrow(readerId, selectedBooks, durationDays, adminNote);
+            });
+        }
+    };
+
 const initAdminLoans = async () => {
     const hasLegacyTable = !!getElem('loanTableBody');
     const hasCardContainer = !!getElem('loanCardsContainer');
     if (!hasLegacyTable && !hasCardContainer) return;
 
     bindUI();
+        bindCreateBorrowModal();
 
     // Do not block ticket subscription if cleanup tasks fail.
     try {

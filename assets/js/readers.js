@@ -6,6 +6,11 @@ import {
     where
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
+import {
+    addDoc,
+    serverTimestamp
+} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { showToast } from './auth.js';
 const getElem = (id) => document.getElementById(id);
 
 const state = {
@@ -53,6 +58,7 @@ const normalizeStatus = (user) => {
     }
 
     return {
+                initGuestReaderUI();
         label: 'Hoạt động',
         rowClass: 'bg-emerald-50 text-emerald-700',
         dotClass: 'bg-emerald-500',
@@ -196,6 +202,84 @@ const initReaders = () => {
         renderAll();
     });
 };
+
+    const createGuestReader = async (fullName, phone, cccd, email = '', note = '') => {
+        if (!fullName?.trim() || !phone?.trim() || !cccd?.trim()) {
+            showToast('Vui lòng điền đầy đủ Họ tên, Số điện thoại và CCCD.', 'error');
+            return;
+        }
+
+        try {
+            const docRef = await addDoc(collection(db, 'users'), {
+                displayName: fullName.trim(),
+                email: email.trim() || '',
+                phone: phone.trim(),
+                role: 'user',
+                status: 'active',
+                accountType: 'guest',
+                userDetails: {
+                    fullName: fullName.trim(),
+                    phone: phone.trim(),
+                    cccd: cccd.trim(),
+                    email: email.trim() || ''
+                },
+                guestNote: note.trim() || '',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            showToast(`✓ Tạo độc giả vãng lai thành công! ID: ${docRef.id}`, 'success');
+        
+            // Đóng modal
+            getElem('guestReaderModal')?.classList.add('hidden');
+        
+            // Reset form
+            getElem('guestReaderForm').reset();
+        
+            return docRef.id;
+        } catch (error) {
+            console.error('Lỗi tạo độc giả vãng lai:', error);
+            showToast('Lỗi: ' + (error.message || 'Không thể tạo độc giả'), 'error');
+        }
+    };
+
+    const bindGuestReaderModal = () => {
+        const openBtn = getElem('addGuestReaderBtn');
+        const closeBtn = getElem('closeGuestReaderModal');
+        const cancelBtn = getElem('cancelGuestReaderBtn');
+        const modal = getElem('guestReaderModal');
+        const form = getElem('guestReaderForm');
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => {
+                modal?.classList.remove('hidden');
+                form?.reset();
+            });
+        }
+
+        if (closeBtn || cancelBtn) {
+            const closeModal = () => modal?.classList.add('hidden');
+            closeBtn?.addEventListener('click', closeModal);
+            cancelBtn?.addEventListener('click', closeModal);
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fullName = getElem('guestFullName')?.value || '';
+                const phone = getElem('guestPhone')?.value || '';
+                const cccd = getElem('guestCccd')?.value || '';
+                const email = getElem('guestEmail')?.value || '';
+                const note = getElem('guestNote')?.value || '';
+
+                await createGuestReader(fullName, phone, cccd, email, note);
+            });
+        }
+    };
+
+    const initGuestReaderUI = () => {
+        bindGuestReaderModal();
+    };
 
 document.addEventListener('turbo:load', initReaders);
 document.addEventListener('turbo:render', initReaders);

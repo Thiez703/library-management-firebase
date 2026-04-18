@@ -50,17 +50,22 @@
                     <p class="text-sm text-slate-500 mt-1">Duyệt phiếu, bàn giao sách và xử lý trả sách theo record tập trung.</p>
                 </div>
 
-                <div class="flex gap-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit">
-                    <button data-loan-tab="pending" class="px-5 py-2 rounded-lg bg-primary-600 text-white font-semibold text-sm shadow-md">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex gap-2 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit">
+                            <button data-loan-tab="pending" class="px-5 py-2 rounded-lg bg-primary-600 text-white font-semibold text-sm shadow-md">
                         Chờ Duyệt (<span id="pendingCount">0</span>)
-                    </button>
-                    <button data-loan-tab="borrowing" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">
+                            </button>
+                            <button data-loan-tab="borrowing" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">
                         Đang mượn (<span id="borrowingCount">0</span>)
-                    </button>
-                    <button data-loan-tab="overdue" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">
+                            </button>
+                            <button data-loan-tab="overdue" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">
                         Quá hạn (<span id="overdueCount">0</span>)
-                    </button>
-                </div>
+                            </button>
+                        </div>
+                        <button id="createDirectBorrowBtn" class="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95 w-fit">
+                            <i class="ph-bold ph-plus text-lg"></i> Tạo Phiếu Mượn Trực Tiếp
+                        </button>
+                    </div>
 
                 <div id="loanCardsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
                     <div class="xl:col-span-3 md:col-span-2 rounded-2xl border border-slate-200 bg-white p-12 text-center text-slate-500">Đang tải dữ liệu...</div>
@@ -171,5 +176,89 @@
         });
     </script>
     <script type="module" src="../assets/js/admin-loans.js"></script>
+
+        <!-- Modal Tạo Phiếu Mượn Trực Tiếp -->
+        <div id="createBorrowModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center overflow-y-auto">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl my-8 animate-fade-in">
+                <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                    <h3 class="text-xl font-bold text-slate-800">Tạo Phiếu Mượn Trực Tiếp</h3>
+                    <button id="closeCreateBorrowModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                        <i class="ph ph-x text-2xl"></i>
+                    </button>
+                </div>
+                <form id="createBorrowForm" class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    <!-- Chọn Độc Giả -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                        <div class="sm:col-span-2">
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Độc Giả <span class="text-rose-500">*</span></label>
+                            <select id="borrowReaderSelect" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                <option value="">-- Chọn độc giả --</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Họ và Tên</label>
+                            <input id="borrowReaderName" type="text" readonly class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-semibold text-slate-700 mb-2">Số Điện Thoại</label>
+                            <input id="borrowReaderPhone" type="text" readonly class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-slate-50">
+                        </div>
+                    </div>
+
+                    <!-- Chọn Sách -->
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <label class="block text-sm font-semibold text-slate-700">Danh Sách Sách <span class="text-rose-500">*</span></label>
+                            <button type="button" id="addBookRowBtn" class="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                <i class="ph ph-plus-circle mr-1"></i> Thêm sách
+                            </button>
+                        </div>
+                        <div id="borrowBooksContainer" class="space-y-2">
+                            <div class="book-row grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                                <select class="book-select px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white" required>
+                                    <option value="">-- Chọn sách --</option>
+                                </select>
+                                <button type="button" class="remove-book-btn px-3 py-2.5 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-medium">
+                                    <i class="ph ph-trash mr-1"></i> Xoá
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hạn Trả -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Hạn Trả (Ngày) <span class="text-rose-500">*</span></label>
+                        <input id="borrowDurationDays" type="number" value="14" min="1" max="90" required 
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                    </div>
+
+                    <!-- Ghi Chú -->
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Ghi Chú</label>
+                        <textarea id="borrowNote" rows="2" placeholder="Ghi chú về phiếu mượn..."
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4">
+                        <button type="button" id="cancelCreateBorrowBtn" class="px-5 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                            Huỷ
+                        </button>
+                        <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm">
+                            <i class="ph ph-check-circle mr-1"></i> Tạo Phiếu
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <style>
+            .animate-fade-in {
+                animation: fadeIn 0.3s ease-out forwards;
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+        </style>
 </body>
 </html>
