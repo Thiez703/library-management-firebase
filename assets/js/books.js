@@ -6,6 +6,65 @@ import { showToast, showConfirm } from './notify.js';
 
 const getElem = (id) => document.getElementById(id);
 const MAX_BOOK_QUANTITY = 3000;
+const COVER_PLACEHOLDER = '../assets/images/book-cover-placeholder-gray.svg';
+let currentCoverUrl = '';
+let previewObjectUrl = '';
+
+const revokePreviewObjectUrl = () => {
+    if (!previewObjectUrl) return;
+    URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = '';
+};
+
+const setCoverPreview = (src = COVER_PLACEHOLDER) => {
+    const previewImg = getElem('book-cover-preview');
+    if (!previewImg) return;
+    previewImg.src = src || COVER_PLACEHOLDER;
+};
+
+const updateCoverPreviewFromFile = (file) => {
+    revokePreviewObjectUrl();
+
+    if (file) {
+        previewObjectUrl = URL.createObjectURL(file);
+        setCoverPreview(previewObjectUrl);
+        return;
+    }
+
+    setCoverPreview(currentCoverUrl || COVER_PLACEHOLDER);
+};
+
+const resetBookCoverPreview = () => {
+    currentCoverUrl = '';
+    revokePreviewObjectUrl();
+    const bookImageInput = getElem('bookImage');
+    if (bookImageInput) bookImageInput.value = '';
+    setCoverPreview(COVER_PLACEHOLDER);
+};
+
+const openAddBookModal = () => {
+    const modal = getElem('addBookModal');
+    if (!modal) return;
+
+    const form = getElem('bookForm');
+    if (form) form.reset();
+    if (getElem('book-id')) getElem('book-id').value = '';
+    if (getElem('modalTitle')) getElem('modalTitle').textContent = 'Thêm Sách Mới';
+
+    resetBookCoverPreview();
+    modal.classList.replace('hidden', 'flex');
+};
+
+const closeBookModal = () => {
+    const modal = getElem('addBookModal');
+    if (!modal) return;
+
+    modal.classList.replace('flex', 'hidden');
+    resetBookCoverPreview();
+};
+
+window.openAddBookModal = openAddBookModal;
+window.closeBookModal = closeBookModal;
 
 // --- 2. Khởi tạo Trang ---
 let adminAllBooks = [];
@@ -69,6 +128,20 @@ const initAdminBooks = () => {
             renderAdminPage();
         });
     }
+
+    const imageInput = getElem('bookImage');
+    if (imageInput) {
+        imageInput.addEventListener('change', (e) => {
+            const selectedFile = e.target.files?.[0] || null;
+            updateCoverPreviewFromFile(selectedFile);
+        });
+    }
+
+    getElem('btn-open-book-modal')?.addEventListener('click', openAddBookModal);
+    getElem('btn-close-book-modal')?.addEventListener('click', closeBookModal);
+    getElem('btn-cancel-book-modal')?.addEventListener('click', closeBookModal);
+
+    setCoverPreview(COVER_PLACEHOLDER);
 };
 
 const renderAdminPage = () => {
@@ -252,7 +325,7 @@ const handleSaveBook = async () => {
     }
 
     // Đóng modal và reset form ngay để tạo cảm giác nhanh
-    getElem('addBookModal').classList.replace('flex', 'hidden');
+    closeBookModal();
     getElem('bookForm').reset();
 
     // Xử lý tải ảnh bìa (chạy ngầm)
@@ -295,6 +368,12 @@ window.editBookAction = async (id) => {
         getElem('book-quantity').value = book.totalQuantity;
         getElem('book-duration').value = book.borrowDuration || 14;
         getElem('book-description').value = book.description || '';
+
+        currentCoverUrl = book.coverUrl || '';
+        revokePreviewObjectUrl();
+        setCoverPreview(currentCoverUrl || COVER_PLACEHOLDER);
+        const imageInput = getElem('bookImage');
+        if (imageInput) imageInput.value = '';
         
         getElem('modalTitle').textContent = "Chỉnh Sửa Sách";
         getElem('addBookModal').classList.replace('hidden', 'flex');

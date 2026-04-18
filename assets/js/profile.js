@@ -37,6 +37,8 @@ const renderProfile = (firebaseUser, userData) => {
     const status = (userData?.status || 'active') === 'active' ? 'Đang hoạt động' : 'Tạm khóa';
     const createdAt = userData?.createdAt?.toDate?.()?.toLocaleDateString('vi-VN') || '--';
     const memberCode = `US-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+    const isVerified = userData?.isVerified === true;
+    const reputationScore = typeof userData?.reputationScore === 'number' ? userData.reputationScore : 100;
 
     // Avatar
     const avatarEl = getElem('profileAvatar');
@@ -54,18 +56,50 @@ const renderProfile = (firebaseUser, userData) => {
     setText('profileCreatedAt', createdAt);
     setText('profileMemberCode', memberCode);
 
+    // Hiển thị trạng thái xác minh
+    const verifyStatusEl = getElem('profileVerifyStatus');
+    if (verifyStatusEl) {
+        if (isVerified) {
+            verifyStatusEl.innerHTML = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><i class="ph-fill ph-seal-check"></i> Đã xác minh</span>';
+        } else {
+            verifyStatusEl.innerHTML = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"><i class="ph ph-warning"></i> Chưa xác minh</span>';
+        }
+    }
+
+    // Hiển thị điểm uy tín
+    const repScoreEl = getElem('profileReputationScore');
+    if (repScoreEl) {
+        repScoreEl.textContent = `${reputationScore} / 100`;
+        if (reputationScore >= 80) {
+            repScoreEl.className = 'text-sm font-bold text-emerald-600';
+        } else if (reputationScore >= 50) {
+            repScoreEl.className = 'text-sm font-bold text-amber-600';
+        } else {
+            repScoreEl.className = 'text-sm font-bold text-rose-600';
+        }
+    }
+
     // Form chỉnh sửa — prefill
     const nameInput = getElem('profileNameInput');
     const phoneInput = getElem('profilePhoneInput');
     if (nameInput) nameInput.value = displayName;
-    if (phoneInput) phoneInput.value = phone;
+    if (phoneInput) {
+        phoneInput.value = phone;
+        // Khóa phone nếu đã xác minh
+        if (isVerified) {
+            phoneInput.readOnly = true;
+            phoneInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
+            phoneInput.title = 'Số điện thoại đã xác minh, không thể tự thay đổi';
+        }
+    }
 };
 
 // ─── Cập nhật thông tin ───────────────────────────────────────────────────────
 
-const handleUpdateProfile = async (firebaseUser) => {
+const handleUpdateProfile = async (firebaseUser, userData) => {
     const displayName = (getElem('profileNameInput')?.value || '').trim();
     const phone = (getElem('profilePhoneInput')?.value || '').trim();
+    const isVerified = userData?.isVerified === true;
 
     if (!displayName) {
         showToast('Tên không được để trống.', 'error');
@@ -73,11 +107,17 @@ const handleUpdateProfile = async (firebaseUser) => {
     }
 
     try {
-        await updateDoc(doc(db, 'users', firebaseUser.uid), {
+        const updateData = {
             displayName,
-            phone,
             updatedAt: serverTimestamp()
-        });
+        };
+
+        // Chỉ cho phép update phone nếu chưa xác minh
+        if (!isVerified && phone) {
+            updateData.phone = phone;
+        }
+
+        await updateDoc(doc(db, 'users', firebaseUser.uid), updateData);
 
         // Cập nhật cache
         const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
@@ -173,7 +213,7 @@ const initProfilePage = () => {
         // Bind form submit
         getElem('profileEditForm')?.addEventListener('submit', async (e) => {
             e.preventDefault();
-            await handleUpdateProfile(firebaseUser);
+            await handleUpdateProfile(firebaseUser, userData);
         });
 
         getElem('profilePasswordForm')?.addEventListener('submit', async (e) => {

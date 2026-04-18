@@ -35,10 +35,10 @@ service cloud.firestore {
       // hoặc admin (tạo độc giả vãng lai)
       allow create: if isOwner(userId) || isAdmin();
 
-      // Cập nhật: chỉ chính mình hoặc admin. Bảo vệ trường role và status:
-      // user thường không được tự đổi role của mình
+      // Cập nhật: chỉ chính mình hoặc admin.
+      // User thường không được tự đổi: role, status, phone, cccdHash, isVerified, reputationScore
       allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
-                          .hasAny(['role', 'status'])
+                          .hasAny(['role', 'status', 'phone', 'cccdHash', 'isVerified', 'reputationScore', 'verifiedAt'])
                     || isAdmin();
 
       // Chỉ admin được xóa user
@@ -93,6 +93,36 @@ service cloud.firestore {
 
       // Chỉ admin được xóa phiếu mượn (cleanup legacy records)
       allow delete: if isAdmin();
+    }
+
+    // ── Collection: phones (Unique phone index) ───────────────────────────────
+
+    match /phones/{phoneNumber} {
+      // User đã đăng nhập được đọc (để check trùng trước khi xác minh)
+      allow read: if isSignedIn();
+
+      // User được tạo index cho chính mình (1 lần duy nhất trong transaction verifyUser)
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+
+      // Chỉ admin mới được sửa/xóa (khi admin cập nhật SĐT cho user)
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Collection: cccds (Unique CCCD hash index) ────────────────────────────
+
+    match /cccds/{cccdHash} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Collection: identityAuditLog (Admin audit trail) ─────────────────────
+
+    match /identityAuditLog/{logId} {
+      // Chỉ admin đọc và tạo log
+      allow read, create: if isAdmin();
+      // Không ai được sửa hoặc xóa audit log
+      allow update, delete: if false;
     }
 
     // ── Collection: system (cài đặt thư viện) ────────────────────────────────

@@ -2,6 +2,7 @@ import { db } from './firebase-config.js';
 import { showToast } from './auth.js';
 import { clearCart } from './cart.js';
 import { EmailJSService } from './emailjs-service.js';
+import { checkBorrowEligibility, calculateReputationPenalty, IDENTITY_ERRORS } from './identity.js';
 import {
     collection,
     doc,
@@ -225,11 +226,30 @@ export const handleCheckout = async (userData, cartItems) => {
         return null;
     }
 
+    // === LớP BẢO VỆ DANH TÍNH ===
+    // Kiểm tra xác minh và uy tín trước khi cho mượn
+    const eligibility = await checkBorrowEligibility(userId);
+    if (!eligibility.eligible) {
+        showToast(eligibility.reason || 'Không đủ điều kiện mượn sách.', 'error');
+        // Trả về error code để frontend xử lý (hiển form xác minh)
+        return { error: eligibility.errorCode || 'INELIGIBLE' };
+    }
+
+    // Lấy thông tin từ Firestore (\u0111ã xác minh) thay vì từ form
+    const identity = eligibility.identity;
+    const userDetails = {
+        fullName: identity.fullName || identity.displayName || '',
+        phone: identity.phone || '',
+        cccd: identity.cccdHash || '' // Lưu hash, không lưu plain text
+    };
+
     let books;
-    let userDetails;
     try {
         books = ensureCartItems(cartItems);
-        userDetails = ensureUserDetails(userData?.userDetails || userData);
+        // Validate userDetails từ identity (không cần form input nữa)
+        if (!userDetails.fullName || !userDetails.phone) {
+            throw new Error('Thông tin người dùng chưa đầy đủ. Vui lòng xác minh lại.');
+        }
     } catch (err) {
         showToast(err.message || 'Thông tin mượn chưa hợp lệ.', 'error');
         return null;
@@ -302,7 +322,7 @@ export const handleCheckout = async (userData, cartItems) => {
         showToast(`Đăng ký thành công! Mã phiếu của bạn là ${recordId}.`);
 
         // Gửi email thông báo mã mượn qua EmailJS
-        const readerEmail = userDetails.email || userData.email;
+        const readerEmail = identity.email || userData.email;
         if (readerEmail) {
             EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.BORROW_CODE, {
                 user_name: userDetails.fullName,
@@ -380,6 +400,7 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             fineOverdue = calculateFineAmount(daysLate); // BIZ-01
         }
 
+        // === READ PHASE: Đọc tất cả documents trước ===
         const books = Array.isArray(record.books) ? record.books : [];
         const bookReadResults = [];
 
@@ -388,10 +409,18 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             const bookRef = doc(db, 'books', item.bookId);
             const bookSnap = await transaction.get(bookRef);
             if (!bookSnap.exists()) continue;
-
             bookReadResults.push({ bookRef, bookSnap });
         }
 
+        // Đọc user doc cho reputation (phải đọc trước khi write)
+        let userSnap = null;
+        let userRef = null;
+        if (daysLate > 0 && record.userId) {
+            userRef = doc(db, 'users', record.userId);
+            userSnap = await transaction.get(userRef);
+        }
+
+        // === WRITE PHASE: Ghi tất cả sau khi đọc xong ===
         for (const { bookRef, bookSnap } of bookReadResults) {
             const currentQty = Number(bookSnap.data()?.availableQuantity || 0);
             const nextQty = currentQty + 1;
@@ -423,12 +452,26 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
                 returnDate: serverTimestamp(),
                 daysLate: daysLate,
                 amount: fineOverdue,
-                status: 'unpaid', // unpaid, paid, waived
+                status: 'unpaid',
                 paidAt: null,
                 waivedAt: null,
                 waivedReason: null,
                 waivedBy: null,
                 createdAt: serverTimestamp()
+            });
+        }
+
+        // === CẬP NHẬT ĐIỂM UY TÍN ===
+        // Trừ điểm uy tín khi trả trễ (-5 điểm/ngày trễ, tối thiểu 0)
+        if (daysLate > 0 && userSnap && userSnap.exists()) {
+            const currentScore = typeof userSnap.data().reputationScore === 'number'
+                ? userSnap.data().reputationScore
+                : 100;
+            const penalty = calculateReputationPenalty(daysLate);
+            const newScore = Math.max(0, currentScore - penalty);
+            transaction.update(userRef, {
+                reputationScore: newScore,
+                updatedAt: serverTimestamp()
             });
         }
     });

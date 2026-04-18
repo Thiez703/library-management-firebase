@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Giỏ Mượn Sách - LibSpace</title>
+    <title>LibSpace - Giỏ mượn sách</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -72,18 +72,79 @@
                         Bạn cần đăng nhập để gửi phiếu mượn.
                     </div>
 
+                    <!-- Banner uy tín thấp -->
+                    <div id="reputationWarning" class="hidden text-sm bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        <div class="flex items-center gap-2 text-amber-700 font-semibold mb-1">
+                            <i class="ph ph-warning-circle text-lg"></i>
+                            <span>Điểm uy tín thấp</span>
+                        </div>
+                        <p class="text-amber-600">Điểm uy tín của bạn là <strong id="reputationScoreDisplay">0</strong>/100. Dưới 30 điểm sẽ không thể mượn sách.</p>
+                    </div>
+
+                    <!-- Banner bị chặn mượn -->
+                    <div id="reputationBlocked" class="hidden text-sm bg-rose-50 border border-rose-200 rounded-xl p-3">
+                        <div class="flex items-center gap-2 text-rose-700 font-semibold mb-1">
+                            <i class="ph ph-prohibit text-lg"></i>
+                            <span>Không thể mượn sách</span>
+                        </div>
+                        <p class="text-rose-600">Điểm uy tín của bạn quá thấp (<strong id="reputationScoreBlocked">0</strong>/100). Vui lòng liên hệ thủ thư để được hỗ trợ.</p>
+                    </div>
+
+                    <!-- === FORM XÁC MINH (hiện khi chưa verified) === -->
+                    <div id="verifySection" class="hidden space-y-3">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700">
+                            <div class="flex items-center gap-2 font-semibold mb-1">
+                                <i class="ph ph-shield-check text-lg"></i>
+                                Xác minh danh tính lần đầu
+                            </div>
+                            <p>Để đảm bảo an toàn, bạn cần xác minh SĐT và CCCD <strong>một lần duy nhất</strong>. Thông tin sẽ được bảo mật và không thể thay đổi sau khi xác minh.</p>
+                        </div>
+
+                        <form id="verifyForm" class="space-y-3">
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Họ và tên</label>
+                                <input id="verifyFullName" required placeholder="Nguyễn Văn A"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
+                                <input id="verifyPhone" required placeholder="0901234567" maxlength="10" pattern="0\d{9}"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                                <p class="text-xs text-slate-400 mt-1">Nhập đúng 10 số, bắt đầu bằng 0</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Số CCCD</label>
+                                <input id="verifyCccd" required placeholder="012345678901" maxlength="12" pattern="\d{12}"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                                <p class="text-xs text-slate-400 mt-1">Nhập đúng 12 số. CCCD sẽ được mã hóa trước khi lưu.</p>
+                            </div>
+                            <button id="verifyBtn" type="submit"
+                                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg py-2.5 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                                <i class="ph ph-shield-check text-lg"></i>
+                                Xác minh danh tính
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- === FORM CHECKOUT (hiện khi đã verified) === -->
                     <form id="checkoutForm" class="hidden space-y-3">
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs text-emerald-700 flex items-center gap-2">
+                            <i class="ph-fill ph-seal-check text-lg"></i>
+                            <span>Danh tính đã xác minh — Thông tin được tự động điền.</span>
+                        </div>
                         <div>
                             <label class="text-sm font-medium text-slate-700">Họ và tên</label>
-                            <input id="checkoutFullName" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                            <input id="checkoutFullName" readonly
+                                class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
                         </div>
                         <div>
-                            <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
-                            <input id="checkoutPhone" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                            <label class="text-sm font-medium text-slate-700">Số điện thoại <span class="text-emerald-600 text-xs">✓ Đã xác minh</span></label>
+                            <input id="checkoutPhone" readonly
+                                class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
                         </div>
                         <div>
-                            <label class="text-sm font-medium text-slate-700">Số CCCD</label>
-                            <input id="checkoutCccd" required class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                            <label class="text-sm font-medium text-slate-700">Điểm uy tín</label>
+                            <div id="checkoutReputation" class="mt-1 text-sm font-semibold text-emerald-600">100 / 100</div>
                         </div>
                         <button id="checkoutBtn" type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5 transition-colors shadow-lg shadow-primary-500/20">
                             Xác nhận đăng ký mượn

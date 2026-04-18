@@ -68,7 +68,10 @@ const saveUserCache = (user, userData) => {
         email: user.email,
         displayName: userData?.displayName || user.displayName || user.email,
         photoURL: userData?.photoURL || user.photoURL,
-        role: userData?.role || 'user'
+        role: userData?.role || 'user',
+        isVerified: userData?.isVerified === true,
+        reputationScore: typeof userData?.reputationScore === 'number' ? userData.reputationScore : 100,
+        phone: userData?.phone || null
     };
     localStorage.setItem('lib_user', JSON.stringify(cacheData));
 };
@@ -113,10 +116,26 @@ export const signInWithGoogle = async () => {
     try {
         const result = await signInWithPopup(auth, googleProvider);
         const userDoc = await getDoc(doc(db, "users", result.user.uid));
-        let userData = userDoc.exists() ? userDoc.data() : { email: result.user.email, displayName: result.user.displayName, photoURL: result.user.photoURL, role: 'user', status: 'active', createdAt: serverTimestamp() };
-        if (!userDoc.exists()) await setDoc(doc(db, "users", result.user.uid), userData);
+        let userData;
+        if (userDoc.exists()) {
+            userData = userDoc.data();
+        } else {
+            userData = {
+                email: result.user.email,
+                displayName: result.user.displayName,
+                photoURL: result.user.photoURL,
+                role: 'user',
+                status: 'active',
+                isVerified: false,
+                reputationScore: 100,
+                phone: null,
+                cccdHash: null,
+                createdAt: serverTimestamp()
+            };
+            await setDoc(doc(db, "users", result.user.uid), userData);
+        }
         saveUserCache(result.user, userData);
-        showToast('Chào mừng ' + userData.displayName + '! ✨');
+        showToast('Chào mừng ' + (userData.displayName || result.user.email) + '! ✨');
         setTimeout(() => {
             window.location.href = userData.role === 'admin' ? '../admin/admin.html' : 'index.html';
         }, 1000);
@@ -146,7 +165,17 @@ export const signIn = async (email, password) => {
 export const signUp = async (email, password, displayName) => {
     try {
         const res = await createUserWithEmailAndPassword(auth, email, password);
-        const userData = { email, displayName, role: 'user', status: 'active', createdAt: serverTimestamp() };
+        const userData = {
+            email,
+            displayName,
+            role: 'user',
+            status: 'active',
+            isVerified: false,
+            reputationScore: 100,
+            phone: null,
+            cccdHash: null,
+            createdAt: serverTimestamp()
+        };
         await setDoc(doc(db, "users", res.user.uid), userData);
         saveUserCache(res.user, userData);
         showToast('Đăng ký thành công! 🚀');
