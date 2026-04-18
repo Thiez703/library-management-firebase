@@ -239,6 +239,18 @@
                         class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 mb-8">
                         <!-- Categories will be rendered here via JS -->
                     </div>
+
+                    <!-- Phân trang -->
+                    <div class="flex items-center justify-between border-t border-slate-200 pt-6 pb-4">
+                        <div class="text-sm text-slate-500">
+                            Hiển thị <span class="font-medium text-slate-900" id="page-start-info">0</span> đến 
+                            <span class="font-medium text-slate-900" id="page-end-info">0</span> trong tổng số 
+                            <span class="font-medium text-slate-900" id="total-items-info">0</span> thể loại
+                        </div>
+                        <div class="flex gap-2" id="pagination-controls">
+                            <!-- Buttons rendered by JS -->
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Modal Thêm/Sửa Thể Loại -->

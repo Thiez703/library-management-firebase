@@ -39,8 +39,15 @@ const statPopularCount = getElem('stat-popular-count');
 
 const state = {
     categories: [],
-    books: []
+    books: [],
+    currentPage: 1,
+    itemsPerPage: 6
 };
+
+const pageStartInfo = getElem('page-start-info');
+const pageEndInfo = getElem('page-end-info');
+const totalItemsInfo = getElem('total-items-info');
+const paginationControls = getElem('pagination-controls');
 
 // --- UI Helpers (Toast & Confirm) ---
 
@@ -131,7 +138,8 @@ const deleteCategory = async (id, name, bookCount) => {
 
 const normalizeName = (value = '') => value.toString().trim().toLowerCase();
 
-const renderCategories = (categories, books) => {
+const renderCategories = () => {
+    const { categories, books, currentPage, itemsPerPage } = state;
     categoriesContainer.innerHTML = '';
     const countByCategoryId = new Map();
     const countByCategoryName = new Map();
@@ -168,11 +176,36 @@ const renderCategories = (categories, books) => {
     let totalBooks = books.length;
     let popularCat = { name: '--', count: 0 };
 
+    // Tìm thể loại phổ biến nhất dựa trên tất cả dữ liệu
     categories.forEach((cat, idx) => {
         const data = cat.data();
-        const id = cat.id;
         const bCount = categoryCounts[idx] || 0;
         if (bCount > popularCat.count) popularCat = { name: data.categoryName, count: bCount };
+    });
+
+    // Phân trang
+    const totalItems = categories.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    
+    // Đảm bảo trang hiện tại hợp lệ
+    if (state.currentPage > totalPages) state.currentPage = totalPages;
+    if (state.currentPage < 1) state.currentPage = 1;
+
+    const startIndex = (state.currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+    
+    // Cập nhật text hiển thị số lượng
+    if (pageStartInfo) pageStartInfo.textContent = totalItems === 0 ? 0 : startIndex + 1;
+    if (pageEndInfo) pageEndInfo.textContent = endIndex;
+    if (totalItemsInfo) totalItemsInfo.textContent = totalItems;
+
+    const currentCategories = categories.slice(startIndex, endIndex);
+
+    currentCategories.forEach((cat, indexInPage) => {
+        const originalIdx = startIndex + indexInPage;
+        const data = cat.data();
+        const id = cat.id;
+        const bCount = categoryCounts[originalIdx] || 0;
 
         const card = document.createElement('div');
         card.className = 'bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md hover:border-primary-200 transition-all group animate-fade-in';
@@ -218,6 +251,81 @@ const renderCategories = (categories, books) => {
     statTotalBooks.textContent = totalBooks > 1000 ? (totalBooks / 1000).toFixed(1) + 'K' : totalBooks;
     statPopularCategory.textContent = popularCat.name;
     statPopularCount.textContent = `${popularCat.count.toLocaleString()} sách`;
+
+    renderPagination(totalPages);
+};
+
+const renderPagination = (totalPages) => {
+    if (!paginationControls) return;
+    paginationControls.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+
+    // Prev Button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
+        state.currentPage === 1 
+        ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50' 
+        : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+    }`;
+    prevBtn.innerHTML = '<i class="ph ph-caret-left"></i>';
+    prevBtn.disabled = state.currentPage === 1;
+    if (!prevBtn.disabled) {
+        prevBtn.addEventListener('click', () => {
+            state.currentPage--;
+            renderAll();
+        });
+    }
+    paginationControls.appendChild(prevBtn);
+
+    // Page Numbers
+    for (let i = 1; i <= totalPages; i++) {
+        // Rút gọn hiển thị trang nếu có quá nhiều trang (ví dụ: 1 2 ... 5 6)
+        if (totalPages > 5) {
+            if (i !== 1 && i !== totalPages && Math.abs(i - state.currentPage) > 1) {
+                if (i === 2 || i === totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.className = 'p-2 text-slate-400';
+                    dots.textContent = '...';
+                    paginationControls.appendChild(dots);
+                }
+                continue;
+            }
+        }
+
+        const pageBtn = document.createElement('button');
+        const isActive = i === state.currentPage;
+        
+        pageBtn.className = `min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all ${
+            isActive 
+            ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20' 
+            : 'text-slate-600 hover:bg-slate-100'
+        }`;
+        pageBtn.textContent = i;
+        pageBtn.addEventListener('click', () => {
+            state.currentPage = i;
+            renderAll();
+        });
+        
+        paginationControls.appendChild(pageBtn);
+    }
+
+    // Next Button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
+        state.currentPage === totalPages 
+        ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50' 
+        : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+    }`;
+    nextBtn.innerHTML = '<i class="ph ph-caret-right"></i>';
+    nextBtn.disabled = state.currentPage === totalPages;
+    if (!nextBtn.disabled) {
+        nextBtn.addEventListener('click', () => {
+            state.currentPage++;
+            renderAll();
+        });
+    }
+    paginationControls.appendChild(nextBtn);
 };
 
 // --- Event Listeners ---
@@ -262,7 +370,7 @@ categoryForm.addEventListener('submit', async (e) => {
 });
 
 const renderAll = () => {
-    renderCategories(state.categories, state.books);
+    renderCategories();
 };
 
 onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {

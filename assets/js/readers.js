@@ -12,8 +12,15 @@ const state = {
     readers: [],
     borrowingCountByUser: new Map(),
     overdueRecords: 0,
-    searchTerm: ''
+    searchTerm: '',
+    currentPage: 1,
+    itemsPerPage: 10
 };
+
+const pageStartInfo = getElem('page-start-info');
+const pageEndInfo = getElem('page-end-info');
+const totalItemsInfo = getElem('total-items-info');
+const paginationControls = getElem('pagination-controls');
 
 let unsubscribeUsers = null;
 let unsubscribeBorrowing = null;
@@ -90,10 +97,31 @@ const renderTable = () => {
 
     if (rows.length === 0) {
         body.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">Không có độc giả phù hợp.</td></tr>';
+        
+        if (pageStartInfo) pageStartInfo.textContent = '0';
+        if (pageEndInfo) pageEndInfo.textContent = '0';
+        if (totalItemsInfo) totalItemsInfo.textContent = '0';
+        if (paginationControls) paginationControls.innerHTML = '';
         return;
     }
 
-    body.innerHTML = rows.map((item) => {
+    const { itemsPerPage } = state;
+    const totalItems = rows.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
+    
+    if (state.currentPage > totalPages) state.currentPage = totalPages;
+    if (state.currentPage < 1) state.currentPage = 1;
+
+    const startIndex = (state.currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, totalItems);
+    
+    if (pageStartInfo) pageStartInfo.textContent = totalItems === 0 ? 0 : startIndex + 1;
+    if (pageEndInfo) pageEndInfo.textContent = endIndex;
+    if (totalItemsInfo) totalItemsInfo.textContent = totalItems;
+
+    const currentRows = rows.slice(startIndex, endIndex);
+
+    body.innerHTML = currentRows.map((item) => {
         const user = item.data || {};
         const uid = item.id;
         const displayName = (user.displayName || user.fullName || user.email || 'Độc giả').toString();
@@ -133,6 +161,80 @@ const renderTable = () => {
             </tr>
         `;
     }).join('');
+
+    renderPagination(totalPages);
+};
+
+const renderPagination = (totalPages) => {
+    if (!paginationControls) return;
+    paginationControls.innerHTML = '';
+    
+    if (totalPages <= 1) return;
+
+    // Prev Button
+    const prevBtn = document.createElement('button');
+    prevBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
+        state.currentPage === 1 
+        ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50' 
+        : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+    }`;
+    prevBtn.innerHTML = '<i class="ph ph-caret-left"></i>';
+    prevBtn.disabled = state.currentPage === 1;
+    if (!prevBtn.disabled) {
+        prevBtn.addEventListener('click', () => {
+            state.currentPage--;
+            renderTable();
+        });
+    }
+    paginationControls.appendChild(prevBtn);
+
+    // Page Numbers
+    for (let i = 1; i <= totalPages; i++) {
+        if (totalPages > 5) {
+            if (i !== 1 && i !== totalPages && Math.abs(i - state.currentPage) > 1) {
+                if (i === 2 || i === totalPages - 1) {
+                    const dots = document.createElement('span');
+                    dots.className = 'p-2 text-slate-400';
+                    dots.textContent = '...';
+                    paginationControls.appendChild(dots);
+                }
+                continue;
+            }
+        }
+
+        const pageBtn = document.createElement('button');
+        const isActive = i === state.currentPage;
+        
+        pageBtn.className = `min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all ${
+            isActive 
+            ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20' 
+            : 'text-slate-600 hover:bg-slate-100'
+        }`;
+        pageBtn.textContent = i;
+        pageBtn.addEventListener('click', () => {
+            state.currentPage = i;
+            renderTable();
+        });
+        
+        paginationControls.appendChild(pageBtn);
+    }
+
+    // Next Button
+    const nextBtn = document.createElement('button');
+    nextBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
+        state.currentPage === totalPages 
+        ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50' 
+        : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
+    }`;
+    nextBtn.innerHTML = '<i class="ph ph-caret-right"></i>';
+    nextBtn.disabled = state.currentPage === totalPages;
+    if (!nextBtn.disabled) {
+        nextBtn.addEventListener('click', () => {
+            state.currentPage++;
+            renderTable();
+        });
+    }
+    paginationControls.appendChild(nextBtn);
 };
 
 const renderAll = () => {
@@ -146,6 +248,7 @@ const bindSearch = () => {
 
     searchInput.addEventListener('input', () => {
         state.searchTerm = (searchInput.value || '').trim();
+        state.currentPage = 1;
         renderTable();
     });
 
