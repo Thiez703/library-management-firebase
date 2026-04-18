@@ -2,7 +2,6 @@ import { db } from './firebase-config.js';
 import { showToast } from './auth.js';
 import {
     MAX_BOOKS_PER_TICKET,
-    autoCleanup,
     approveTicket,
     getTicketStatusView,
     handleCheckout,
@@ -78,11 +77,8 @@ export const returnSlip = async (recordDocId, damageFee = 0, finalNote = '') => 
 };
 
 export const clearExpiredSlips = async () => {
-    const count = await autoCleanup();
-    if (count > 0) {
-        showToast(`Đã tự huỷ ${count} phiếu quá hạn nhận sách.`, 'success');
-    }
-    return count;
+    showToast('Chức năng dọn dẹp đã được chuyển sang server tự động.', 'info');
+    return 0;
 };
 
 export const createGuestSlip = async () => {

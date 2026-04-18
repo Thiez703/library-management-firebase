@@ -1,13 +1,16 @@
 import { db } from './firebase-config.js';
+import { requireAdmin } from './admin-guard.js';
 import {
     collection,
     onSnapshot,
     query,
-    where
-} from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-
-import {
+    where,
+    getDocs,
     addDoc,
+    updateDoc,
+    doc,
+    limit,
+    orderBy,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { showToast } from './auth.js';
@@ -17,7 +20,8 @@ const state = {
     readers: [],
     borrowingCountByUser: new Map(),
     overdueRecords: 0,
-    searchTerm: ''
+    searchTerm: '',
+    selectedReaderId: ''
 };
 
 let unsubscribeUsers = null;
@@ -58,7 +62,6 @@ const normalizeStatus = (user) => {
     }
 
     return {
-                initGuestReaderUI();
         label: 'Hoạt động',
         rowClass: 'bg-emerald-50 text-emerald-700',
         dotClass: 'bg-emerald-500',
@@ -109,9 +112,10 @@ const renderTable = () => {
         const borrowingCount = Number(state.borrowingCountByUser.get(uid) || user.borrowingCount || 0);
         const status = normalizeStatus(user);
         const initials = makeInitials(displayName, email);
+        const isLocked = !status.isActive;
 
         return `
-            <tr class="hover:bg-slate-50/80 transition-colors group">
+            <tr class="hover:bg-slate-50/80 transition-colors group" data-uid="${uid}">
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
                         <div class="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm">${escapeHtml(initials)}</div>
@@ -131,19 +135,202 @@ const renderTable = () => {
                 </td>
                 <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button title="Xem chi tiết" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"><i class="ph ph-eye text-lg"></i></button>
-                        <button title="Chỉnh sửa" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"><i class="ph ph-pencil-simple text-lg"></i></button>
-                        <button title="Khóa tài khoản" class="p-1.5 text-rose-600 hover:bg-rose-50 rounded-md"><i class="ph ph-lock text-lg"></i></button>
+                        <button title="Xem chi tiết" data-action="view" data-uid="${uid}" class="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md"><i class="ph ph-eye text-lg"></i></button>
+                        <button title="Chỉnh sửa" data-action="edit" data-uid="${uid}" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"><i class="ph ph-pencil-simple text-lg"></i></button>
+                        <button title="${isLocked ? 'Mở khóa' : 'Khóa'} tài khoản" data-action="lock" data-uid="${uid}" data-locked="${isLocked}" class="p-1.5 ${isLocked ? 'text-emerald-600 hover:bg-emerald-50' : 'text-rose-600 hover:bg-rose-50'} rounded-md"><i class="ph ph-${isLocked ? 'lock-open' : 'lock'} text-lg"></i></button>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
+
+    // Gắn event listener sau khi render
+    body.querySelectorAll('[data-action]').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+            const action = btn.getAttribute('data-action');
+            const uid = btn.getAttribute('data-uid');
+            const readerItem = state.readers.find((r) => r.id === uid);
+            if (!readerItem) return;
+
+            if (action === 'view') openReaderDetail(uid, readerItem.data);
+            else if (action === 'edit') openReaderEdit(uid, readerItem.data);
+            else if (action === 'lock') toggleLockReader(uid, readerItem.data);
+        });
+    });
 };
 
 const renderAll = () => {
     renderStats();
     renderTable();
+};
+
+// ─── MODAL: XEM CHI TI\u1ebcT \u0110\u1ed8C GI\u1ea2 ───────────────────────────────────────────────
+
+const openReaderDetail = async (uid, userData) => {
+    state.selectedReaderId = uid;
+    const displayName = userData?.displayName || userData?.fullName || userData?.email || '\u0110\u1ed9c gi\u1ea3';
+    const initials = makeInitials(displayName, userData?.email || '');
+    const status = normalizeStatus(userData);
+    const borrowingCount = Number(state.borrowingCountByUser.get(uid) || 0);
+    const memberCode = makeMemberCode(uid, userData);
+
+    // Populate modal
+    const avatar = getElem('readerDetailAvatar');
+    if (avatar) avatar.textContent = initials;
+
+    const setText = (id, val) => { const el = getElem(id); if (el) el.textContent = val || '--'; };
+    setText('readerDetailName', displayName);
+    setText('readerDetailCode', memberCode);
+    setText('readerDetailEmail', userData?.email || '--');
+    setText('readerDetailPhone', userData?.phone || userData?.phoneNumber || '--');
+    setText('readerDetailRole', userData?.role === 'admin' ? 'Qu\u1ea3n tr\u1ecb vi\u00ean' : '\u0110\u1ed9c gi\u1ea3');
+    setText('readerDetailStatus', status.label);
+    setText('readerDetailBorrowing', `${borrowingCount} cu\u1ed1n`);
+
+    const createdAt = userData?.createdAt;
+    if (createdAt && typeof createdAt.toDate === 'function') {
+        setText('readerDetailCreatedAt', createdAt.toDate().toLocaleDateString('vi-VN'));
+    } else {
+        setText('readerDetailCreatedAt', '--');
+    }
+
+    // C\u1eadp nh\u1eadt n\u00fat kh\u00f3a
+    const lockBtn = getElem('readerDetailLockBtn');
+    if (lockBtn) {
+        lockBtn.innerHTML = status.isActive
+            ? '<i class="ph ph-lock mr-1"></i> Kh\u00f3a t\u00e0i kho\u1ea3n'
+            : '<i class="ph ph-lock-open mr-1"></i> M\u1edf kh\u00f3a t\u00e0i kho\u1ea3n';
+        lockBtn.className = `flex-1 px-4 py-2.5 rounded-xl border font-semibold text-sm transition-colors ${
+            status.isActive
+                ? 'border-rose-200 text-rose-600 hover:bg-rose-50'
+                : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+        }`;
+        lockBtn.onclick = () => toggleLockReader(uid, userData);
+    }
+
+    // N\u00fat s\u1eeda
+    const editBtn = getElem('readerDetailEditBtn');
+    if (editBtn) editBtn.onclick = () => openReaderEdit(uid, userData);
+
+    // Hi\u1ec3n th\u1ecb modal
+    getElem('readerDetailModal')?.classList.remove('hidden');
+
+    // T\u1ea3i l\u1ecbch s\u1eed m\u01b0\u1ee3n
+    const historyContainer = getElem('readerDetailHistory');
+    if (historyContainer) {
+        historyContainer.innerHTML = '<p class="text-sm text-slate-400">Đang tải...</p>';
+        try {
+            const snap = await getDocs(query(
+                collection(db, 'borrowRecords'),
+                where('userId', '==', uid),
+                orderBy('requestDate', 'desc'),
+                limit(5)
+            ));
+            if (snap.empty) {
+                historyContainer.innerHTML = '<p class="text-sm text-slate-400">Ch\u01b0a c\u00f3 phi\u1ebfu m\u01b0\u1ee3n n\u00e0o.</p>';
+            } else {
+                historyContainer.innerHTML = snap.docs.map(d => {
+                    const r = d.data();
+                    const statusMap = { pending: '\u2022 Ch\u1edd duy\u1ec7t', borrowing: '\u2022 \u0110ang m\u01b0\u1ee3n', returned: '\u2022 \u0110\u00e3 tr\u1ea3', cancelled: '\u2022 \u0110\u00e3 hu\u1ef7' };
+                    const booksText = Array.isArray(r.books) ? r.books.map(b => b.title).join(', ') : '--';
+                    const dateStr = r.requestDate?.toDate ? r.requestDate.toDate().toLocaleDateString('vi-VN') : '--';
+                    return `<div class="rounded-xl border border-slate-100 p-3 text-sm">
+                        <div class="flex justify-between items-start gap-2">
+                            <p class="font-mono text-xs text-slate-500">${r.recordId || d.id}</p>
+                            <span class="text-xs font-semibold text-slate-600">${statusMap[r.status] || r.status}</span>
+                        </div>
+                        <p class="text-slate-700 mt-1 truncate">${booksText}</p>
+                        <p class="text-xs text-slate-400 mt-1">${dateStr}</p>
+                    </div>`;
+                }).join('');
+            }
+        } catch {
+            historyContainer.innerHTML = '<p class="text-sm text-rose-500">Kh\u00f4ng th\u1ec3 t\u1ea3i l\u1ecbch s\u1eed.</p>';
+        }
+    }
+};
+
+// ─── MODAL: CH\u1ec8NH S\u1eeeA \u0110\u1ed8C GI\u1ea2 ───────────────────────────────────────────────────
+
+const openReaderEdit = (uid, userData) => {
+    state.selectedReaderId = uid;
+    const nameInput = getElem('editReaderName');
+    const phoneInput = getElem('editReaderPhone');
+    const emailInput = getElem('editReaderEmail');
+    const idInput = getElem('editReaderId');
+
+    if (idInput) idInput.value = uid;
+    if (nameInput) nameInput.value = userData?.displayName || userData?.fullName || '';
+    if (phoneInput) phoneInput.value = userData?.phone || userData?.phoneNumber || '';
+    if (emailInput) emailInput.value = userData?.email || '';
+
+    // \u0110\u00f3ng detail modal, m\u1edf edit modal
+    getElem('readerDetailModal')?.classList.add('hidden');
+    getElem('readerEditModal')?.classList.remove('hidden');
+};
+
+// ─── KH\u00d3A / M\u1ede KH\u00d3A T\u00c0I KHO\u1ea2N ────────────────────────────────────────────────────
+
+const toggleLockReader = async (uid, userData) => {
+    const status = normalizeStatus(userData);
+    const isCurrentlyActive = status.isActive;
+    const newStatus = isCurrentlyActive ? 'locked' : 'active';
+    const actionLabel = isCurrentlyActive ? 'kh\u00f3a' : 'm\u1edf kh\u00f3a';
+
+    try {
+        await updateDoc(doc(db, 'users', uid), {
+            status: newStatus,
+            updatedAt: serverTimestamp()
+        });
+        showToast(`\u0110\u00e3 ${actionLabel} t\u00e0i kho\u1ea3n th\u00e0nh c\u00f4ng.`, 'success');
+        getElem('readerDetailModal')?.classList.add('hidden');
+    } catch (err) {
+        showToast(err.message || `Kh\u00f4ng th\u1ec3 ${actionLabel} t\u00e0i kho\u1ea3n.`, 'error');
+    }
+};
+
+// ─── BIND MODALS \u0110\u1ed8C GI\u1ea2 ──────────────────────────────────────────────────────────
+
+const bindReaderModals = () => {
+    // Detail modal
+    getElem('closeReaderDetailModal')?.addEventListener('click', () => {
+        getElem('readerDetailModal')?.classList.add('hidden');
+        state.selectedReaderId = '';
+    });
+
+    // Edit modal
+    getElem('closeReaderEditModal')?.addEventListener('click', () => {
+        getElem('readerEditModal')?.classList.add('hidden');
+    });
+    getElem('cancelReaderEditBtn')?.addEventListener('click', () => {
+        getElem('readerEditModal')?.classList.add('hidden');
+    });
+
+    // Submit edit form
+    getElem('readerEditForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const uid = getElem('editReaderId')?.value;
+        if (!uid) return;
+
+        const displayName = (getElem('editReaderName')?.value || '').trim();
+        const phone = (getElem('editReaderPhone')?.value || '').trim();
+        const email = (getElem('editReaderEmail')?.value || '').trim();
+
+        if (!displayName) { showToast('Vui l\u00f2ng nh\u1eadp h\u1ecd t\u00ean.', 'error'); return; }
+
+        try {
+            await updateDoc(doc(db, 'users', uid), {
+                displayName,
+                phone,
+                email,
+                updatedAt: serverTimestamp()
+            });
+            showToast('\u0110\u00e3 c\u1eadp nh\u1eadt th\u00f4ng tin \u0111\u1ed9c gi\u1ea3 th\u00e0nh c\u00f4ng.', 'success');
+            getElem('readerEditModal')?.classList.add('hidden');
+        } catch (err) {
+            showToast(err.message || 'Kh\u00f4ng th\u1ec3 c\u1eadp nh\u1eadt th\u00f4ng tin.', 'error');
+        }
+    });
 };
 
 const bindSearch = () => {
@@ -160,6 +347,8 @@ const bindSearch = () => {
 
 const initReaders = () => {
     bindSearch();
+    initGuestReaderUI();
+    bindReaderModals();
 
     if (unsubscribeUsers) unsubscribeUsers();
     if (unsubscribeBorrowing) unsubscribeBorrowing();
@@ -234,7 +423,7 @@ const initReaders = () => {
             getElem('guestReaderModal')?.classList.add('hidden');
         
             // Reset form
-            getElem('guestReaderForm').reset();
+            getElem('guestReaderForm')?.reset();
         
             return docRef.id;
         } catch (error) {
@@ -249,6 +438,8 @@ const initReaders = () => {
         const cancelBtn = getElem('cancelGuestReaderBtn');
         const modal = getElem('guestReaderModal');
         const form = getElem('guestReaderForm');
+
+        if (form?.dataset.bound === '1') return;
 
         if (openBtn) {
             openBtn.addEventListener('click', () => {
@@ -274,6 +465,7 @@ const initReaders = () => {
 
                 await createGuestReader(fullName, phone, cccd, email, note);
             });
+            form.dataset.bound = '1';
         }
     };
 
@@ -281,7 +473,9 @@ const initReaders = () => {
         bindGuestReaderModal();
     };
 
-document.addEventListener('turbo:load', initReaders);
-document.addEventListener('turbo:render', initReaders);
-if (document.readyState !== 'loading') initReaders();
-else document.addEventListener('DOMContentLoaded', initReaders);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initReaders());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

@@ -18,6 +18,25 @@ const initPublicBooks = () => {
     initFavoriteFeature();
 
     if (featuredContainer || newArrivalContainer) {
+        const skeletonHtml = Array(5).fill(`
+            <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm animate-pulse flex flex-col h-full opacity-60">
+                <div class="aspect-[2/3] bg-slate-200"></div>
+                <div class="p-4 space-y-3 flex-1 flex flex-col">
+                    <div class="h-3 bg-slate-200 rounded w-1/3"></div>
+                    <div class="h-4 bg-slate-200 rounded w-3/4"></div>
+                </div>
+            </div>
+        `).join('');
+
+        if (featuredContainer) {
+            featuredContainer.innerHTML = skeletonHtml;
+            featuredContainer.classList.remove('hidden');
+        }
+        if (newArrivalContainer) {
+            newArrivalContainer.innerHTML = skeletonHtml;
+            newArrivalContainer.classList.remove('hidden');
+        }
+
         const booksRef = collection(db, 'books');
         const q = query(booksRef, orderBy('createdAt', 'desc'), limit(15));
         onSnapshot(q, (snapshot) => {

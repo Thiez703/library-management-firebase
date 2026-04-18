@@ -161,6 +161,30 @@
         </div>
     </div>
 
+    <!-- Modal Gia Hạn -->
+    <div id="extendModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
+        <div class="max-w-md mx-auto mt-24 bg-white rounded-2xl shadow-2xl p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-1">Gia hạn phiếu mượn</h3>
+            <p class="text-sm text-slate-500 mb-4">Gia hạn sẽ tính từ ngày đến hạn hiện tại (hoặc hôm nay nếu đã quá hạn).</p>
+            <form id="extendForm" class="space-y-3">
+                <div>
+                    <label class="text-sm font-medium text-slate-700">Số ngày gia hạn</label>
+                    <input id="extendDays" type="number" min="1" max="30" value="7"
+                        class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm" />
+                    <p class="text-xs text-slate-400 mt-1">Tối đa 30 ngày mỗi lần gia hạn.</p>
+                </div>
+                <div>
+                    <label class="text-sm font-medium text-slate-700">Ghi chú</label>
+                    <textarea id="extendNote" rows="2" placeholder="Lý do gia hạn..." class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button id="closeExtendModalBtn" type="button" class="px-4 py-2.5 rounded-lg border border-slate-200 text-slate-600">Đóng</button>
+                    <button type="submit" class="px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold">Xác nhận gia hạn</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script type="module">
         import { checkAuthState, signOutUser } from '../assets/js/auth.js';
 

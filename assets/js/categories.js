@@ -1,4 +1,5 @@
 import { db } from './firebase-config.js';
+import { requireAdmin } from './admin-guard.js';
 import { 
     collection, 
     addDoc, 
@@ -265,12 +266,15 @@ const renderAll = () => {
     renderCategories(state.categories, state.books);
 };
 
-onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {
-    state.categories = snapshot.docs;
-    renderAll();
-});
+// Khởi chạy — bảo vệ bằng admin guard
+requireAdmin(() => {
+    onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {
+        state.categories = snapshot.docs;
+        renderAll();
+    });
 
-onSnapshot(collection(db, 'books'), (snapshot) => {
-    state.books = snapshot.docs;
-    renderAll();
+    onSnapshot(collection(db, 'books'), (snapshot) => {
+        state.books = snapshot.docs;
+        renderAll();
+    });
 });

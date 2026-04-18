@@ -1,4 +1,5 @@
 import { auth, db } from './firebase-config.js';
+import { requireAdmin } from './admin-guard.js';
 import { showToast } from './notify.js';
 import {
     doc,
@@ -371,7 +372,9 @@ const initSettingsPage = async () => {
     }
 };
 
-document.addEventListener('turbo:load', initSettingsPage);
-document.addEventListener('turbo:render', initSettingsPage);
-if (document.readyState !== 'loading') initSettingsPage();
-else document.addEventListener('DOMContentLoaded', initSettingsPage);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initSettingsPage());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

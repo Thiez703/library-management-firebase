@@ -567,8 +567,9 @@
 
     <!-- Firebase & Auth & Borrow -->
     <script type="module">
-        import { db } from '../assets/js/firebase-config.js';
-        import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+        import { db, auth } from '../assets/js/firebase-config.js';
+        import { doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
         import { addToCart, ensureFloatingCartButton, showCartActionToast, updateCartBadges } from '../assets/js/cart.js';
         import { showToast } from '../assets/js/auth.js';
         import { initFavoriteFeature, refreshFavoriteButtons } from '../assets/js/favorites.js';
@@ -657,20 +658,65 @@
                 }
 
                 if (Number(currentBook.availableQuantity || 0) <= 0) {
-                    borrowBtn.disabled = true;
+                    // Chuyển nút thành nút Đặt trước
                     borrowBtn.classList.remove('bg-primary-600', 'hover:bg-primary-700');
-                    borrowBtn.classList.add('bg-slate-300', 'cursor-not-allowed');
-                    borrowBtn.innerHTML = '<i class="ph-bold ph-bell-slash text-lg"></i> Hết sách';
+                    borrowBtn.classList.add('bg-violet-600', 'hover:bg-violet-700');
+                    borrowBtn.innerHTML = '<i class="ph-bold ph-bookmark-simple text-lg"></i> Đặt trước sách';
+                    borrowBtn.setAttribute('data-action', 'reserve');
+                } else {
+                    borrowBtn.setAttribute('data-action', 'borrow');
                 }
             } catch (err) {
                 console.error('Detail load error:', err);
                 showToast('Không thể tải chi tiết sách. Vui lòng thử lại!', 'error');
             }
 
-            borrowBtn.onclick = (e) => {
+            borrowBtn.onclick = async (e) => {
                 e.preventDefault();
                 if (!currentBook) return;
 
+                const action = borrowBtn.getAttribute('data-action');
+
+                if (action === 'reserve') {
+                    if (!auth.currentUser) {
+                        showToast('Vui lòng đăng nhập để đặt trước sách.', 'error');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    borrowBtn.disabled = true;
+                    borrowBtn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Đang xử lý...';
+
+                    try {
+                        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+                        const userData = userDoc.exists() ? userDoc.data() : {};
+                        const userFullName = userData.fullName || auth.currentUser.displayName || auth.currentUser.email;
+
+                        await addDoc(collection(db, 'reservations'), {
+                            userId: auth.currentUser.uid,
+                            userEmail: auth.currentUser.email,
+                            userName: userFullName,
+                            bookId: bookId,
+                            bookTitle: currentBook.title,
+                            bookCover: currentBook.coverUrl || FALLBACK_COVER,
+                            status: 'waiting', // waiting, notified, expired
+                            createdAt: serverTimestamp()
+                        });
+
+                        showToast('Đã đặt trước sách thành công! Chúng tôi sẽ thông báo qua email khi có sách.', 'success', { duration: 5000 });
+                        borrowBtn.classList.remove('bg-violet-600', 'hover:bg-violet-700');
+                        borrowBtn.classList.add('bg-emerald-600');
+                        borrowBtn.innerHTML = '<i class="ph-bold ph-check text-lg"></i> Đã ghi nhận đặt trước';
+                    } catch (error) {
+                        console.error('Reserve error:', error);
+                        showToast('Có lỗi xảy ra, vui lòng thử lại sau.', 'error');
+                        borrowBtn.disabled = false;
+                        borrowBtn.innerHTML = '<i class="ph-bold ph-bookmark-simple text-lg"></i> Đặt trước sách';
+                    }
+                    return;
+                }
+
+                // Normal Borrow Logic
                 if (Number(currentBook.availableQuantity || 0) <= 0) {
                     showToast('Sách đã hết, không thể thêm vào giỏ.', 'error');
                     return;

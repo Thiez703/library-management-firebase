@@ -121,7 +121,8 @@ export const signInWithGoogle = async () => {
             window.location.href = userData.role === 'admin' ? '../admin/admin.html' : 'index.html';
         }, 1000);
     } catch (e) { 
-        showToast("Lỗi đăng nhập Google", "error"); 
+        console.error("Chi tiết lỗi đăng nhập Google:", e);
+        showToast("Lỗi đăng nhập Google: " + (e.message || ''), "error"); 
     }
 };
 

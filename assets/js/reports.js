@@ -1,5 +1,6 @@
 import { db } from './firebase-config.js';
 import { showToast } from './notify.js';
+import { requireAdmin } from './admin-guard.js';
 import {
     collection,
     onSnapshot
@@ -349,16 +350,93 @@ const bindRangeEvents = () => {
     endInput.dataset.bound = '1';
 };
 
-const bindExport = () => {
-    const btn = getElem('exportReportPdfBtn');
-    if (!btn) return;
-    if (btn.dataset.bound === '1') return;
+// ─── Export CSV ───────────────────────────────────────────────────────────────
 
-    btn.addEventListener('click', () => {
-        showToast('Đang mở cửa sổ in để xuất PDF...', 'info', { duration: 1800 });
-        window.print();
+const escapeCsvCell = (value = '') => {
+    const str = String(value ?? '').replace(/"/g, '""');
+    return /[,"\n\r]/.test(str) ? `"${str}"` : str;
+};
+
+const downloadCsv = (filename, rows) => {
+    const BOM = '\uFEFF'; // BOM để Excel nhận đúng UTF-8
+    const csv = BOM + rows.map(row => row.map(escapeCsvCell).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+};
+
+const exportTicketsCsv = () => {
+    const metrics = buildMetrics();
+    const formatDateCell = (tsLike) => {
+        const ms = toMs(tsLike);
+        return ms ? new Date(ms).toLocaleDateString('vi-VN') : '--';
+    };
+
+    // Header
+    const header = ['Mã Phiếu', 'Độc Giả', 'SĐT', 'Sách Mượn', 'Ngày Đăng Ký', 'Hạn Trả', 'Ngày Trả', 'Trạng Thái', 'Phí Trễ', 'Ghi Chú'];
+
+    // Lấy tickets trong khoảng lọc
+    const filtered = state.tickets.filter(t => {
+        const ms = toMs(t.requestDate) || toMs(t.borrowDate);
+        if (!ms) return false;
+        if (state.startMs && ms < state.startMs) return false;
+        if (state.endMs && ms > state.endMs) return false;
+        return true;
     });
-    btn.dataset.bound = '1';
+
+    const statusLabel = { pending: 'Chờ duyệt', borrowing: 'Đang mượn', returned: 'Đã trả', cancelled: 'Đã huỷ' };
+
+    const rows = filtered.map(t => {
+        const books = Array.isArray(t.books) ? t.books.map(b => b.title).join(' | ') : (t.bookTitle || '--');
+        const fine = Number(t.fineOverdue || 0) + Number(t.fineDamage || 0);
+        return [
+            t.recordId || t.id,
+            t.userDetails?.fullName || t.readerName || '--',
+            t.userDetails?.phone || '--',
+            books,
+            formatDateCell(t.requestDate || t.borrowDate),
+            formatDateCell(t.dueDate),
+            formatDateCell(t.returnDate),
+            statusLabel[t.status] || t.status || '--',
+            fine > 0 ? `${fine.toLocaleString('vi-VN')} đ` : '0',
+            t.adminNote || t.note || ''
+        ];
+    });
+
+    if (!rows.length) {
+        showToast('Không có dữ liệu trong khoảng thời gian đã chọn.', 'error');
+        return;
+    }
+
+    const startLabel = getElem('reportStartDate')?.value || 'all';
+    const endLabel = getElem('reportEndDate')?.value || 'all';
+    const filename = `bao-cao-muon-sach_${startLabel}_${endLabel}.csv`;
+
+    downloadCsv(filename, [header, ...rows]);
+    showToast(`Đã xuất ${rows.length} phiếu mượn thành file CSV.`, 'success');
+};
+
+const bindExport = () => {
+    const pdfBtn = getElem('exportReportPdfBtn');
+    if (pdfBtn && pdfBtn.dataset.bound !== '1') {
+        pdfBtn.addEventListener('click', () => {
+            showToast('Đang mở cửa sổ in để xuất PDF...', 'info', { duration: 1800 });
+            window.print();
+        });
+        pdfBtn.dataset.bound = '1';
+    }
+
+    const csvBtn = getElem('exportCsvBtn');
+    if (csvBtn && csvBtn.dataset.bound !== '1') {
+        csvBtn.addEventListener('click', exportTicketsCsv);
+        csvBtn.dataset.bound = '1';
+    }
 };
 
 const clearUnsubs = () => {
@@ -417,7 +495,9 @@ const initReportsPage = () => {
     subscribeRealtime();
 };
 
-document.addEventListener('turbo:load', initReportsPage);
-document.addEventListener('turbo:render', initReportsPage);
-if (document.readyState !== 'loading') initReportsPage();
-else document.addEventListener('DOMContentLoaded', initReportsPage);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initReportsPage());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

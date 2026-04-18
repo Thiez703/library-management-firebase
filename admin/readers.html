@@ -257,17 +257,108 @@
         </div>
     </div>
 
-    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3"></div>
+    <!-- Modal: Xem Chi Ti\u1ebft \u0110\u1ed9c Gi\u1ea3 -->
+    <div id="readerDetailModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <h3 class="text-xl font-bold text-slate-800">Chi ti\u1ebft \u0111\u1ed9c gi\u1ea3</h3>
+                <button id="closeReaderDetailModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 space-y-5">
+                <!-- Th\u00f4ng tin c\u01a1 b\u1ea3n -->
+                <div class="flex items-center gap-4">
+                    <div id="readerDetailAvatar" class="w-16 h-16 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-xl shrink-0">--</div>
+                    <div>
+                        <p id="readerDetailName" class="text-lg font-bold text-slate-800">--</p>
+                        <p id="readerDetailCode" class="text-sm text-slate-500 font-mono mt-0.5">--</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Email</p>
+                        <p id="readerDetailEmail" class="font-medium text-slate-700 mt-1 break-all">--</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">S\u1ed1 \u0111i\u1ec7n tho\u1ea1i</p>
+                        <p id="readerDetailPhone" class="font-medium text-slate-700 mt-1">--</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Vai tr\u00f2</p>
+                        <p id="readerDetailRole" class="font-medium text-slate-700 mt-1">\u0110\u1ed9c gi\u1ea3</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Tr\u1ea1ng th\u00e1i</p>
+                        <p id="readerDetailStatus" class="font-medium text-emerald-700 mt-1">\u0110ang ho\u1ea1t \u0111\u1ed9ng</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">\u0110ang m\u01b0\u1ee3n</p>
+                        <p id="readerDetailBorrowing" class="font-bold text-blue-600 mt-1 text-lg">0 cu\u1ed1n</p>
+                    </div>
+                    <div class="bg-slate-50 rounded-xl p-3">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Ng\u00e0y tham gia</p>
+                        <p id="readerDetailCreatedAt" class="font-medium text-slate-700 mt-1">--</p>
+                    </div>
+                </div>
+                <!-- L\u1ecbch s\u1eed m\u01b0\u1ee3n g\u1ea7n nh\u1ea5t -->
+                <div>
+                    <p class="text-sm font-semibold text-slate-700 mb-3">L\u1ecbch s\u1eed m\u01b0\u1ee3n g\u1ea7n \u0111\u00e2y</p>
+                    <div id="readerDetailHistory" class="space-y-2 max-h-[200px] overflow-y-auto">
+                        <p class="text-sm text-slate-400">\u0110ang t\u1ea3i...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+                <button id="readerDetailLockBtn" type="button" class="flex-1 px-4 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-sm transition-colors">
+                    <i class="ph ph-lock mr-1"></i> Kh\u00f3a t\u00e0i kho\u1ea3n
+                </button>
+                <button id="readerDetailEditBtn" type="button" class="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm transition-colors">
+                    <i class="ph ph-pencil-simple mr-1"></i> Ch\u1ec9nh s\u1eeda
+                </button>
+            </div>
+        </div>
+    </div>
 
-    <style>
-        .animate-fade-in {
-            animation: fadeIn 0.3s ease-out forwards;
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-    </style>
+    <!-- Modal: Ch\u1ec9nh S\u1eeda \u0110\u1ed9c Gi\u1ea3 -->
+    <div id="readerEditModal" class="hidden fixed inset-0 bg-slate-900/50 z-[130] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-slate-800">Ch\u1ec9nh s\u1eeda \u0111\u1ed9c gi\u1ea3</h3>
+                <button id="closeReaderEditModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <form id="readerEditForm" class="p-6 space-y-4">
+                <input type="hidden" id="editReaderId">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">H\u1ecd v\u00e0 T\u00ean <span class="text-rose-500">*</span></label>
+                    <input id="editReaderName" type="text" required placeholder="H\u1ecd t\u00ean \u0111\u1ed9c gi\u1ea3"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">S\u1ed1 \u0110i\u1ec7n Tho\u1ea1i</label>
+                    <input id="editReaderPhone" type="tel" placeholder="0123456789"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+                    <input id="editReaderEmail" type="email" placeholder="email@example.com"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="cancelReaderEditBtn"
+                        class="px-5 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">Hu\u1ef7</button>
+                    <button type="submit"
+                        class="px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm">
+                        <i class="ph ph-check-circle mr-1"></i> L\u01b0u thay \u0111\u1ed5i
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3"></div>
     <script type="module" src="../assets/js/readers.js"></script>
 </body>
 

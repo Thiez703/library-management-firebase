@@ -1,4 +1,5 @@
 import { db, storage } from './firebase-config.js';
+import { requireAdmin } from './admin-guard.js';
 import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, limit, startAfter, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
 import { showToast, showConfirm } from './notify.js';
@@ -209,6 +210,20 @@ const handleSaveBook = async () => {
 
     let bookId = id;
     if (id) {
+        // BUG FIX: Khi chỉnh sửa, tính lại availableQuantity dựa trên số đang mượn
+        // thay vì gàn cứng = totalQuantity (sẽ mất thông tin sách đang cho mượn)
+        const existingSnap = await getDoc(doc(db, 'books', id));
+        if (existingSnap.exists()) {
+            const existingData = existingSnap.data();
+            const currentTotal = Number(existingData.totalQuantity || 0);
+            const currentAvailable = Number(existingData.availableQuantity || 0);
+            // Số đang mượn = totalQuantity cũ - availableQuantity cũ
+            const currentlyBorrowed = Math.max(0, currentTotal - currentAvailable);
+            // Số có thể mượn mới = totalQuantity mới - số đang mượn
+            data.availableQuantity = Math.max(0, qty - currentlyBorrowed);
+        } else {
+            data.availableQuantity = qty;
+        }
         await updateDoc(doc(db, 'books', id), data);
     } else {
         data.createdAt = serverTimestamp();
@@ -284,11 +299,12 @@ window.deleteBookAction = async (id, title) => {
     }
 };
 
-// --- 5. Khởi chạy ---
-document.addEventListener('turbo:load', initAdminBooks);
-document.addEventListener('turbo:render', initAdminBooks);
-if (document.readyState !== 'loading') initAdminBooks();
-else document.addEventListener('DOMContentLoaded', initAdminBooks);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initAdminBooks());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);
 
 // --- 6. Thành viên 5 - Tìm kiếm & Phân trang ---
 export const loadBooksPage = async (lastDocNode = null, pageSize = 12) => {

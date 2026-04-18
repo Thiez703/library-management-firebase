@@ -22,7 +22,14 @@ export const MAX_BOOKS_PER_TICKET = 5;
 export const ONE_ACTIVE_TICKET_ONLY = true;
 export const RESERVE_EXPIRY_HOURS = 24;
 export const BORROW_DURATION_DAYS = 14;
-export const FINE_PER_DAY = 5000;
+export const FINE_PER_DAY = 5000; // Để tương thích API cũ
+
+export const calculateFineAmount = (daysLate) => {
+    if (daysLate <= 0) return 0;
+    if (daysLate <= 7) return daysLate * 1000;
+    if (daysLate <= 30) return daysLate * 2000;
+    return daysLate * 5000;
+};
 
 const BORROW_COLLECTION = 'borrowRecords';
 
@@ -228,6 +235,19 @@ export const handleCheckout = async (userData, cartItems) => {
         return null;
     }
 
+    // Chặn mượn nếu nợ phạt chưa thanh toán (BIZ-04)
+    const unpaidFinesSnap = await getDocs(
+        query(
+            collection(db, 'fines'),
+            where('userId', '==', userId),
+            where('status', '==', 'unpaid')
+        )
+    );
+    if (!unpaidFinesSnap.empty) {
+        showToast('Bạn đang có phiếu phạt quá hạn chưa thanh toán. Không thể mượn sách lúc này.', 'error');
+        return null;
+    }
+
     if (ONE_ACTIVE_TICKET_ONLY && await hasAnyActiveRecord(userId)) {
         showToast('Bạn đang có phiếu chờ duyệt hoặc đang mượn. Vui lòng hoàn tất phiếu hiện tại.', 'error');
         return null;
@@ -354,9 +374,10 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
         const nowMs = Date.now();
         const dueMs = toMillis(record.dueDate);
         let fineOverdue = 0;
+        let daysLate = 0;
         if (dueMs && nowMs > dueMs) {
-            const daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
-            fineOverdue = Math.max(0, daysLate) * FINE_PER_DAY;
+            daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
+            fineOverdue = calculateFineAmount(daysLate); // BIZ-01
         }
 
         const books = Array.isArray(record.books) ? record.books : [];
@@ -388,61 +409,59 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             adminNote: (finalNote || '').trim(),
             updatedAt: serverTimestamp()
         });
+
+        // BIZ-02: Nếu có trễ hạn, sinh ra phiếu phạt
+        if (daysLate > 0) {
+            const fineRef = doc(collection(db, 'fines'));
+            transaction.set(fineRef, {
+                fineId: `F-${generateRecordId().replace('LIB-', '')}`,
+                recordId: record.recordId || recordDocId,
+                userId: record.userId || '',
+                userName: record.userDetails?.fullName || 'Độc giả',
+                bookTitles: books.map(b => b.title || 'Sách không tên'),
+                dueDate: record.dueDate || Timestamp.fromMillis(dueMs),
+                returnDate: serverTimestamp(),
+                daysLate: daysLate,
+                amount: fineOverdue,
+                status: 'unpaid', // unpaid, paid, waived
+                paidAt: null,
+                waivedAt: null,
+                waivedReason: null,
+                waivedBy: null,
+                createdAt: serverTimestamp()
+            });
+        }
     });
 };
 
-export const autoCleanup = async () => {
-    const allActiveSnap = await getDocs(
-        query(collection(db, BORROW_COLLECTION), where('status', 'in', ['pending', 'borrowing']))
-    );
+export const extendTicket = async (recordDocId, extraDays = 7, note = '') => {
+    if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+    const days = Math.max(1, Math.min(30, Number(extraDays) || 7));
 
-    let cleanedCount = 0;
-    const nowMs = Date.now();
+    await runTransaction(db, async (transaction) => {
+        const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
+        const recordSnap = await transaction.get(recordRef);
 
-    for (const docSnap of allActiveSnap.docs) {
-        const data = docSnap.data() || {};
-        const readerEmail = data.userDetails?.email || data.email;
-        const readerName = data.userDetails?.fullName || 'Độc giả';
+        if (!recordSnap.exists()) throw new Error('Phiếu mượn không tồn tại.');
 
-        // 1. Logic Tự động hủy mã mượn quá hạn (24h)
-        if (data.status === 'pending' && hasExpiredPending(data, nowMs)) {
-            await markCancelledAndRestore(docSnap, 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.');
-            
-            // Thông báo hủy mã qua EmailJS
-            if (readerEmail) {
-                EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.WARNING, {
-                    user_name: readerName,
-                    record_id: data.recordId,
-                    warning_type: 'Mã mượn đã hết hạn',
-                    message_detail: 'Mã mượn của bạn đã quá hạn nhận sách (24h) và đã bị hệ thống hủy tự động.',
-                    reader_email: readerEmail
-                });
-            }
-            cleanedCount += 1;
+        const record = recordSnap.data() || {};
+        if (record.status !== 'borrowing') {
+            throw new Error('Chỉ có thể gia hạn phiếu đang ở trạng thái đang mượn.');
         }
 
-        // 2. Cảnh báo quá hạn trả sách
-        if (data.status === 'borrowing') {
-            const dueMs = toMillis(data.dueDate);
-            if (dueMs && nowMs > dueMs) {
-                const daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
-                
-                // Gửi email cảnh báo quá hạn qua EmailJS (có thể kèm phí phạt)
-                if (readerEmail) {
-                    EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.WARNING, {
-                        user_name: readerName,
-                        record_id: data.recordId,
-                        warning_type: 'Sách đã quá hạn trả',
-                        message_detail: `Bạn đã quá hạn ${daysLate} ngày. Phí phạt dự kiến: ${(daysLate * FINE_PER_DAY).toLocaleString('vi-VN')} VNĐ.`,
-                        reader_email: readerEmail
-                    });
-                }
-            }
-        }
-    }
+        // Tính hạn trả mới: lấy từ dueDate hiện tại (hoặc hôm nay nếu đã quá hạn)
+        const baseDateMs = Math.max(toMillis(record.dueDate) || Date.now(), Date.now());
+        const newDueDate = new Date(baseDateMs);
+        newDueDate.setDate(newDueDate.getDate() + days);
 
-    return cleanedCount;
+        transaction.update(recordRef, {
+            dueDate: Timestamp.fromDate(newDueDate),
+            adminNote: (note || '').trim() || `Gia hạn thêm ${days} ngày.`,
+            updatedAt: serverTimestamp()
+        });
+    });
 };
+
 
 export const subscribeUserTickets = (userId, callback) => {
     if (!userId) {

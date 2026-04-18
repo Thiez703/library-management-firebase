@@ -248,8 +248,21 @@
                     <button
                         data-borrow-tab="issues"
                         class="tab-btn px-6 py-3 text-sm font-medium text-rose-500 hover:text-rose-600 transition-colors hidden sm:block">
-                        Vi Phạm / Chờ Xử Lý (<span id="borrow-history-issue-count">0</span>)
+                        Vấn đề & Báo mất
                     </button>
+                    <button
+                        data-borrow-tab="fines"
+                        class="tab-btn px-6 py-3 text-sm font-medium text-amber-500 hover:text-amber-600 transition-colors relative">
+                        Tiền Phạt <span id="borrow-history-fines-count"
+                            class="ml-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full font-bold hidden">0</span>
+                    </button>
+                </div>
+
+                <!-- History Fines Tab -->
+                <div id="tab-content-fines" class="tab-pane hidden space-y-4">
+                    <div id="finesList" class="space-y-4">
+                        <!-- Items rendered by JS -->
+                    </div>
                 </div>
 
                 <!-- Active Borrowing List -->

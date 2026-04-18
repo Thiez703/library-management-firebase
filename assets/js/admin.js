@@ -1,4 +1,5 @@
 import { db } from './firebase-config.js';
+import { requireAdmin } from './admin-guard.js';
 import { 
     collection, 
     getDocs, 
@@ -127,8 +128,9 @@ const renderTopBooks = (docs) => {
     }).join('');
 };
 
-// Khởi chạy
-document.addEventListener('turbo:load', initDashboard);
-document.addEventListener('turbo:render', initDashboard);
-if (document.readyState !== 'loading') initDashboard();
-else document.addEventListener('DOMContentLoaded', initDashboard);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initDashboard());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

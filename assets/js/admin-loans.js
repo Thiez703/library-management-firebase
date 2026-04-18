@@ -1,6 +1,6 @@
-import { autoCleanup, approveTicket, cleanupLegacyBorrowRecords, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
+import { approveTicket, cleanupLegacyBorrowRecords, extendTicket, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
 import { showToast } from './auth.js';
-
+import { requireAdmin } from './admin-guard.js';
 import { db } from './firebase-config.js';
 import {
     collection,
@@ -22,7 +22,8 @@ const state = {
     search: '',
     selectedApproveId: '',
     selectedDetailId: '',
-    selectedReturnId: ''
+    selectedReturnId: '',
+    selectedExtendId: ''
 };
 
 const formatDate = (tsLike) => {
@@ -109,7 +110,10 @@ const renderRows = () => {
         if (ticket.status === 'pending') {
             actionHtml = `<button data-approve="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100">Bàn giao sách</button>`;
         } else if (statusView === 'borrowing' || statusView === 'overdue') {
-            actionHtml = `<button data-return="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả sách</button>`;
+            actionHtml = `
+                <button data-extend="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100">Gia hạn</button>
+                <button data-return="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả sách</button>
+            `;
         }
 
         return `
@@ -145,7 +149,7 @@ const renderRows = () => {
 
                 <div class="mt-auto pt-3 border-t border-slate-100 flex flex-wrap gap-2">
                     <button data-view="${ticket.id}" class="flex-1 min-w-[120px] px-3 py-2 text-sm font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem chi tiết</button>
-                    ${actionHtml !== '-' ? actionHtml.replace('px-3.5 py-2', 'flex-1 min-w-[120px] px-3 py-2') : ''}
+                    ${actionHtml !== '-' ? actionHtml.replace(/px-3\.5 py-2/g, 'flex-1 min-w-[100px] px-3 py-2') : ''}
                 </div>
             </article>
         `;
@@ -174,6 +178,19 @@ const renderRows = () => {
             const noteInput = getElem('handoverNote');
             if (noteInput) noteInput.value = '';
             getElem('handoverModal')?.classList.remove('hidden');
+        });
+    });
+
+    container.querySelectorAll('[data-extend]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-extend');
+            if (!id) return;
+            state.selectedExtendId = id;
+            const daysInput = getElem('extendDays');
+            const noteInput = getElem('extendNote');
+            if (daysInput) daysInput.value = '7';
+            if (noteInput) noteInput.value = '';
+            getElem('extendModal')?.classList.remove('hidden');
         });
     });
 
@@ -279,6 +296,26 @@ const bindUI = () => {
 
     getElem('closeReturnModalBtn')?.addEventListener('click', () => {
         getElem('returnModal')?.classList.add('hidden');
+    });
+
+    getElem('closeExtendModalBtn')?.addEventListener('click', () => {
+        getElem('extendModal')?.classList.add('hidden');
+        state.selectedExtendId = '';
+    });
+
+    getElem('extendForm')?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!state.selectedExtendId) return;
+        const days = Number(getElem('extendDays')?.value || 7);
+        const note = getElem('extendNote')?.value || '';
+        try {
+            await extendTicket(state.selectedExtendId, days, note);
+            showToast(`Đã gia hạn thêm ${days} ngày thành công.`, 'success');
+            getElem('extendModal')?.classList.add('hidden');
+            state.selectedExtendId = '';
+        } catch (err) {
+            showToast(err.message || 'Không thể gia hạn phiếu.', 'error');
+        }
     });
 
     getElem('closeHandoverModalBtn')?.addEventListener('click', () => {
@@ -569,7 +606,6 @@ const initAdminLoans = async () => {
     // Do not block ticket subscription if cleanup tasks fail.
     try {
         await cleanupLegacyBorrowRecords();
-        await autoCleanup();
     } catch (err) {
         console.warn('Borrow cleanup failed, continuing to load tickets:', err);
     }
@@ -580,7 +616,9 @@ const initAdminLoans = async () => {
     });
 };
 
-document.addEventListener('turbo:load', initAdminLoans);
-document.addEventListener('turbo:render', initAdminLoans);
-if (document.readyState !== 'loading') initAdminLoans();
-else document.addEventListener('DOMContentLoaded', initAdminLoans);
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => requireAdmin(() => initAdminLoans());
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);
