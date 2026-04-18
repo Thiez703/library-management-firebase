@@ -35,11 +35,18 @@ service cloud.firestore {
       // hoặc admin (tạo độc giả vãng lai)
       allow create: if isOwner(userId) || isAdmin();
 
-      // Cập nhật: chỉ chính mình hoặc admin.
-      // User thường không được tự đổi: role, status, phone, cccdHash, isVerified, reputationScore
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
-                          .hasAny(['role', 'status', 'phone', 'cccdHash', 'isVerified', 'reputationScore', 'verifiedAt'])
-                    || isAdmin();
+      // Cập nhật:
+      // 1. Admin được sửa mọi thứ.
+      // 2. User không được sửa role, status, reputationScore.
+      // 3. User chỉ được sửa phone, cccdHash, isVerified, verifiedAt KHI đang thực hiện xác minh lần đầu (isVerified: false -> true).
+      allow update: if isAdmin() || (
+        isOwner(userId) 
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'reputationScore'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone', 'cccdHash', 'isVerified', 'verifiedAt'])
+          || (resource.data.get('isVerified', false) == false && request.resource.data.isVerified == true)
+        )
+      );
 
       // Chỉ admin được xóa user
       allow delete: if isAdmin();
@@ -56,8 +63,16 @@ service cloud.firestore {
       // Ai cũng được đọc danh sách sách (kể cả chưa đăng nhập — catalog công khai)
       allow read: if true;
 
-      // Chỉ admin được thêm/sửa/xóa sách
-      allow create, update, delete: if isAdmin();
+      // Chỉ admin được thêm/xóa sách
+      allow create, delete: if isAdmin();
+      
+      // Admin được sửa tất cả.
+      // User được update sách nếu chỉ giảm/tăng quantity (khi mượn/trả sách)
+      allow update: if isAdmin() || (
+        isSignedIn() 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableQuantity', 'status'])
+        && request.resource.data.availableQuantity >= 0
+      );
     }
 
     // ── Collection: categories ────────────────────────────────────────────────

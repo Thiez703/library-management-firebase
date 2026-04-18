@@ -1,4 +1,4 @@
-import { approveTicket, cleanupLegacyBorrowRecords, extendTicket, getTicketStatusView, returnTicket, subscribeAllTickets, FINE_PER_DAY } from './borrow.js';
+import { approveTicket, calculateFineAmount, cleanupLegacyBorrowRecords, extendTicket, getTicketStatusView, returnTicket, subscribeAllTickets } from './borrow.js';
 import { showToast } from './auth.js';
 import { requireAdmin } from './admin-guard.js';
 import { db } from './firebase-config.js';
@@ -233,7 +233,7 @@ const renderRows = () => {
             const lateDays = dueMs && Date.now() > dueMs
                 ? Math.ceil((Date.now() - dueMs) / (1000 * 60 * 60 * 24))
                 : 0;
-            const overdueFee = lateDays * FINE_PER_DAY;
+            const overdueFee = calculateFineAmount(lateDays);
             getElem('returnOverdueFee').textContent = formatMoney(overdueFee);
             getElem('returnDamageFee').value = '0';
             getElem('returnNote').value = '';

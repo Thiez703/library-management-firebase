@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -l \"script\" D:/ThiezDuAn/library-management-firebase/user/*.html)",
+      "Bash(xargs grep:*)"
+    ]
+  }
+}

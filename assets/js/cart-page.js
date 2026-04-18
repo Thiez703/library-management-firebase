@@ -1,13 +1,19 @@
-import { auth } from './firebase-config.js';
+import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { getCartItems, removeFromCart, updateCartBadges } from './cart.js';
 import { handleCheckout } from './borrow.js';
 import { showToast } from './auth.js';
-import { getUserIdentity, verifyUser, IDENTITY_ERRORS, REPUTATION_MIN_BORROW } from './identity.js';
+import { getUserIdentity, verifyUser, IDENTITY_ERRORS, REPUTATION_MIN_BORROW, getLiveReputationScore } from './identity.js';
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
+const escapeHtml = (v = '') => String(v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const getElem = (id) => document.getElementById(id);
+let unsubscribeUserDoc = null;
+let currentUserData = null;
 
 const renderCart = () => {
     const list = getElem('cartList');
@@ -28,10 +34,10 @@ const renderCart = () => {
 
     list.innerHTML = items.map((item) => `
         <div class="flex items-center gap-3 border border-slate-200 rounded-xl p-3 bg-white">
-            <img src="${item.coverUrl || '../assets/images/book-cover-placeholder-gray.svg'}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-14 h-20 object-cover rounded-md border border-slate-200" alt="${item.title}">
+            <img src="${escapeHtml(item.coverUrl || '../assets/images/book-cover-placeholder-gray.svg')}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-14 h-20 object-cover rounded-md border border-slate-200" alt="${escapeHtml(item.title)}">
             <div class="flex-1 min-w-0">
-                <p class="font-semibold text-slate-800 truncate">${item.title}</p>
-                <p class="text-sm text-slate-500 truncate">${item.author || 'Không rõ tác giả'}</p>
+                <p class="font-semibold text-slate-800 truncate">${escapeHtml(item.title)}</p>
+                <p class="text-sm text-slate-500 truncate">${escapeHtml(item.author || 'Không rõ tác giả')}</p>
                 <p class="text-xs text-slate-400">Giá tham khảo: ${formatMoney(item.price)}</p>
             </div>
             <button data-remove-id="${item.bookId}" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
@@ -58,13 +64,13 @@ const showSection = (sectionId) => {
     getElem(sectionId)?.classList.remove('hidden');
 };
 
-const renderVerificationUI = async (user) => {
+const renderVerificationUI = async (user, userData = null) => {
     if (!user) {
         showSection('checkoutLocked');
         return;
     }
 
-    const identity = await getUserIdentity(user.uid);
+    const identity = userData || await getUserIdentity(user.uid);
 
     if (!identity) {
         showSection('checkoutLocked');
@@ -84,7 +90,7 @@ const renderVerificationUI = async (user) => {
     }
 
     // Đã xác minh → kiểm tra uy tín
-    const score = identity.reputationScore;
+    const score = await getLiveReputationScore(user.uid, identity.reputationScore);
 
     if (score < REPUTATION_MIN_BORROW) {
         // Uy tín quá thấp → chặn mượn
@@ -250,7 +256,27 @@ const initCartPage = () => {
     });
 
     onAuthStateChanged(auth, async (user) => {
-        await renderVerificationUI(user);
+        if (unsubscribeUserDoc) {
+            unsubscribeUserDoc();
+            unsubscribeUserDoc = null;
+        }
+
+        currentUserData = null;
+
+        if (!user) {
+            await renderVerificationUI(null);
+            return;
+        }
+
+        unsubscribeUserDoc = onSnapshot(doc(db, 'users', user.uid), async (userSnap) => {
+            currentUserData = userSnap.exists() ? userSnap.data() : null;
+            await renderVerificationUI(user, currentUserData);
+        }, async () => {
+            currentUserData = await getUserIdentity(user.uid);
+            await renderVerificationUI(user, currentUserData);
+        });
+
+        await renderVerificationUI(user, currentUserData);
     });
 };
 

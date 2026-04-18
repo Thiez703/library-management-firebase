@@ -1,7 +1,11 @@
 import { auth, db } from './firebase-config.js';
-import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
-import { collection, query, where, orderBy, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-import { requireAdmin, showToast } from './admin-guard.js';
+import { collection, query, orderBy, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { requireAdmin } from './admin-guard.js';
+import { showToast } from './notify.js';
+
+const escapeHtml = (v = '') => String(v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 let currentStatus = 'unpaid';
 let allFines = [];
@@ -16,24 +20,17 @@ const formatDate = (ts) => {
     return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
-const initFinesPage = () => {
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) {
+const initFinesPage = async () => {
+    const logoutBtn = document.getElementById('adminLogoutBtn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', async () => {
+            await auth.signOut();
             window.location.href = '../user/login.html';
-            return;
-        }
+        });
+    }
 
-        const logoutBtn = document.getElementById('adminLogoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
-                await auth.signOut();
-                window.location.href = '../user/login.html';
-            });
-        }
-
-        await loadFines();
-        bindEvents();
-    });
+    await loadFines();
+    bindEvents();
 };
 
 const loadFines = async () => {
@@ -63,7 +60,7 @@ const renderDashboard = () => {
 
 const renderFinesTable = () => {
     const tbody = document.getElementById('finesTableBody');
-    const searchInput = document.getElementById('fineSearchInput').value.toLowerCase();
+    const searchInput = (document.getElementById('fineSearchInput')?.value || '').toLowerCase();
 
     const filteredFines = allFines.filter(f => {
         const matchStatus = f.status === currentStatus;
@@ -81,7 +78,7 @@ const renderFinesTable = () => {
         let statusBadge = '';
         if (f.status === 'unpaid') statusBadge = '<span class="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-bold rounded-lg border border-amber-200">Chưa TT</span>';
         else if (f.status === 'paid') statusBadge = '<span class="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200">Đã TT</span>';
-        else if (f.status === 'waived') statusBadge = '<span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg border border-slate-200" title="Lý do: '+ (f.waivedReason || '') +'">Đã Miễn</span>';
+        else if (f.status === 'waived') statusBadge = '<span class="px-2.5 py-1 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg border border-slate-200" title="Lý do: '+ escapeHtml(f.waivedReason || '') +'">Đã Miễn</span>';
 
         let actionHtml = '';
         if (f.status === 'unpaid') {
@@ -97,15 +94,16 @@ const renderFinesTable = () => {
             actionHtml = `<span class="text-xs text-slate-400 block text-center">Miễn lúc: <br/>${formatDate(f.waivedAt)}</span>`;
         }
 
+        const bookTitlesEscaped = (f.bookTitles || []).map(escapeHtml).join(', ');
         return `
             <tr class="hover:bg-slate-50 transition-colors group">
                 <td class="px-6 py-4">
-                    <p class="font-bold text-slate-800 text-sm">${f.fineId || '--'}</p>
-                    <p class="text-xs text-slate-400 mt-0.5">Ref: <a href="#" class="hover:text-primary-600 hover:underline">${f.recordId || '--'}</a></p>
+                    <p class="font-bold text-slate-800 text-sm">${escapeHtml(f.fineId || '--')}</p>
+                    <p class="text-xs text-slate-400 mt-0.5">Ref: <a href="#" class="hover:text-primary-600 hover:underline">${escapeHtml(f.recordId || '--')}</a></p>
                 </td>
                 <td class="px-6 py-4">
-                    <p class="font-semibold text-slate-800">${f.userName || 'Độc giả'}</p>
-                    <p class="text-xs text-slate-500 max-w-[200px] truncate" title="${(f.bookTitles || []).join(', ')}">${(f.bookTitles || []).join(', ')}</p>
+                    <p class="font-semibold text-slate-800">${escapeHtml(f.userName || 'Độc giả')}</p>
+                    <p class="text-xs text-slate-500 max-w-[200px] truncate" title="${bookTitlesEscaped}">${bookTitlesEscaped}</p>
                 </td>
                 <td class="px-6 py-4 text-center">
                     <span class="font-bold text-rose-600 bg-rose-50 px-2 py-1 rounded-md border border-rose-100">${f.daysLate || 0} ngày</span>
@@ -230,8 +228,4 @@ const openWaiveModal = (docId, fineId) => {
     document.getElementById('waiveModal').classList.remove('hidden');
 };
 
-requireAdmin().then(() => {
-    initFinesPage();
-}).catch(() => {
-    window.location.href = '../user/login.html';
-});
+requireAdmin(() => initFinesPage());

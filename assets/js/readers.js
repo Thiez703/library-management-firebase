@@ -9,6 +9,7 @@ import {
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { showToast } from './auth.js';
+import { calculateReputationFromMetrics } from './identity.js';
 
 const getElem = (id) => document.getElementById(id);
 
@@ -99,16 +100,32 @@ const getTrustRankMeta = (score) => {
 };
 
 const calcTrustScore = (user, metric) => {
-    if (Number.isFinite(Number(user?.trustScore))) {
-        return Math.max(0, Math.min(100, Number(user.trustScore)));
-    }
+    const baseScore = Number.isFinite(Number(user?.reputationScore))
+        ? Number(user.reputationScore)
+        : (Number.isFinite(Number(user?.trustScore)) ? Number(user.trustScore) : 100);
 
-    let score = 100;
-    score -= Math.min(35, metric.overdueItems * 12);
-    score -= Math.min(30, metric.unpaidFine > 0 ? 20 : 0);
-    score -= Math.min(20, metric.violationCount * 4);
-    score -= metric.isBlocked ? 25 : 0;
-    return Math.max(0, Math.min(100, Math.round(score)));
+    return calculateReputationFromMetrics(baseScore, metric);
+};
+
+const syncReaderReputationScore = async (uid, userData, metric) => {
+    if (!uid || !metric) return;
+
+    const storedScore = Number.isFinite(Number(userData?.reputationScore))
+        ? Number(userData.reputationScore)
+        : (Number.isFinite(Number(userData?.trustScore)) ? Number(userData.trustScore) : 100);
+    const nextScore = Number(metric.trustScore);
+
+    if (!Number.isFinite(nextScore) || nextScore === storedScore) return;
+
+    try {
+        await updateDoc(doc(db, 'users', uid), {
+            reputationScore: nextScore,
+            trustScore: nextScore,
+            updatedAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error('syncReaderReputationScore error:', error);
+    }
 };
 
 const getReaderStatusMeta = (metric) => {
@@ -206,6 +223,7 @@ const buildTrustTimeline = (user, metric) => {
 
 const computeReaderMetrics = () => {
     const map = new Map();
+    const fineRecordIds = new Set();
 
     state.readers.forEach((reader) => {
         map.set(reader.id, {
@@ -227,6 +245,38 @@ const computeReaderMetrics = () => {
     state.readerMetricsByUser = map;
 
     const now = Date.now();
+
+    state.fines.forEach((fine) => {
+        if (!fine || typeof fine !== 'object') return;
+        const userId = fine?.userId;
+        if (!userId || !map.has(userId)) return;
+
+        const metric = map.get(userId);
+        const amount = Number(fine?.amount || fine?.fineAmount || 0);
+        const recordId = (fine?.recordId || '').toString().trim();
+        const status = (fine?.status || '').toString().toLowerCase();
+
+        if (recordId) {
+            fineRecordIds.add(recordId);
+        }
+
+        if (status === 'unpaid') {
+            metric.unpaidFine += amount;
+        }
+
+        metric.violationCount += 1;
+        metric.finesHistory.push({
+            fineId: fine?.fineId || '--',
+            amount,
+            status: fine?.status || '--',
+            daysLate: Number(fine?.daysLate || 0),
+            createdAt: fine?.createdAt,
+            paidAt: fine?.paidAt,
+            waivedAt: fine?.waivedAt,
+            waivedReason: fine?.waivedReason || '',
+            bookTitles: Array.isArray(fine?.bookTitles) ? fine.bookTitles : []
+        });
+    });
 
     state.borrowRecords.forEach((record) => {
         if (!record || typeof record !== 'object') return;
@@ -256,35 +306,23 @@ const computeReaderMetrics = () => {
             });
         }
 
-        if (Number(record?.fineOverdue || 0) > 0 || Number(record?.fineDamage || 0) > 0) {
+        const recordPenalty = Number(record?.fineOverdue || 0) + Number(record?.fineDamage || 0);
+        const recordKey = (record?.recordId || '').toString().trim();
+        if (recordPenalty > 0 && (!recordKey || !fineRecordIds.has(recordKey))) {
+            metric.unpaidFine += recordPenalty;
             metric.violationCount += 1;
+            metric.finesHistory.push({
+                fineId: recordKey || `legacy-${record.id}`,
+                amount: recordPenalty,
+                status: 'unpaid',
+                daysLate: Number(record?.daysLate || 0),
+                createdAt: record?.returnDate || record?.updatedAt || record?.requestDate,
+                paidAt: null,
+                waivedAt: null,
+                waivedReason: '',
+                bookTitles: Array.isArray(record?.books) ? record.books.map((book) => book?.title || 'Sách không tên') : []
+            });
         }
-    });
-
-    state.fines.forEach((fine) => {
-        if (!fine || typeof fine !== 'object') return;
-        const userId = fine?.userId;
-        if (!userId || !map.has(userId)) return;
-
-        const metric = map.get(userId);
-        const amount = Number(fine?.amount || fine?.fineAmount || 0);
-
-        if ((fine?.status || '').toString().toLowerCase() === 'unpaid') {
-            metric.unpaidFine += amount;
-        }
-
-        metric.violationCount += 1;
-        metric.finesHistory.push({
-            fineId: fine?.fineId || '--',
-            amount,
-            status: fine?.status || '--',
-            daysLate: Number(fine?.daysLate || 0),
-            createdAt: fine?.createdAt,
-            paidAt: fine?.paidAt,
-            waivedAt: fine?.waivedAt,
-            waivedReason: fine?.waivedReason || '',
-            bookTitles: Array.isArray(fine?.bookTitles) ? fine.bookTitles : []
-        });
     });
 
     state.readers.forEach((reader) => {
@@ -296,6 +334,7 @@ const computeReaderMetrics = () => {
         metric.trustMeta = getTrustRankMeta(metric.trustScore);
         metric.statusMeta = getReaderStatusMeta(metric);
         metric.trustTimeline = buildTrustTimeline(reader.data, metric);
+        void syncReaderReputationScore(reader.id, reader.data, metric);
     });
 };
 

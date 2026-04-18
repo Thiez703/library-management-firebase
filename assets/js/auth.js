@@ -70,7 +70,12 @@ const saveUserCache = (user, userData) => {
         photoURL: userData?.photoURL || user.photoURL,
         role: userData?.role || 'user',
         isVerified: userData?.isVerified === true,
-        reputationScore: typeof userData?.reputationScore === 'number' ? userData.reputationScore : 100,
+        reputationScore: typeof userData?.reputationScore === 'number'
+            ? userData.reputationScore
+            : (typeof userData?.trustScore === 'number' ? userData.trustScore : 100),
+        trustScore: typeof userData?.reputationScore === 'number'
+            ? userData.reputationScore
+            : (typeof userData?.trustScore === 'number' ? userData.trustScore : 100),
         phone: userData?.phone || null
     };
     localStorage.setItem('lib_user', JSON.stringify(cacheData));
@@ -135,6 +140,7 @@ export const signInWithGoogle = async () => {
                 status: 'active',
                 isVerified: false,
                 reputationScore: 100,
+                trustScore: 100,
                 phone: null,
                 cccdHash: null,
                 createdAt: serverTimestamp()
@@ -177,6 +183,7 @@ export const signUp = async (email, password, displayName) => {
             status: 'active',
             isVerified: false,
             reputationScore: 100,
+            trustScore: 100,
             phone: null,
             cccdHash: null,
             createdAt: serverTimestamp()

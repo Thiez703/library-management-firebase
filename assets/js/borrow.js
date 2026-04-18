@@ -439,8 +439,9 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             updatedAt: serverTimestamp()
         });
 
-        // BIZ-02: Nếu có trễ hạn, sinh ra phiếu phạt
-        if (daysLate > 0) {
+        // BIZ-02: Nếu có vi phạm, sinh ra phiếu phạt với tổng tiền thực tế
+        const totalFine = normalizeMoney(fineOverdue + damageFee);
+        if (totalFine > 0) {
             const fineRef = doc(collection(db, 'fines'));
             transaction.set(fineRef, {
                 fineId: `F-${generateRecordId().replace('LIB-', '')}`,
@@ -451,7 +452,9 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
                 dueDate: record.dueDate || Timestamp.fromMillis(dueMs),
                 returnDate: serverTimestamp(),
                 daysLate: daysLate,
-                amount: fineOverdue,
+            amount: totalFine,
+            overdueAmount: normalizeMoney(fineOverdue),
+            damageAmount: normalizeMoney(damageFee),
                 status: 'unpaid',
                 paidAt: null,
                 waivedAt: null,
@@ -466,11 +469,12 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
         if (daysLate > 0 && userSnap && userSnap.exists()) {
             const currentScore = typeof userSnap.data().reputationScore === 'number'
                 ? userSnap.data().reputationScore
-                : 100;
+                : (typeof userSnap.data().trustScore === 'number' ? userSnap.data().trustScore : 100);
             const penalty = calculateReputationPenalty(daysLate);
             const newScore = Math.max(0, currentScore - penalty);
             transaction.update(userRef, {
                 reputationScore: newScore,
+                trustScore: newScore,
                 updatedAt: serverTimestamp()
             });
         }

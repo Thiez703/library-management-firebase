@@ -15,10 +15,14 @@
 
 import { db } from './firebase-config.js';
 import {
+    collection,
     doc,
+    getDocs,
     getDoc,
+    query,
     runTransaction,
-    serverTimestamp
+    serverTimestamp,
+    where
 } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
 
 // ── Error codes ──────────────────────────────────────────────────────────────
@@ -46,6 +50,72 @@ const ERROR_MESSAGES = Object.freeze({
 export const REPUTATION_DEFAULT = 100;
 export const REPUTATION_MIN_BORROW = 30;
 export const REPUTATION_PENALTY_PER_DAY = 5;
+
+const clampReputationScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
+const toMillis = (value) => {
+    if (!value) return null;
+    if (typeof value.toMillis === 'function') return value.toMillis();
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? null : date.getTime();
+};
+
+export const calculateReputationFromMetrics = (baseScore, metrics = {}) => {
+    const fallbackScore = clampReputationScore(baseScore ?? REPUTATION_DEFAULT);
+    const overdueItems = Number(metrics.overdueItems || 0);
+    const unpaidFine = Number(metrics.unpaidFine || 0);
+    const violationCount = Number(metrics.violationCount || 0);
+    const isBlocked = metrics.isBlocked === true;
+
+    const hasPenalty = overdueItems > 0 || unpaidFine > 0 || violationCount > 0 || isBlocked;
+    if (!hasPenalty) return fallbackScore;
+
+    let score = fallbackScore;
+    score -= Math.min(35, overdueItems * 12);
+    score -= Math.min(30, unpaidFine > 0 ? 20 : 0);
+    score -= Math.min(20, violationCount * 4);
+    score -= isBlocked ? 25 : 0;
+    return clampReputationScore(score);
+};
+
+export const getLiveReputationScore = async (uid, baseScore = REPUTATION_DEFAULT) => {
+    if (!uid) return clampReputationScore(baseScore);
+
+    try {
+        const [recordSnap, fineSnap] = await Promise.all([
+            getDocs(query(collection(db, 'borrowRecords'), where('userId', '==', uid))),
+            getDocs(query(collection(db, 'fines'), where('userId', '==', uid)))
+        ]);
+
+        const now = Date.now();
+        const overdueItems = recordSnap.docs.reduce((count, docSnap) => {
+            const record = docSnap.data() || {};
+            if (record.status !== 'borrowing') return count;
+            const dueMs = toMillis(record.dueDate);
+            if (!dueMs || dueMs >= now) return count;
+            const bookCount = Array.isArray(record.books) && record.books.length > 0 ? record.books.length : 1;
+            return count + bookCount;
+        }, 0);
+
+        const unpaidFine = fineSnap.docs.reduce((sum, docSnap) => {
+            const fine = docSnap.data() || {};
+            if ((fine.status || '').toString().toLowerCase() !== 'unpaid') return sum;
+            return sum + Number(fine.amount || fine.fineAmount || 0);
+        }, 0);
+
+        const violationCount = recordSnap.docs.reduce((count, docSnap) => {
+            const record = docSnap.data() || {};
+            if (record.status !== 'borrowing') return count;
+            const dueMs = toMillis(record.dueDate);
+            return dueMs && dueMs < now ? count + 1 : count;
+        }, 0) + fineSnap.docs.filter((docSnap) => (docSnap.data()?.status || '').toString().toLowerCase() === 'unpaid').length;
+
+        return calculateReputationFromMetrics(baseScore, { overdueItems, unpaidFine, violationCount });
+    } catch (error) {
+        console.error('Error calculating live reputation score:', error);
+        return clampReputationScore(baseScore);
+    }
+};
 
 // ── Validation helpers ───────────────────────────────────────────────────────
 
@@ -111,7 +181,12 @@ export const getUserIdentity = async (uid) => {
         isVerified: data.isVerified === true,
         phone: data.phone || null,
         cccdHash: data.cccdHash || null,
-        reputationScore: typeof data.reputationScore === 'number' ? data.reputationScore : REPUTATION_DEFAULT,
+        reputationScore: typeof data.reputationScore === 'number'
+            ? data.reputationScore
+            : (typeof data.trustScore === 'number' ? data.trustScore : REPUTATION_DEFAULT),
+        trustScore: typeof data.reputationScore === 'number'
+            ? data.reputationScore
+            : (typeof data.trustScore === 'number' ? data.trustScore : REPUTATION_DEFAULT),
         displayName: data.displayName || '',
         fullName: data.displayName || data.fullName || '',
         email: data.email || ''

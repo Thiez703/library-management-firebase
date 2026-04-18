@@ -7,7 +7,7 @@
  */
 
 import { auth, db } from './firebase-config.js';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
+import { doc, getDoc, onSnapshot, updateDoc, serverTimestamp } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
 import {
     onAuthStateChanged,
     updatePassword,
@@ -15,15 +15,18 @@ import {
     reauthenticateWithCredential
 } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
 import { showToast } from './notify.js';
+import { getLiveReputationScore } from './identity.js';
 
 const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
 const CACHE_KEY = 'lib_user';
 
 const getElem = (id) => document.getElementById(id);
+let unsubscribeProfileDoc = null;
+let currentUserData = null;
 
 // ─── Hiển thị thông tin ──────────────────────────────────────────────────────
 
-const renderProfile = (firebaseUser, userData) => {
+const renderProfile = async (firebaseUser, userData) => {
     if (!firebaseUser) {
         window.location.replace('login.html');
         return;
@@ -38,7 +41,10 @@ const renderProfile = (firebaseUser, userData) => {
     const createdAt = userData?.createdAt?.toDate?.()?.toLocaleDateString('vi-VN') || '--';
     const memberCode = `US-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
     const isVerified = userData?.isVerified === true;
-    const reputationScore = typeof userData?.reputationScore === 'number' ? userData.reputationScore : 100;
+    const baseReputationScore = typeof userData?.reputationScore === 'number'
+        ? userData.reputationScore
+        : (typeof userData?.trustScore === 'number' ? userData.trustScore : 100);
+    const reputationScore = await getLiveReputationScore(firebaseUser.uid, baseReputationScore);
 
     // Avatar
     const avatarEl = getElem('profileAvatar');
@@ -200,25 +206,49 @@ const initProfilePage = () => {
 
     bindPasswordToggles();
 
+    if (unsubscribeProfileDoc) {
+        unsubscribeProfileDoc();
+        unsubscribeProfileDoc = null;
+    }
+
     onAuthStateChanged(auth, async (firebaseUser) => {
         if (!firebaseUser) {
+            currentUserData = null;
+            if (unsubscribeProfileDoc) {
+                unsubscribeProfileDoc();
+                unsubscribeProfileDoc = null;
+            }
             window.location.replace('login.html');
             return;
         }
 
-        const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
-        const userData = userSnap.exists() ? userSnap.data() : null;
-        renderProfile(firebaseUser, userData);
+        if (!getElem('profileEditForm')?.dataset.bound) {
+            getElem('profileEditForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleUpdateProfile(firebaseUser, currentUserData);
+            });
+            if (getElem('profileEditForm')) {
+                getElem('profileEditForm').dataset.bound = '1';
+            }
+        }
 
-        // Bind form submit
-        getElem('profileEditForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await handleUpdateProfile(firebaseUser, userData);
-        });
+        if (!getElem('profilePasswordForm')?.dataset.bound) {
+            getElem('profilePasswordForm')?.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                await handleChangePassword(firebaseUser);
+            });
+            if (getElem('profilePasswordForm')) {
+                getElem('profilePasswordForm').dataset.bound = '1';
+            }
+        }
 
-        getElem('profilePasswordForm')?.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            await handleChangePassword(firebaseUser);
+        unsubscribeProfileDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), async (userSnap) => {
+            currentUserData = userSnap.exists() ? userSnap.data() : null;
+            await renderProfile(firebaseUser, currentUserData);
+        }, async () => {
+            const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            currentUserData = userSnap.exists() ? userSnap.data() : null;
+            await renderProfile(firebaseUser, currentUserData);
         });
     });
 };

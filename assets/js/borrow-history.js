@@ -1,9 +1,12 @@
 import { auth, db } from './firebase-config.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { cleanupLegacyBorrowRecords, getTicketStatusView, subscribeUserTickets } from './borrow.js';
-import { collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { signOutUser } from './auth.js';
+
+const escapeHtml = (v = '') => String(v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
 const formatDate = (tsLike) => {
     if (!tsLike || typeof tsLike.toDate !== 'function') return '--';
@@ -70,9 +73,60 @@ const getTicketBucket = (ticket) => {
     return 'others';
 };
 
+const toFineMillis = (value) => toMillis(value?.createdAt || value?.paidAt || value?.waivedAt || value?.returnDate || value?.dueDate);
+
+const buildLegacyFineFromTicket = (ticket) => {
+    const amount = Number(ticket?.fineOverdue || 0) + Number(ticket?.fineDamage || 0);
+    if (amount <= 0) return null;
+
+    return {
+        id: `legacy-${ticket.id}`,
+        fineId: ticket?.recordId || ticket?.id || '--',
+        recordId: ticket?.recordId || ticket?.id || '',
+        userId: ticket?.userId || '',
+        userName: ticket?.userDetails?.fullName || 'Độc giả',
+        bookTitles: Array.isArray(ticket?.books) ? ticket.books.map((book) => book?.title || 'Sách không tên') : [],
+        dueDate: ticket?.dueDate,
+        returnDate: ticket?.returnDate,
+        daysLate: Number(ticket?.daysLate || 0),
+        amount,
+        overdueAmount: Number(ticket?.fineOverdue || 0),
+        damageAmount: Number(ticket?.fineDamage || 0),
+        status: amount > 0 ? 'unpaid' : 'paid',
+        paidAt: null,
+        waivedAt: null,
+        waivedReason: null,
+        waivedBy: null,
+        createdAt: ticket?.returnDate || ticket?.dueDate || null,
+        source: 'legacy'
+    };
+};
+
+const getMergedFines = () => {
+    const finesByRecordId = new Map();
+
+    (Array.isArray(historyState.fines) ? historyState.fines : []).forEach((fine) => {
+        const key = (fine?.recordId || fine?.fineId || fine?.id || '').toString().trim();
+        if (key) finesByRecordId.set(key, fine);
+    });
+
+    (Array.isArray(historyState.tickets) ? historyState.tickets : []).forEach((ticket) => {
+        const legacyFine = buildLegacyFineFromTicket(ticket);
+        if (!legacyFine) return;
+
+        const key = (legacyFine.recordId || legacyFine.fineId || legacyFine.id || '').toString().trim();
+        if (!key || finesByRecordId.has(key)) return;
+
+        finesByRecordId.set(key, legacyFine);
+    });
+
+    return [...finesByRecordId.values()].sort((a, b) => (toFineMillis(b) || 0) - (toFineMillis(a) || 0));
+};
+
 const renderStats = (tickets) => {
     const rows = Array.isArray(tickets) ? tickets : [];
     const borrowing = rows.filter((ticket) => getTicketBucket(ticket) === 'borrowing');
+    const fines = getMergedFines();
 
     const activeCount = historyState.tickets.filter((t) => {
         const view = getTicketStatusView(t);
@@ -91,7 +145,7 @@ const renderStats = (tickets) => {
     // Fines count
     const finesCountEl = document.getElementById('borrow-history-fines-count');
     if (finesCountEl) {
-        const unpaidFines = historyState.fines.filter(f => f.status === 'unpaid').length;
+        const unpaidFines = fines.filter(f => (f.status || '').toLowerCase() === 'unpaid').length;
         if (unpaidFines > 0) {
             finesCountEl.textContent = unpaidFines;
             finesCountEl.classList.remove('hidden');
@@ -240,7 +294,7 @@ const renderTickets = (tickets) => {
 
     list.innerHTML = visibleTickets.map((ticket) => {
         const books = Array.isArray(ticket.books) ? ticket.books : [];
-        const bookLines = books.slice(0, 3).map((b) => `<li class="truncate">${b.title}</li>`).join('');
+        const bookLines = books.slice(0, 3).map((b) => `<li class="truncate">${escapeHtml(b.title)}</li>`).join('');
         const remain = books.length > 3 ? `<li>+${books.length - 3} sách khác</li>` : '';
         const totalFine = Number(ticket.fineOverdue || 0) + Number(ticket.fineDamage || 0);
 
@@ -273,7 +327,9 @@ const renderFinesList = () => {
     const list = document.getElementById('finesList');
     if (!list) return;
 
-    if (!historyState.fines || historyState.fines.length === 0) {
+    const fines = getMergedFines();
+
+    if (!fines.length) {
         list.innerHTML = `
             <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-10 text-center">
                 <i class="ph-fill ph-check-circle text-emerald-500 text-5xl mb-3"></i>
@@ -284,7 +340,7 @@ const renderFinesList = () => {
         return;
     }
 
-    list.innerHTML = historyState.fines.map(f => {
+    list.innerHTML = fines.map(f => {
         let statusHtml = '';
         if (f.status === 'unpaid') statusHtml = '<span class="px-3 py-1 bg-rose-50 text-rose-700 text-xs font-bold rounded-lg border border-rose-200">Chưa thanh toán</span>';
         else if (f.status === 'paid') statusHtml = '<span class="px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-lg border border-emerald-200">Đã thanh toán</span>';
@@ -393,8 +449,6 @@ const initBorrowHistory = async () => {
     setActiveTab('borrowing');
     historyState.tickets = [];
 
-    await cleanupLegacyBorrowRecords();
-
     unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
         if (!user) {
             renderUserProfile(null, null);
@@ -408,12 +462,28 @@ const initBorrowHistory = async () => {
         if (unsubscribeTickets) unsubscribeTickets();
         unsubscribeTickets = subscribeUserTickets(user.uid, renderTickets);
 
-        // Fetch fines
+        // Fetch fines (No orderBy to avoid composite index requirement, sort in memory)
         const finesRef = collection(db, 'fines');
-        const q = query(finesRef, where('userId', '==', user.uid), orderBy('createdAt', 'desc'));
-        const fSnap = await getDocs(q);
-        historyState.fines = fSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-        renderStats(historyState.tickets);
+        const q = query(finesRef, where('userId', '==', user.uid));
+        
+        try {
+            const fSnap = await getDocs(q);
+            historyState.fines = fSnap.docs
+                .map(d => ({ id: d.id, ...d.data() }))
+                .sort((a, b) => {
+                    const aTime = a.createdAt?.toMillis?.() || 0;
+                    const bTime = b.createdAt?.toMillis?.() || 0;
+                    return bTime - aTime; // descending
+                });
+            renderStats(historyState.tickets);
+            
+            // Cập nhật lại UI nếu đang ở tab fines
+            if (historyState.activeTab === 'fines') {
+                renderFinesList();
+            }
+        } catch (e) {
+            console.error('Error fetching fines:', e);
+        }
         
         // Cập nhật lại UI nếu đang ở tab fines
         if (historyState.activeTab === 'fines') {
