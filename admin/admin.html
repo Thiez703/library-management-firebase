@@ -120,30 +120,6 @@
             </div>
         </aside>
 
-        <script type="module">
-            import { checkAuthState, signOutUser } from '../assets/js/auth.js';
-            
-            // Bảo vệ trang Admin: Chỉ cho phép role 'admin'
-            checkAuthState((user, userData) => {
-                if (!user || userData?.role !== 'admin') {
-                    console.warn("Truy cập trái phép trang Admin!");
-                    window.location.href = '../user/login.html';
-                    return;
-                }
-                
-                // Cập nhật thông tin Admin thật
-                const adminName = document.getElementById('adminName');
-                const adminAvatar = document.getElementById('adminAvatar');
-                if (adminName) adminName.innerText = userData.displayName || user.email;
-                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
-            });
-
-            // Gắn sự kiện đăng xuất
-            document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                signOutUser();
-            });
-        </script>
         <script type="module" src="../assets/js/admin.js" data-turbo-track="reload"></script>
 
 

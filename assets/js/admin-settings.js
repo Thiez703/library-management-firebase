@@ -356,7 +356,7 @@ const loadSettings = async () => {
 };
 
 const initSettingsPage = async () => {
-    const root = getElem('settingsPageRoot');
+    const root = getElem('generalForm');
     if (!root) return;
     if (root.dataset.settingsBound === '1') return;
 
@@ -373,7 +373,11 @@ const initSettingsPage = async () => {
 };
 
 // Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initSettingsPage());
+const guardedInit = () => {
+    if (document.getElementById('generalForm')) {
+        requireAdmin(() => initSettingsPage());
+    }
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();

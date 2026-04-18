@@ -577,7 +577,11 @@ const initReaders = () => {
     };
 
 // Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initReaders());
+const guardedInit = () => {
+    if (document.getElementById('readersTableBody')) {
+        requireAdmin(() => initReaders());
+    }
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();

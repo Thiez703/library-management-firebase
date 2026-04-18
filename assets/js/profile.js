@@ -24,10 +24,7 @@ const getElem = (id) => document.getElementById(id);
 // ─── Hiển thị thông tin ──────────────────────────────────────────────────────
 
 const renderProfile = (firebaseUser, userData) => {
-    if (!firebaseUser) {
-        window.location.replace('login.html');
-        return;
-    }
+    if (!firebaseUser) return; // Không redirect ở đây
 
     const displayName = userData?.displayName || firebaseUser.displayName || firebaseUser.email || 'Người dùng';
     const email = userData?.email || firebaseUser.email || '--';
@@ -161,10 +158,7 @@ const initProfilePage = () => {
     bindPasswordToggles();
 
     onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!firebaseUser) {
-            window.location.replace('login.html');
-            return;
-        }
+        if (!firebaseUser) return; // Không redirect ở đây
 
         const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
         const userData = userSnap.exists() ? userSnap.data() : null;

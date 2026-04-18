@@ -496,7 +496,11 @@ const initReportsPage = () => {
 };
 
 // Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initReportsPage());
+const guardedInit = () => {
+    if (document.getElementById('monthlyStatsBody')) {
+        requireAdmin(() => initReportsPage());
+    }
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();

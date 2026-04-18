@@ -129,7 +129,11 @@ const renderTopBooks = (docs) => {
 };
 
 // Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initDashboard());
+const guardedInit = () => {
+    if (document.getElementById('recent-activities')) {
+        requireAdmin(() => initDashboard());
+    }
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();

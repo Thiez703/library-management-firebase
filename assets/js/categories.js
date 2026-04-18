@@ -395,14 +395,23 @@ const renderAll = () => {
 };
 
 // Khởi chạy — bảo vệ bằng admin guard
-requireAdmin(() => {
-    onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {
-        state.categories = snapshot.docs;
-        renderAll();
-    });
+const guardedInit = () => {
+    if (document.getElementById('categories-container')) {
+        requireAdmin(() => {
+            onSnapshot(query(collection(db, 'categories'), orderBy('categoryName', 'asc')), (snapshot) => {
+                state.categories = snapshot.docs;
+                renderAll();
+            });
 
-    onSnapshot(collection(db, 'books'), (snapshot) => {
-        state.books = snapshot.docs;
-        renderAll();
-    });
-});
+            onSnapshot(collection(db, 'books'), (snapshot) => {
+                state.books = snapshot.docs;
+                renderAll();
+            });
+        });
+    }
+};
+
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

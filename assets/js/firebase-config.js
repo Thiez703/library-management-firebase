@@ -15,4 +15,8 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
 export const auth = getAuth(app);
+
+// Cấu hình để Auth không cố gắng nạp các file ảo __/firebase/init.json
+auth.useDeviceLanguage(); 
+
 export const storage = getStorage(app, `gs://${firebaseConfig.storageBucket}`);

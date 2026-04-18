@@ -16,24 +16,18 @@ const formatDate = (ts) => {
     return date.toLocaleDateString('vi-VN') + ' ' + date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
 };
 
-const initFinesPage = () => {
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) {
-            window.location.href = '../user/login.html';
-            return;
-        }
+const initFinesPage = async () => {
+    const logoutBtn = document.getElementById('adminLogoutBtn');
+    if (logoutBtn) {
+        // Logic đăng xuất thống nhất từ auth.js hoặc dùng signOut trực tiếp
+        logoutBtn.addEventListener('click', async () => {
+            const { signOutUser } = await import('./auth.js');
+            signOutUser();
+        });
+    }
 
-        const logoutBtn = document.getElementById('adminLogoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async () => {
-                await auth.signOut();
-                window.location.href = '../user/login.html';
-            });
-        }
-
-        await loadFines();
-        bindEvents();
-    });
+    await loadFines();
+    bindEvents();
 };
 
 const loadFines = async () => {
@@ -230,8 +224,13 @@ const openWaiveModal = (docId, fineId) => {
     document.getElementById('waiveModal').classList.remove('hidden');
 };
 
-requireAdmin().then(() => {
-    initFinesPage();
-}).catch(() => {
-    window.location.href = '../user/login.html';
-});
+// Khởi chạy — bảo vệ bằng admin guard
+const guardedInit = () => {
+    if (document.getElementById('finesTableBody')) {
+        requireAdmin(() => initFinesPage());
+    }
+};
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);

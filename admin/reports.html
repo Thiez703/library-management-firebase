@@ -117,29 +117,12 @@
             </div>
         </aside>
 
-        <script type="module">
-            import { checkAuthState, signOutUser } from '../assets/js/auth.js';
-            checkAuthState((user, userData) => {
-                if (!user || userData?.role !== 'admin') {
-                    window.location.href = '../user/login.html';
-                    return;
-                }
-                const adminName = document.getElementById('adminName');
-                const adminAvatar = document.querySelector('aside img');
-                if (adminName) adminName.innerText = userData.displayName || user.email;
-                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
-            });
-            document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
-                e.preventDefault();
-                signOutUser();
-            });
-        </script>
+        <script type="module" src="../assets/js/reports.js"></script>
 
         <!-- MAIN WRAPPER -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden">
             <!-- TOPBAR -->
-            <header
-                class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
                 <div class="flex-1 max-w-md">
                     <div class="relative group">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

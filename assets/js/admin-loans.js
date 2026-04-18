@@ -721,7 +721,11 @@ const initAdminLoans = async () => {
 };
 
 // Khởi chạy — bảo vệ bằng admin guard
-const guardedInit = () => requireAdmin(() => initAdminLoans());
+const guardedInit = () => {
+    if (document.getElementById('loanCardsContainer')) {
+        requireAdmin(() => initAdminLoans());
+    }
+};
 document.addEventListener('turbo:load', guardedInit);
 document.addEventListener('turbo:render', guardedInit);
 if (document.readyState !== 'loading') guardedInit();

@@ -1,125 +1,122 @@
-/**
- * admin-guard.js
- * Module bảo vệ các trang Admin.
- * Import và gọi `requireAdmin()` ở đầu mỗi file JS dành cho admin.
- *
- * Luồng hoạt động:
- *  1. Đọc cache từ localStorage (hiển thị nhanh, không chờ mạng).
- *  2. Đồng thời lắng nghe Firebase Auth để xác minh thực sự.
- *  3. Nếu không phải admin → redirect ngay sang trang login.
- */
-
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
 import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
 
-const LOGIN_URL = '../user/login.html';
 const CACHE_KEY = 'lib_user';
+const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
 
-/**
- * Lấy role từ localStorage cache (fast path).
- * @returns {'admin'|'user'|null}
- */
 const getCachedRole = () => {
     try {
         const raw = localStorage.getItem(CACHE_KEY);
         return raw ? JSON.parse(raw)?.role ?? null : null;
-    } catch {
-        return null;
-    }
+    } catch { return null; }
 };
 
-/**
- * Chặn toàn bộ nội dung trang bằng overlay loading
- * để tránh flash nội dung admin trước khi xác thực xong.
- */
-const showLoadingOverlay = () => {
-    const overlay = document.createElement('div');
-    overlay.id = '__admin_guard_overlay__';
-    overlay.style.cssText = [
-        'position:fixed', 'inset:0', 'z-index:99999',
-        'background:#f8fafc', 'display:flex',
-        'align-items:center', 'justify-content:center',
-        'flex-direction:column', 'gap:12px'
-    ].join(';');
+const showLoadingOverlay = (message = "Đang xác thực...") => {
+    let overlay = document.getElementById('__admin_guard_overlay__');
+    if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = '__admin_guard_overlay__';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px';
+        document.body.appendChild(overlay);
+    }
     overlay.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none"
-             xmlns="http://www.w3.org/2000/svg" class="animate-spin"
-             style="animation:spin 1s linear infinite">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation:spin 1s linear infinite">
             <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="3"/>
             <path d="M12 2a10 10 0 0 1 10 10" stroke="#2563eb" stroke-width="3" stroke-linecap="round"/>
         </svg>
-        <p style="font-size:14px;color:#64748b;font-family:sans-serif">Đang xác thực...</p>
+        <p style="font-size:14px;color:#64748b;font-family:sans-serif">${message}</p>
         <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
     `;
-    document.body.appendChild(overlay);
     return overlay;
 };
 
-const removeOverlay = () => {
-    document.getElementById('__admin_guard_overlay__')?.remove();
+const removeOverlay = () => document.getElementById('__admin_guard_overlay__')?.remove();
+
+// Cập nhật UI Admin linh hoạt cho mọi trang
+const updateAdminUI = (user, userData) => {
+    const displayName = userData?.displayName || user.displayName || user.email;
+    const photoURL = userData?.photoURL || user.photoURL || AVATAR_PLACEHOLDER;
+
+    // 1. Cập nhật Tên Admin
+    const nameEl = document.getElementById('adminName');
+    if (nameEl) nameEl.innerText = displayName;
+
+    // 2. Cập nhật mọi Avatar có trong trang (Sidebar, Topbar)
+    // Tận dụng class và tag để tìm tất cả
+    document.querySelectorAll('aside img, header img, #adminAvatar').forEach(img => {
+        img.src = photoURL;
+        img.onerror = () => { img.src = AVATAR_PLACEHOLDER; };
+    });
+
+    // 3. Gắn sự kiện Đăng xuất (Cho mọi nút logout trong admin)
+    const logoutBtns = document.querySelectorAll('#adminLogoutBtn, [id$="LogoutBtn"]');
+    logoutBtns.forEach(btn => {
+        if (!btn.dataset.bound) {
+            btn.dataset.bound = 'true';
+            btn.onclick = async (e) => {
+                e.preventDefault();
+                const { signOutUser } = await import('./auth.js');
+                signOutUser();
+            };
+        }
+    });
+
+    // 4. Chuông thông báo - Giờ đây sẽ hiện thông báo khi nhấn
+    const bellBtns = document.querySelectorAll('header button[aria-label="Thông báo"], header button[title="Thông báo"]');
+    bellBtns.forEach(btn => {
+        if (!btn.dataset.bound) {
+            btn.dataset.bound = 'true';
+            btn.title = "Xem các báo cáo quan trọng";
+            btn.onclick = () => {
+                const { showToast } = import('./auth.js').then(m => {
+                    m.showToast("Đang chuyển đến trang thống kê...", "info");
+                    setTimeout(() => window.location.href = 'reports.html', 500);
+                });
+            };
+        }
+    });
 };
 
-/**
- * Gọi function này ở đầu mỗi trang admin.
- * Nếu người dùng không phải admin, redirect về trang login.
- *
- * @param {Function} [onReady] - Callback được gọi khi đã xác nhận là admin.
- *                               Nếu không truyền, các module tự init như bình thường.
- */
 export const requireAdmin = (onReady) => {
-    // Fast path: nếu cache cho thấy không phải admin → redirect ngay
     const cachedRole = getCachedRole();
-    if (cachedRole !== null && cachedRole !== 'admin') {
+    const LOGIN_URL = '../user/login.html';
+
+    if (cachedRole === 'user' || cachedRole === 'reader') {
         window.location.replace(LOGIN_URL);
         return;
     }
 
-    const overlay = showLoadingOverlay();
+    showLoadingOverlay();
+    let isResolved = false;
 
-    onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!firebaseUser) {
-            // Không có session → chuyển về login
-            localStorage.removeItem(CACHE_KEY);
+    onAuthStateChanged(auth, async (user) => {
+        if (isResolved) return;
+
+        if (!user) {
+            isResolved = true;
             window.location.replace(LOGIN_URL);
             return;
         }
 
         try {
-            // Xác minh role từ Firestore (source of truth)
-            const userSnap = await getDoc(doc(db, 'users', firebaseUser.uid));
+            const userSnap = await getDoc(doc(db, 'users', user.uid));
             const userData = userSnap.exists() ? userSnap.data() : null;
-            const role = userData?.role ?? 'user';
+            const role = userData?.role || 'user';
 
             if (role !== 'admin') {
-                // User thật nhưng không có quyền admin
-                localStorage.removeItem(CACHE_KEY);
-                window.location.replace(LOGIN_URL);
+                isResolved = true;
+                window.location.replace('../user/index.html');
                 return;
             }
 
-            // ✅ Hợp lệ — cập nhật cache và cho phép vào
-            const cached = {
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                displayName: userData?.displayName || firebaseUser.displayName || firebaseUser.email,
-                photoURL: userData?.photoURL || firebaseUser.photoURL,
-                role: 'admin'
-            };
-            localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
-
+            isResolved = true;
+            updateAdminUI(user, userData);
             removeOverlay();
-            if (typeof onReady === 'function') onReady(firebaseUser, userData);
-
+            if (typeof onReady === 'function') onReady(user, userData);
         } catch (err) {
-            console.error('[admin-guard] Lỗi xác thực:', err);
-            // Lỗi mạng → nếu cache hợp lệ thì cho qua, ngược lại redirect
-            if (cachedRole === 'admin') {
-                removeOverlay();
-                if (typeof onReady === 'function') onReady(firebaseUser, null);
-            } else {
-                window.location.replace(LOGIN_URL);
-            }
+            console.error("[Guard] Auth Error:", err);
+            window.location.replace(LOGIN_URL);
         }
     });
 };
