@@ -19,6 +19,9 @@ const saveCart = (items) => {
 };
 
 export const getCartItems = () => parseCart();
+export const getCartTotalQuantity = () => (
+    parseCart().reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0)
+);
 
 export const clearCart = () => saveCart([]);
 
@@ -26,6 +29,25 @@ export const removeFromCart = (bookId) => {
     const items = parseCart().filter((item) => item.bookId !== bookId);
     saveCart(items);
     return items;
+};
+
+export const updateCartItemQuantity = (bookId, quantity) => {
+    const items = parseCart();
+    const idx = items.findIndex((item) => item.bookId === bookId);
+    if (idx < 0) return { ok: false, message: 'Không tìm thấy sách trong giỏ.' };
+
+    const nextQty = Math.max(1, Math.min(MAX_BOOKS_PER_TICKET, Number(quantity) || 1));
+    const totalWithoutCurrent = items.reduce((sum, item, i) => (
+        i === idx ? sum : sum + Math.max(1, Number(item?.quantity || 1))
+    ), 0);
+
+    if (totalWithoutCurrent + nextQty > MAX_BOOKS_PER_TICKET) {
+        return { ok: false, message: `Mỗi phiếu chỉ tối đa ${MAX_BOOKS_PER_TICKET} cuốn.` };
+    }
+
+    items[idx] = { ...items[idx], quantity: nextQty };
+    saveCart(items);
+    return { ok: true, message: 'Đã cập nhật số lượng.' };
 };
 
 export const isInCart = (bookId) => parseCart().some((item) => item.bookId === bookId);
@@ -36,12 +58,20 @@ export const addToCart = (book) => {
     }
 
     const items = parseCart();
+    const totalQty = items.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0);
 
-    if (items.some((item) => item.bookId === book.bookId)) {
-        return { ok: false, message: 'Sách đã có trong giỏ mượn.' };
+    const existingIdx = items.findIndex((item) => item.bookId === book.bookId);
+    if (existingIdx >= 0) {
+        const existingQty = Math.max(1, Number(items[existingIdx].quantity || 1));
+        if (existingQty >= MAX_BOOKS_PER_TICKET || totalQty >= MAX_BOOKS_PER_TICKET) {
+            return { ok: false, message: `Mỗi phiếu chỉ tối đa ${MAX_BOOKS_PER_TICKET} cuốn.` };
+        }
+        items[existingIdx] = { ...items[existingIdx], quantity: existingQty + 1 };
+        saveCart(items);
+        return { ok: true, message: 'Đã tăng số lượng trong giỏ mượn.' };
     }
 
-    if (items.length >= MAX_BOOKS_PER_TICKET) {
+    if (totalQty >= MAX_BOOKS_PER_TICKET) {
         return { ok: false, message: `Mỗi phiếu chỉ tối đa ${MAX_BOOKS_PER_TICKET} cuốn.` };
     }
 
@@ -52,7 +82,8 @@ export const addToCart = (book) => {
             title: book.title || 'Không rõ tên sách',
             author: book.author || 'Không rõ tác giả',
             coverUrl: book.coverUrl || '',
-            price: Number(book.price || 0) || 0
+            price: Number(book.price || 0) || 0,
+            quantity: 1
         }
     ];
 
@@ -61,7 +92,7 @@ export const addToCart = (book) => {
 };
 
 export const updateCartBadges = () => {
-    const count = parseCart().length;
+    const count = getCartTotalQuantity();
     document.querySelectorAll('[data-cart-count]').forEach((el) => {
         el.textContent = String(count);
     });
@@ -85,14 +116,5 @@ export const ensureFloatingCartButton = () => {
 };
 
 export const showCartActionToast = (result) => {
-    const message = (result?.message || '').toLowerCase();
-    const isDuplicate = message.includes('đã có trong giỏ');
-
-    // Duplicate add is not a critical failure for users, show a positive toast.
-    if (isDuplicate) {
-        showToast('Sách đã có sẵn trong giỏ mượn.', 'success');
-        return;
-    }
-
     showToast(result.message, result.ok ? 'success' : 'error');
 };

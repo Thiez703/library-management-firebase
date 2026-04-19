@@ -37,7 +37,10 @@ export const IDENTITY_ERRORS = Object.freeze({
     INVALID_CCCD: 'INVALID_CCCD',
     PHONE_CHANGE_TOO_SOON: 'PHONE_CHANGE_TOO_SOON',
     CCCD_MISMATCH: 'CCCD_MISMATCH',
-    SAME_PHONE: 'SAME_PHONE'
+    SAME_PHONE: 'SAME_PHONE',
+    ACCOUNT_LOCKED: 'ACCOUNT_LOCKED',
+    ACCOUNT_BANNED: 'ACCOUNT_BANNED',
+    UNPAID_FINE: 'UNPAID_FINE'
 });
 
 export const PHONE_CHANGE_COOLDOWN_DAYS = 60;
@@ -47,18 +50,38 @@ const ERROR_MESSAGES = Object.freeze({
     [IDENTITY_ERRORS.CCCD_ALREADY_USED]: 'Số CCCD này đã được đăng ký với tài khoản khác.',
     [IDENTITY_ERRORS.ALREADY_VERIFIED]: 'Tài khoản đã được xác minh trước đó.',
     [IDENTITY_ERRORS.USER_NOT_VERIFIED]: 'Vui lòng xác minh danh tính trước khi mượn sách.',
-    [IDENTITY_ERRORS.REPUTATION_TOO_LOW]: 'Điểm uy tín của bạn quá thấp (< 30). Không thể mượn sách.',
+    [IDENTITY_ERRORS.REPUTATION_TOO_LOW]: 'Điểm uy tín dưới 40 (hạng Kém). Tài khoản bị khóa mượn sách.',
     [IDENTITY_ERRORS.INVALID_PHONE]: 'Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 số.',
     [IDENTITY_ERRORS.INVALID_CCCD]: 'Số CCCD không hợp lệ. Vui lòng nhập đúng 12 số.',
     [IDENTITY_ERRORS.CCCD_MISMATCH]: 'Số CCCD không khớp với tài khoản đã xác minh.',
-    [IDENTITY_ERRORS.SAME_PHONE]: 'Số điện thoại mới phải khác số hiện tại.'
+    [IDENTITY_ERRORS.SAME_PHONE]: 'Số điện thoại mới phải khác số hiện tại.',
+    [IDENTITY_ERRORS.ACCOUNT_LOCKED]: 'Tài khoản đang bị khóa mượn. Vui lòng liên hệ thủ thư.',
+    [IDENTITY_ERRORS.ACCOUNT_BANNED]: 'Tài khoản đã bị khóa vĩnh viễn do vi phạm nghiêm trọng.',
+    [IDENTITY_ERRORS.UNPAID_FINE]: 'Không thể mượn do bạn còn khoản nợ chưa thanh toán. Vui lòng thanh toán để tiếp tục.'
 });
 
 export const REPUTATION_DEFAULT = 100;
-export const REPUTATION_MIN_BORROW = 30;
+export const REPUTATION_MIN_BORROW = 40;
 export const REPUTATION_PENALTY_PER_DAY = 5;
+const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+
+const BORROW_TIERS = [
+    { min: 80, maxBooks: 5, label: 'Tốt' },
+    { min: 70, maxBooks: 4, label: 'Khá' },
+    { min: 60, maxBooks: 3, label: 'Trung bình' },
+    { min: 50, maxBooks: 2, label: 'Dưới trung bình' },
+    { min: 40, maxBooks: 1, label: 'Thấp' },
+    { min: 0, maxBooks: 0, label: 'Kém (không được mượn)' }
+];
 
 const clampReputationScore = (value) => Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+
+export const getBorrowTierByScore = (score) => {
+    const normalized = clampReputationScore(score);
+    return BORROW_TIERS.find((tier) => normalized >= tier.min) || BORROW_TIERS[BORROW_TIERS.length - 1];
+};
+
+export const getMaxBorrowBooksByScore = (score) => getBorrowTierByScore(score).maxBooks;
 
 const toMillis = (value) => {
     if (!value) return null;
@@ -196,7 +219,8 @@ export const getUserIdentity = async (uid) => {
             : (typeof data.trustScore === 'number' ? data.trustScore : REPUTATION_DEFAULT),
         displayName: data.displayName || '',
         fullName: data.displayName || data.fullName || '',
-        email: data.email || ''
+        email: data.email || '',
+        status: data.status || 'active'
     };
 };
 
@@ -289,12 +313,47 @@ export const checkBorrowEligibility = async (uid) => {
         return { eligible: false, identity: null, reason: 'Tài khoản không tồn tại.' };
     }
 
+    const accountStatus = (identity?.status || 'active').toString().toLowerCase();
+    if (['banned', 'permanent_ban', 'permanently_banned'].includes(accountStatus)) {
+        return {
+            eligible: false,
+            identity,
+            reason: ERROR_MESSAGES[IDENTITY_ERRORS.ACCOUNT_BANNED],
+            errorCode: IDENTITY_ERRORS.ACCOUNT_BANNED
+        };
+    }
+
+    if (['locked', 'blocked', 'suspended', 'disabled', 'inactive'].includes(accountStatus)) {
+        return {
+            eligible: false,
+            identity,
+            reason: ERROR_MESSAGES[IDENTITY_ERRORS.ACCOUNT_LOCKED],
+            errorCode: IDENTITY_ERRORS.ACCOUNT_LOCKED
+        };
+    }
+
     if (!identity.isVerified) {
         return {
             eligible: false,
             identity,
             reason: ERROR_MESSAGES[IDENTITY_ERRORS.USER_NOT_VERIFIED],
             errorCode: IDENTITY_ERRORS.USER_NOT_VERIFIED
+        };
+    }
+
+    const fineSnap = await getDocs(
+        query(
+            collection(db, 'fines'),
+            where('userId', '==', uid),
+            where('status', '==', 'unpaid')
+        )
+    );
+    if (!fineSnap.empty) {
+        return {
+            eligible: false,
+            identity,
+            reason: ERROR_MESSAGES[IDENTITY_ERRORS.UNPAID_FINE],
+            errorCode: IDENTITY_ERRORS.UNPAID_FINE
         };
     }
 
@@ -311,7 +370,8 @@ export const checkBorrowEligibility = async (uid) => {
         };
     }
 
-    return { eligible: true, identity: identityWithLiveScore };
+    const tier = getBorrowTierByScore(liveScore);
+    return { eligible: true, identity: identityWithLiveScore, maxBorrowBooks: tier.maxBooks, tierLabel: tier.label };
 };
 
 // ── Reputation helpers ───────────────────────────────────────────────────────
@@ -323,7 +383,52 @@ export const checkBorrowEligibility = async (uid) => {
  */
 export const calculateReputationPenalty = (daysLate) => {
     if (daysLate <= 0) return 0;
-    return Math.min(daysLate * REPUTATION_PENALTY_PER_DAY, REPUTATION_DEFAULT);
+    if (daysLate <= 3) return 5;
+    if (daysLate <= 7) return 20;
+    return REPUTATION_DEFAULT;
+};
+
+export const calculateReputationDeltaForReturn = ({ daysLate = 0, note = '' } = {}) => {
+    const text = (note || '').toString().toLowerCase();
+    const hasDirtyBook = text.includes('bẩn') || text.includes('ban sach') || text.includes('sách bẩn');
+    const hasLostBook = text.includes('mất sách') || text.includes('mat sach');
+
+    let delta = 0;
+    let shouldLockAccount = false;
+    let reasons = [];
+
+    if (daysLate <= 0) {
+        delta += 2;
+        reasons.push('Trả đúng hạn: +2');
+    } else if (daysLate <= 3) {
+        delta -= 5;
+        reasons.push('Trả muộn 1-3 ngày: -5');
+    } else if (daysLate <= 7) {
+        delta -= 20;
+        reasons.push('Trả muộn 4-7 ngày: -20');
+    } else {
+        delta -= 100;
+        shouldLockAccount = true;
+        reasons.push('Trả muộn quá 7 ngày: khóa tài khoản');
+    }
+
+    if (hasDirtyBook) {
+        delta -= 20;
+        reasons.push('Sách bẩn/hư hại nhẹ: -20');
+    }
+
+    if (hasLostBook) {
+        delta -= 40;
+        reasons.push('Mất sách: -40');
+    }
+
+    return { delta, shouldLockAccount, reasons };
+};
+
+export const calculateNoViolationBonus = ({ lastPenaltyAt, nowMs = Date.now() } = {}) => {
+    const lastPenaltyMs = toMillis(lastPenaltyAt);
+    if (!lastPenaltyMs) return 0;
+    return nowMs - lastPenaltyMs >= SIX_MONTHS_MS ? 20 : 0;
 };
 
 // ── Phone change cooldown ────────────────────────────────────────────────────

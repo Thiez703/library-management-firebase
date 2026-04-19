@@ -1,10 +1,10 @@
 import { auth, db } from './firebase-config.js';
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { doc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-import { getCartItems, removeFromCart, updateCartBadges } from './cart.js';
+import { getCartItems, getCartTotalQuantity, removeFromCart, updateCartBadges, updateCartItemQuantity } from './cart.js';
 import { handleCheckout } from './borrow.js';
 import { showToast } from './auth.js';
-import { getUserIdentity, verifyUser, IDENTITY_ERRORS, REPUTATION_MIN_BORROW, getLiveReputationScore } from './identity.js';
+import { checkBorrowEligibility, getBorrowTierByScore, getUserIdentity, verifyUser, IDENTITY_ERRORS, getLiveReputationScore } from './identity.js';
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} đ`;
 const escapeHtml = (v = '') => String(v)
@@ -21,10 +21,13 @@ const renderCart = () => {
     if (!list || !empty) return;
 
     const items = getCartItems();
+    const totalQty = getCartTotalQuantity();
 
     if (items.length === 0) {
         list.innerHTML = '';
         empty.classList.remove('hidden');
+        const maxBadge = document.querySelector('#cartPageRoot [data-cart-max]');
+        if (maxBadge) maxBadge.textContent = 'Đã chọn 0/5 cuốn';
         getElem('checkoutBtn')?.setAttribute('disabled', 'disabled');
         return;
     }
@@ -39,6 +42,11 @@ const renderCart = () => {
                 <p class="font-semibold text-slate-800 truncate">${escapeHtml(item.title)}</p>
                 <p class="text-sm text-slate-500 truncate">${escapeHtml(item.author || 'Không rõ tác giả')}</p>
                 <p class="text-xs text-slate-400">Giá tham khảo: ${formatMoney(item.price)}</p>
+                <div class="mt-2 inline-flex items-center gap-1 rounded-lg border border-slate-200">
+                    <button data-qty-action="decrease" data-book-id="${item.bookId}" class="w-8 h-8 text-slate-600 hover:bg-slate-50 rounded-l-lg">-</button>
+                    <span class="w-8 text-center text-sm font-semibold text-slate-700">${Math.max(1, Number(item.quantity || 1))}</span>
+                    <button data-qty-action="increase" data-book-id="${item.bookId}" class="w-8 h-8 text-slate-600 hover:bg-slate-50 rounded-r-lg">+</button>
+                </div>
             </div>
             <button data-remove-id="${item.bookId}" class="p-2 text-rose-600 hover:bg-rose-50 rounded-lg">
                 <i class="ph ph-trash"></i>
@@ -46,10 +54,32 @@ const renderCart = () => {
         </div>
     `).join('');
 
+    const maxBadge = document.querySelector('#cartPageRoot [data-cart-max]');
+    if (maxBadge) {
+        maxBadge.textContent = `Đã chọn ${totalQty}/5 cuốn`;
+    }
+
     list.querySelectorAll('[data-remove-id]').forEach((btn) => {
         btn.addEventListener('click', () => {
             const id = btn.getAttribute('data-remove-id');
             removeFromCart(id);
+            renderCart();
+        });
+    });
+
+    list.querySelectorAll('[data-qty-action]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            const action = btn.getAttribute('data-qty-action');
+            const bookId = btn.getAttribute('data-book-id');
+            const item = items.find((x) => x.bookId === bookId);
+            if (!item) return;
+            const currentQty = Math.max(1, Number(item.quantity || 1));
+            const nextQty = action === 'increase' ? currentQty + 1 : currentQty - 1;
+            const result = updateCartItemQuantity(bookId, nextQty);
+            if (!result.ok) {
+                showToast(result.message, 'error');
+                return;
+            }
             renderCart();
         });
     });
@@ -89,23 +119,31 @@ const renderVerificationUI = async (user, userData = null) => {
         return;
     }
 
-    // Đã xác minh → kiểm tra uy tín
+    // Đã xác minh → kiểm tra uy tín + khóa mượn theo chính sách
     const score = await getLiveReputationScore(user.uid, identity.reputationScore);
+    const tier = getBorrowTierByScore(score);
+    const eligibility = await checkBorrowEligibility(user.uid);
+    const maxBadge = document.querySelector('#cartPageRoot [data-cart-max]');
+    if (maxBadge) maxBadge.textContent = `Đã chọn ${getCartTotalQuantity()}/${tier.maxBooks} cuốn`;
 
-    if (score < REPUTATION_MIN_BORROW) {
-        // Uy tín quá thấp → chặn mượn
+    if (!eligibility.eligible || tier.maxBooks <= 0) {
         showSection('reputationBlocked');
         const blockedEl = getElem('reputationScoreBlocked');
         if (blockedEl) blockedEl.textContent = score;
+        const blockedPanel = getElem('reputationBlocked');
+        const reason = eligibility.reason || 'Điểm uy tín không đủ để mượn sách.';
+        const reasonText = blockedPanel?.querySelector('p');
+        if (reasonText) reasonText.innerHTML = `${escapeHtml(reason)}<br/><span class="text-xs">Hạng hiện tại: <strong>${escapeHtml(tier.label)}</strong> — Hạn mức: ${tier.maxBooks} cuốn.</span>`;
+        getElem('checkoutBtn')?.setAttribute('disabled', 'disabled');
         return;
     }
 
-    if (score < 50) {
+    if (score < 60) {
         // Uy tín thấp → cảnh báo nhưng vẫn cho mượn
         const warningEl = getElem('reputationWarning');
         warningEl?.classList.remove('hidden');
         const scoreEl = getElem('reputationScoreDisplay');
-        if (scoreEl) scoreEl.textContent = score;
+        if (scoreEl) scoreEl.textContent = `${score} (${tier.label}, tối đa ${tier.maxBooks} cuốn)`;
     }
 
     // Hiện checkout form với thông tin readonly
@@ -118,14 +156,22 @@ const renderVerificationUI = async (user, userData = null) => {
     if (nameInput) nameInput.value = identity.fullName || identity.displayName || '';
     if (phoneInput) phoneInput.value = identity.phone || '';
     if (repDisplay) {
-        repDisplay.textContent = `${score} / 100`;
+        repDisplay.textContent = `${score} / 100 — ${tier.label} (tối đa ${tier.maxBooks} cuốn)`;
         if (score >= 80) {
             repDisplay.className = 'mt-1 text-sm font-semibold text-emerald-600';
-        } else if (score >= 50) {
+        } else if (score >= 60) {
             repDisplay.className = 'mt-1 text-sm font-semibold text-amber-600';
         } else {
             repDisplay.className = 'mt-1 text-sm font-semibold text-rose-600';
         }
+    }
+
+    const totalQty = getCartTotalQuantity();
+    if (totalQty > tier.maxBooks) {
+        showToast(`Hạng uy tín hiện tại chỉ cho phép tối đa ${tier.maxBooks} cuốn. Vui lòng giảm số lượng trước khi gửi phiếu.`, 'error');
+        getElem('checkoutBtn')?.setAttribute('disabled', 'disabled');
+    } else {
+        getElem('checkoutBtn')?.removeAttribute('disabled');
     }
 };
 

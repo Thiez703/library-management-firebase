@@ -40,6 +40,11 @@ const state = {
     feeSchedule: null
 };
 
+let borrowBooksCache = [];
+let unsubscribeBorrowBooks = null;
+let directBorrowSelectedBooks = [];
+let directBorrowActiveBookId = '';
+
 const pageStartInfo = getElem('page-start-info');
 const pageEndInfo = getElem('page-end-info');
 const totalItemsInfo = getElem('total-items-info');
@@ -644,11 +649,21 @@ const createDirectBorrow = async (readerId, selectedBooks, durationDays = 14, ad
         showToast('Vui lòng chọn độc giả.', 'error');
         return;
     }
-    if (!Array.isArray(selectedBooks) || selectedBooks.length === 0) {
+    const sanitizedSelectedBooks = Array.isArray(selectedBooks)
+        ? selectedBooks
+            .map((item) => ({
+                bookId: item?.bookId || '',
+                quantity: Math.max(1, Math.min(5, Number(item?.quantity) || 1))
+            }))
+            .filter((item) => item.bookId)
+        : [];
+
+    if (!sanitizedSelectedBooks.length) {
         showToast('Vui lòng chọn ít nhất một cuốn sách.', 'error');
         return;
     }
-    if (selectedBooks.length > 5) {
+    const totalQuantity = sanitizedSelectedBooks.reduce((sum, item) => sum + item.quantity, 0);
+    if (totalQuantity > 5) {
         showToast('Tối đa 5 cuốn sách mỗi phiếu.', 'error');
         return;
     }
@@ -663,30 +678,37 @@ const createDirectBorrow = async (readerId, selectedBooks, durationDays = 14, ad
         const ticketDocRef = doc(collection(db, 'borrowRecords'));
 
         await runTransaction(db, async (transaction) => {
-            const bookRefs = selectedBooks.map((bookId) => doc(db, 'books', bookId));
+            const bookRefs = sanitizedSelectedBooks.map((item) => doc(db, 'books', item.bookId));
             const bookSnaps = await Promise.all(bookRefs.map((ref) => transaction.get(ref)));
 
             for (let i = 0; i < bookSnaps.length; i++) {
-                if (!bookSnaps[i].exists()) throw new Error(`Sách không tồn tại.`);
+                if (!bookSnaps[i].exists()) {
+                    throw new Error(`Sách không tồn tại.`);
+                }
                 const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
-                if (available <= 0) throw new Error(`Sách "${bookSnaps[i].data().title}" đã hết.`);
+                const needed = sanitizedSelectedBooks[i].quantity;
+                if (available < needed) {
+                    throw new Error(`Sách "${bookSnaps[i].data().title}" đã hết.`);
+                }
             }
 
             const bookDetails = [];
             for (let i = 0; i < bookSnaps.length; i++) {
                 const bookData = bookSnaps[i].data();
                 bookDetails.push({
-                    bookId: selectedBooks[i],
+                    bookId: sanitizedSelectedBooks[i].bookId,
                     title: bookData.title || 'Không rõ',
                     author: bookData.author || 'Không rõ',
                     coverUrl: bookData.coverUrl || '',
-                    price: Number(bookData.price || 0)
+                    price: Number(bookData.price || 0),
+                    quantity: sanitizedSelectedBooks[i].quantity
                 });
             }
 
             for (let i = 0; i < bookRefs.length; i++) {
                 const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
-                const nextQty = available - 1;
+                const borrowQty = sanitizedSelectedBooks[i].quantity;
+                const nextQty = available - borrowQty;
                 transaction.update(bookRefs[i], {
                     availableQuantity: nextQty,
                     status: nextQty > 0 ? 'available' : 'out_of_stock'
@@ -754,53 +776,153 @@ const loadReadersForBorrow = async () => {
     });
 };
 
-const loadBooksForBorrow = async () => {
-    onSnapshot(collection(db, 'books'), (snapshot) => {
-        const books = [];
-        snapshot.forEach((docSnap) => {
-            const book = docSnap.data() || {};
-            const available = Number(book.availableQuantity || 0);
-            if (available > 0) {
-                books.push({
-                    id: docSnap.id,
-                    title: book.title || 'Không rõ',
-                    available
-                });
+const bindCreateBorrowModal = () => {
+    const normalizeText = (text = '') =>
+        text.toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+
+    const getFilteredBooks = (keyword = '') => {
+        const kw = normalizeText(keyword);
+        const filtered = kw
+            ? borrowBooksCache.filter((b) => normalizeText(b.title).includes(kw))
+            : borrowBooksCache;
+        return filtered.slice(0, 80);
+    };
+
+    const getTotalSelectedQuantity = () => (
+        directBorrowSelectedBooks.reduce((sum, item) => sum + (Number(item?.quantity) || 0), 0)
+    );
+
+    const renderSelectedBooksList = () => {
+        const listEl = getElem('selectedBooksList');
+        if (!listEl) return;
+        if (!directBorrowSelectedBooks.length) {
+            listEl.innerHTML = '<p class="text-sm text-slate-500">Chưa có sách nào được chọn.</p>';
+            return;
+        }
+
+        const totalQty = getTotalSelectedQuantity();
+        listEl.innerHTML = directBorrowSelectedBooks.map((item, index) => {
+            const book = borrowBooksCache.find((b) => b.id === item.bookId);
+            const title = book?.title || 'Sách không còn khả dụng';
+            const available = book?.available ?? 0;
+            const quantity = Math.max(1, Math.min(5, Number(item.quantity) || 1));
+            return `
+                <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div class="min-w-0">
+                        <p class="text-sm text-slate-700 truncate">${index + 1}. ${escapeHtml(title)} <span class="text-slate-400">(${available})</span></p>
+                        <p class="text-xs text-slate-500">Số lượng: ${quantity}</p>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button type="button" data-decrease-selected-book="${item.bookId}" class="w-8 h-8 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100">-</button>
+                        <span class="w-8 text-center text-sm font-semibold text-slate-700">${quantity}</span>
+                        <button type="button" data-increase-selected-book="${item.bookId}" class="w-8 h-8 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100">+</button>
+                        <button type="button" data-remove-selected-book="${item.bookId}" class="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 rounded-md text-sm font-medium">
+                            <i class="ph ph-trash mr-1"></i>Xoá
+                        </button>
+                    </div>
+                </div>
+            `;
+        }).join('') + `<p class="text-xs text-slate-500">Tổng số cuốn: ${totalQty}/5</p>`;
+    };
+
+    const renderBookDropdown = (keyword = '') => {
+        const dropdownEl = getElem('borrowBookDropdown');
+        if (!dropdownEl) return;
+
+        const rows = getFilteredBooks(keyword);
+        if (!rows.length) {
+            dropdownEl.innerHTML = '<div class="px-3 py-2 text-sm text-slate-500">Không tìm thấy sách phù hợp.</div>';
+            dropdownEl.classList.remove('hidden');
+            return;
+        }
+
+        dropdownEl.innerHTML = rows.map((book) => `
+            <button type="button" data-book-id="${book.id}" class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
+                <span class="text-sm font-medium text-slate-700">${escapeHtml(book.title)}</span>
+                <span class="text-xs text-slate-500 ml-1">(${book.available})</span>
+            </button>
+        `).join('');
+        dropdownEl.classList.remove('hidden');
+    };
+
+    const setActiveBook = (bookId) => {
+        const input = getElem('borrowBookSearchInput');
+        const book = borrowBooksCache.find((b) => b.id === bookId);
+        directBorrowActiveBookId = book?.id || '';
+        if (input) input.value = book?.title || '';
+        getElem('borrowBookDropdown')?.classList.add('hidden');
+    };
+
+    const addActiveBookToSelection = () => {
+        if (!directBorrowActiveBookId) {
+            showToast('Vui lòng chọn sách từ danh sách gợi ý.', 'error');
+            return;
+        }
+        const totalQty = getTotalSelectedQuantity();
+        if (totalQty >= 5) {
+            showToast('Tối đa 5 cuốn sách mỗi phiếu.', 'error');
+            return;
+        }
+        const existing = directBorrowSelectedBooks.find((item) => item.bookId === directBorrowActiveBookId);
+        if (existing) {
+            if (existing.quantity >= 5) {
+                showToast('Mỗi đầu sách tối đa 5 cuốn.', 'error');
+                return;
+            }
+            existing.quantity += 1;
+        } else {
+            directBorrowSelectedBooks.push({ bookId: directBorrowActiveBookId, quantity: 1 });
+        }
+        directBorrowActiveBookId = '';
+        const input = getElem('borrowBookSearchInput');
+        if (input) input.value = '';
+        renderSelectedBooksList();
+    };
+
+    const loadBooksForBorrow = () => {
+        if (unsubscribeBorrowBooks) return;
+
+        unsubscribeBorrowBooks = onSnapshot(collection(db, 'books'), (snapshot) => {
+            const books = [];
+            snapshot.forEach((docSnap) => {
+                const book = docSnap.data() || {};
+                const available = Number(book.availableQuantity || 0);
+                if (available > 0) {
+                    books.push({ id: docSnap.id, title: book.title || 'Không rõ', available });
+                }
+            });
+
+            books.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
+            borrowBooksCache = books;
+            renderSelectedBooksList();
+            const keyword = getElem('borrowBookSearchInput')?.value || '';
+            if (keyword || document.activeElement === getElem('borrowBookSearchInput')) {
+                renderBookDropdown(keyword);
             }
         });
+    };
 
-        const bookSelects = document.querySelectorAll('.book-select');
-        bookSelects.forEach((select) => {
-            const current = select.value;
-            select.innerHTML = '<option value="">-- Chọn sách --</option>' +
-                books.map((b) => `<option value="${b.id}">${b.title} (${b.available})</option>`).join('');
-            select.value = current || '';
-        });
-    });
-};
-
-const bindCreateBorrowModal = () => {
     const openBtn = getElem('createDirectBorrowBtn');
     const closeBtn = getElem('closeCreateBorrowModal');
     const cancelBtn = getElem('cancelCreateBorrowBtn');
     const modal = getElem('createBorrowModal');
     const form = getElem('createBorrowForm');
     const readerSelect = getElem('borrowReaderSelect');
-    const addBookBtn = getElem('addBookRowBtn');
-    const booksContainer = getElem('borrowBooksContainer');
+    const addSelectedBookBtn = getElem('addSelectedBookBtn');
+    const bookSearchInput = getElem('borrowBookSearchInput');
+    const selectedBooksList = getElem('selectedBooksList');
+    const dropdownEl = getElem('borrowBookDropdown');
 
     if (openBtn) {
         openBtn.addEventListener('click', () => {
             modal?.classList.remove('hidden');
             loadReadersForBorrow();
             loadBooksForBorrow();
+            directBorrowSelectedBooks = [];
+            directBorrowActiveBookId = '';
+            if (bookSearchInput) bookSearchInput.value = '';
+            renderSelectedBooksList();
         });
-    }
-
-    if (closeBtn || cancelBtn) {
-        const closeModal = () => modal?.classList.add('hidden');
-        closeBtn?.addEventListener('click', closeModal);
-        cancelBtn?.addEventListener('click', closeModal);
     }
 
     if (readerSelect) {
@@ -811,36 +933,81 @@ const bindCreateBorrowModal = () => {
         });
     }
 
-    if (addBookBtn) {
-        addBookBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            const newRow = document.createElement('div');
-            newRow.className = 'book-row grid grid-cols-1 sm:grid-cols-2 gap-2 items-end';
-            newRow.innerHTML = `
-                <select class="book-select px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white" required>
-                    <option value="">-- Chọn sách --</option>
-                </select>
-                <button type="button" class="remove-book-btn px-3 py-2.5 text-rose-600 hover:bg-rose-50 rounded-lg text-sm font-medium">
-                    <i class="ph ph-trash mr-1"></i> Xoá
-                </button>
-            `;
-            booksContainer?.appendChild(newRow);
-            loadBooksForBorrow();
-
-            const removeBtn = newRow.querySelector('.remove-book-btn');
-            removeBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                newRow.remove();
-            });
+    if (bookSearchInput && !bookSearchInput.dataset.bound) {
+        bookSearchInput.addEventListener('focus', () => renderBookDropdown(bookSearchInput.value || ''));
+        bookSearchInput.addEventListener('input', () => {
+            directBorrowActiveBookId = '';
+            renderBookDropdown(bookSearchInput.value || '');
         });
+        bookSearchInput.dataset.bound = '1';
     }
 
-    booksContainer?.addEventListener('click', (e) => {
-        if (e.target.closest('.remove-book-btn')) {
-            e.preventDefault();
-            e.target.closest('.book-row')?.remove();
+    if (addSelectedBookBtn) {
+        addSelectedBookBtn.addEventListener('click', (e) => { e.preventDefault(); addActiveBookToSelection(); });
+    }
+
+    dropdownEl?.addEventListener('click', (e) => {
+        const target = e.target.closest('[data-book-id]');
+        if (!target) return;
+        e.preventDefault();
+        setActiveBook(target.getAttribute('data-book-id') || '');
+    });
+
+    selectedBooksList?.addEventListener('click', (e) => {
+        const removeBtn = e.target.closest('[data-remove-selected-book]');
+        const decBtn = e.target.closest('[data-decrease-selected-book]');
+        const incBtn = e.target.closest('[data-increase-selected-book]');
+        const targetBtn = removeBtn || decBtn || incBtn;
+        if (!targetBtn) return;
+        e.preventDefault();
+        const bookId = targetBtn.getAttribute('data-remove-selected-book')
+            || targetBtn.getAttribute('data-decrease-selected-book')
+            || targetBtn.getAttribute('data-increase-selected-book')
+            || '';
+        if (!bookId) return;
+        const idx = directBorrowSelectedBooks.findIndex((item) => item.bookId === bookId);
+        if (idx < 0) return;
+
+        if (removeBtn) {
+            directBorrowSelectedBooks = directBorrowSelectedBooks.filter((item) => item.bookId !== bookId);
+            renderSelectedBooksList();
+            return;
+        }
+        if (decBtn) {
+            directBorrowSelectedBooks[idx].quantity = Math.max(1, Number(directBorrowSelectedBooks[idx].quantity || 1) - 1);
+            renderSelectedBooksList();
+            return;
+        }
+        if (incBtn) {
+            const nextItemQty = Number(directBorrowSelectedBooks[idx].quantity || 1) + 1;
+            const totalQty = getTotalSelectedQuantity();
+            if (nextItemQty > 5) { showToast('Mỗi đầu sách tối đa 5 cuốn.', 'error'); return; }
+            if (totalQty >= 5) { showToast('Tối đa 5 cuốn sách mỗi phiếu.', 'error'); return; }
+            directBorrowSelectedBooks[idx].quantity = nextItemQty;
+        }
+        renderSelectedBooksList();
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!modal || modal.classList.contains('hidden')) return;
+        const target = e.target;
+        if (target instanceof Element && !target.closest('#borrowBookSearchInput') && !target.closest('#borrowBookDropdown')) {
+            dropdownEl?.classList.add('hidden');
         }
     });
+
+    if (bookSearchInput && !bookSearchInput.dataset.enterBound) {
+        bookSearchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); addActiveBookToSelection(); }
+        });
+        bookSearchInput.dataset.enterBound = '1';
+    }
+
+    if (closeBtn || cancelBtn) {
+        const closeModal = () => { modal?.classList.add('hidden'); dropdownEl?.classList.add('hidden'); };
+        closeBtn?.addEventListener('click', closeModal);
+        cancelBtn?.addEventListener('click', closeModal);
+    }
 
     if (form) {
         form.addEventListener('submit', async (e) => {
@@ -848,14 +1015,12 @@ const bindCreateBorrowModal = () => {
             const readerId = getElem('borrowReaderSelect')?.value || '';
             const durationDays = getElem('borrowDurationDays')?.value || 14;
             const adminNote = getElem('borrowNote')?.value || '';
-
-            const bookSelects = form.querySelectorAll('.book-select');
-            const selectedBooks = [];
-            bookSelects.forEach((select) => {
-                if (select.value) selectedBooks.push(select.value);
-            });
-
-            await createDirectBorrow(readerId, selectedBooks, durationDays, adminNote);
+            await createDirectBorrow(
+                readerId,
+                directBorrowSelectedBooks.map((item) => ({ bookId: item.bookId, quantity: Number(item.quantity || 1) })),
+                durationDays,
+                adminNote
+            );
         });
     }
 };

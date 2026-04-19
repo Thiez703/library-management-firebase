@@ -25,6 +25,24 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    /** Admin xoá nợ phạt legacy trên phiếu mượn (trang Quản lý Tài chính) */
+    function isFinanceLegacyDebtClear() {
+      return isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['fineOverdue', 'fineDamage', 'adminNote', 'updatedAt'])
+        && request.resource.data.fineOverdue == 0
+        && request.resource.data.fineDamage == 0
+        && request.resource.data.fineOverdue is int
+        && request.resource.data.fineDamage is int
+        && request.resource.data.adminNote is string
+        && request.resource.data.adminNote.size() <= 5000
+        && request.resource.data.updatedAt == request.time
+        && (
+          (resource.data.fineOverdue is int && resource.data.fineOverdue > 0)
+          || (resource.data.fineDamage is int && resource.data.fineDamage > 0)
+        );
+    }
+
     // ── Collection: users ─────────────────────────────────────────────────────
 
     match /users/{userId} {
@@ -111,13 +129,23 @@ service cloud.firestore {
                     || isAdmin();
 
       // Chỉ admin được cập nhật phiếu mượn (duyệt, trả sách, hủy)
-      // Ngoại lệ: transaction từ handleCheckout sẽ dùng user auth
-      allow update: if isAdmin() ||
+      // Ngoại lệ: user được huỷ/chỉnh sửa phiếu của chính mình khi còn pending
+      allow update: if isFinanceLegacyDebtClear() ||
+                    isAdmin() ||
                     // Cho phép user tự cancel phiếu của mình khi còn 'pending'
                     (isSignedIn() &&
                       resource.data.userId == request.auth.uid &&
                       resource.data.status == 'pending' &&
-                      request.resource.data.status == 'cancelled');
+                      (
+                        // 1) User tự huỷ phiếu
+                        request.resource.data.status == 'cancelled'
+                        ||
+                        // 2) User chỉnh sửa phiếu trước khi duyệt
+                        (
+                          request.resource.data.status == 'pending' &&
+                          request.resource.data.userId == resource.data.userId
+                        )
+                      ));
 
       // Chỉ admin được xóa phiếu mượn (cleanup legacy records)
       allow delete: if isAdmin();
@@ -189,6 +217,94 @@ service cloud.firestore {
       allow create: if isAdmin(); // Chỉ server/admin (trong transaction returnTicket) mới tạo phạt
       allow update: if isAdmin(); // Thủ thư/Admin thanh toán hoặc miễn phạt
       allow delete: if false;     // BIZ-12: Không được phép xóa phiếu phạt
+    }
+
+    // ── Collection: financePayments (Biên lai thu tiền — immutable) ─────────
+    match /financePayments/{paymentId} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin() && (
+        (
+          request.resource.data.keys().hasOnly([
+            'type',
+            'sourceType',
+            'sourceFineDocId',
+            'sourceFineId',
+            'sourceRecordId',
+            'userId',
+            'userName',
+            'amount',
+            'currency',
+            'reason',
+            'paymentMethod',
+            'note',
+            'paidAt',
+            'createdAt',
+            'createdBy'
+          ])
+          && request.resource.data.type == 'fine_payment'
+          && request.resource.data.sourceType == 'fine'
+          && request.resource.data.sourceFineDocId is string
+          && request.resource.data.sourceFineDocId.size() > 0
+          && (!request.resource.data.keys().hasAny(['sourceFineId'])
+              || (request.resource.data.sourceFineId is string && request.resource.data.sourceFineId.size() > 0))
+          && (!request.resource.data.keys().hasAny(['sourceRecordId'])
+              || (request.resource.data.sourceRecordId is string && request.resource.data.sourceRecordId.size() > 0))
+          && request.resource.data.userId is string
+          && request.resource.data.userName is string
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.currency == 'VND'
+          && request.resource.data.reason is string
+          && request.resource.data.reason.size() <= 2000
+          && request.resource.data.paymentMethod in ['cash', 'bank_transfer']
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 2000
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.paidAt == request.time
+          && request.resource.data.createdAt == request.time
+        )
+        ||
+        (
+          request.resource.data.keys().hasOnly([
+            'type',
+            'sourceType',
+            'sourceBorrowDocId',
+            'sourceRecordId',
+            'userId',
+            'userName',
+            'amount',
+            'currency',
+            'reason',
+            'paymentMethod',
+            'note',
+            'paidAt',
+            'createdAt',
+            'createdBy'
+          ])
+          && request.resource.data.type == 'legacy_borrow_debt_payment'
+          && request.resource.data.sourceType == 'borrowRecord'
+          && request.resource.data.sourceBorrowDocId is string
+          && request.resource.data.sourceBorrowDocId.size() > 0
+          && (!request.resource.data.keys().hasAny(['sourceRecordId'])
+              || (request.resource.data.sourceRecordId is string && request.resource.data.sourceRecordId.size() > 0))
+          && request.resource.data.userId is string
+          && request.resource.data.userName is string
+          && request.resource.data.amount is int
+          && request.resource.data.amount > 0
+          && request.resource.data.currency == 'VND'
+          && request.resource.data.reason is string
+          && request.resource.data.reason.size() <= 2000
+          && request.resource.data.paymentMethod in ['cash', 'bank_transfer']
+          && request.resource.data.note is string
+          && request.resource.data.note.size() <= 2000
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.paidAt == request.time
+          && request.resource.data.createdAt == request.time
+        )
+      );
+
+      allow update, delete: if false;
     }
 
     // ── Default: từ chối tất cả truy cập không khớp rule nào ─────────────────

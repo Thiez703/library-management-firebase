@@ -2,7 +2,12 @@ import { db } from './firebase-config.js';
 import { showToast } from './auth.js';
 import { clearCart } from './cart.js';
 import { EmailJSService } from './emailjs-service.js';
-import { checkBorrowEligibility, calculateReputationPenalty, IDENTITY_ERRORS } from './identity.js';
+import {
+    checkBorrowEligibility,
+    calculateNoViolationBonus,
+    calculateReputationDeltaForReturn,
+    getMaxBorrowBooksByScore
+} from './identity.js';
 import {
     collection,
     doc,
@@ -119,9 +124,6 @@ const ensureCartItems = (cartItems) => {
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
         throw new Error('Giỏ mượn đang trống.');
     }
-    if (cartItems.length > MAX_BOOKS_PER_TICKET) {
-        throw new Error(`Mỗi phiếu chỉ được tối đa ${MAX_BOOKS_PER_TICKET} cuốn.`);
-    }
 
     const seen = new Set();
     const cleaned = cartItems.map((item) => {
@@ -133,8 +135,17 @@ const ensureCartItems = (cartItems) => {
             throw new Error('Giỏ mượn không được chứa sách trùng lặp.');
         }
         seen.add(bookId);
-        return formatRecordBook({ ...item, bookId });
+        const quantity = Math.max(1, Math.min(MAX_BOOKS_PER_TICKET, Number(item?.quantity) || 1));
+        return {
+            ...formatRecordBook({ ...item, bookId }),
+            quantity
+        };
     });
+
+    const totalQty = cleaned.reduce((sum, item) => sum + item.quantity, 0);
+    if (totalQty > MAX_BOOKS_PER_TICKET) {
+        throw new Error(`Mỗi phiếu chỉ được tối đa ${MAX_BOOKS_PER_TICKET} cuốn.`);
+    }
 
     return cleaned;
 };
@@ -162,7 +173,8 @@ const markCancelledAndRestore = async (recordDoc, reason) => {
             const bookSnap = await transaction.get(bookRef);
             if (!bookSnap.exists()) continue;
             const current = Number(bookSnap.data()?.availableQuantity || 0);
-            const nextQty = current + 1;
+            const restoreQty = Math.max(1, Number(item?.quantity || 1));
+            const nextQty = current + restoreQty;
             transaction.update(bookRef, {
                 availableQuantity: nextQty,
                 status: nextQty > 0 ? 'available' : 'out_of_stock'
@@ -202,8 +214,9 @@ export const cleanupLegacyBorrowRecords = async () => {
             for (const item of books) {
                 if (!item?.bookId) continue;
                 const bookRef = doc(db, 'books', item.bookId);
+                const restoreQty = Math.max(1, Number(item?.quantity || 1));
                 batch.update(bookRef, {
-                    availableQuantity: increment(1),
+                    availableQuantity: increment(restoreQty),
                     status: 'available'
                 });
                 batchOps += 1;
@@ -285,6 +298,13 @@ export const handleCheckout = async (userData, cartItems) => {
         return null;
     }
 
+    const maxBorrowBooks = Math.max(0, Number(eligibility.maxBorrowBooks || getMaxBorrowBooksByScore(identity.reputationScore)));
+    const requestedQty = books.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0);
+    if (requestedQty > maxBorrowBooks) {
+        showToast(`Hạng uy tín hiện tại chỉ cho phép mượn tối đa ${maxBorrowBooks} cuốn.`, 'error');
+        return null;
+    }
+
     // Chặn mượn nếu nợ phạt chưa thanh toán (BIZ-04)
     const unpaidFinesSnap = await getDocs(
         query(
@@ -318,14 +338,16 @@ export const handleCheckout = async (userData, cartItems) => {
                     throw new Error(`Sách "${books[i].title}" không tồn tại.`);
                 }
                 const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
-                if (available <= 0) {
+                const needed = Math.max(1, Number(books[i]?.quantity || 1));
+                if (available < needed) {
                     throw new Error(`Sách "${books[i].title}" đã hết.`);
                 }
             }
 
             for (let i = 0; i < bookRefs.length; i++) {
                 const available = Number(bookSnaps[i].data()?.availableQuantity || 0);
-                const nextQty = available - 1;
+                const borrowQty = Math.max(1, Number(books[i]?.quantity || 1));
+                const nextQty = available - borrowQty;
                 transaction.update(bookRefs[i], {
                     availableQuantity: nextQty,
                     status: nextQty > 0 ? 'available' : 'out_of_stock'
@@ -355,10 +377,11 @@ export const handleCheckout = async (userData, cartItems) => {
         // Gửi email thông báo mã mượn qua EmailJS
         const readerEmail = identity.email || userData.email;
         if (readerEmail) {
+            const totalQty = books.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0);
             EmailJSService.send(EmailJSService.CONFIG.TEMPLATES.BORROW_CODE, {
                 user_name: userDetails.fullName,
                 record_id: recordId,
-                book_count: books.length,
+                book_count: totalQty,
                 reader_email: readerEmail
             });
         }
@@ -410,6 +433,161 @@ export const approveTicket = async (recordDocId, initialNote = '', borrowDuratio
     });
 };
 
+export const cancelPendingTicket = async (recordDocId, userId, note = '') => {
+    if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+    if (!userId) throw new Error('Thiếu thông tin người dùng.');
+
+    await runTransaction(db, async (transaction) => {
+        const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
+        const recordSnap = await transaction.get(recordRef);
+        if (!recordSnap.exists()) throw new Error('Phiếu mượn không tồn tại.');
+
+        const record = recordSnap.data() || {};
+        if ((record.userId || '') !== userId) {
+            throw new Error('Bạn không có quyền huỷ phiếu này.');
+        }
+        if (record.status !== 'pending') {
+            throw new Error('Chỉ có thể huỷ phiếu đang chờ duyệt.');
+        }
+
+        const books = Array.isArray(record.books) ? record.books : [];
+        const bookReadResults = [];
+        for (const item of books) {
+            if (!item?.bookId) continue;
+            const bookRef = doc(db, 'books', item.bookId);
+            const bookSnap = await transaction.get(bookRef);
+            if (!bookSnap.exists()) continue;
+            bookReadResults.push({ bookRef, bookSnap, item });
+        }
+
+        for (const { bookRef, bookSnap, item } of bookReadResults) {
+            const currentQty = Number(bookSnap.data()?.availableQuantity || 0);
+            const restoreQty = Math.max(1, Number(item?.quantity || 1));
+            const nextQty = currentQty + restoreQty;
+            transaction.update(bookRef, {
+                availableQuantity: nextQty,
+                status: nextQty > 0 ? 'available' : 'out_of_stock'
+            });
+        }
+
+        transaction.update(recordRef, {
+            status: 'cancelled',
+            adminNote: (note || '').trim() || 'Độc giả tự huỷ phiếu trước khi duyệt.',
+            cancelledAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+    });
+};
+
+export const updatePendingTicket = async (recordDocId, userId, selectedBooks, note = '') => {
+    if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+    if (!userId) throw new Error('Thiếu thông tin người dùng.');
+
+    const normalizedBooks = Array.isArray(selectedBooks)
+        ? selectedBooks
+            .map((item) => ({
+                bookId: (item?.bookId || '').toString().trim(),
+                quantity: Math.max(1, Math.min(MAX_BOOKS_PER_TICKET, Number(item?.quantity) || 1))
+            }))
+            .filter((item) => item.bookId)
+        : [];
+
+    if (!normalizedBooks.length) {
+        throw new Error('Phiếu mượn phải có ít nhất một cuốn sách.');
+    }
+
+    const totalQuantity = normalizedBooks.reduce((sum, item) => sum + item.quantity, 0);
+    if (totalQuantity > MAX_BOOKS_PER_TICKET) {
+        throw new Error(`Mỗi phiếu chỉ được tối đa ${MAX_BOOKS_PER_TICKET} cuốn.`);
+    }
+
+    const seen = new Set();
+    for (const item of normalizedBooks) {
+        if (seen.has(item.bookId)) {
+            throw new Error('Không được chọn trùng sách trong cùng phiếu.');
+        }
+        seen.add(item.bookId);
+    }
+
+    await runTransaction(db, async (transaction) => {
+        const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
+        const recordSnap = await transaction.get(recordRef);
+        if (!recordSnap.exists()) throw new Error('Phiếu mượn không tồn tại.');
+
+        const record = recordSnap.data() || {};
+        if ((record.userId || '') !== userId) {
+            throw new Error('Bạn không có quyền sửa phiếu này.');
+        }
+        if (record.status !== 'pending') {
+            throw new Error('Chỉ có thể chỉnh sửa phiếu đang chờ duyệt.');
+        }
+
+        const currentBooks = Array.isArray(record.books) ? record.books : [];
+        const currentMap = new Map();
+        currentBooks.forEach((item) => {
+            const bookId = (item?.bookId || '').toString().trim();
+            if (!bookId) return;
+            currentMap.set(bookId, Math.max(1, Number(item?.quantity || 1)));
+        });
+
+        const nextMap = new Map();
+        normalizedBooks.forEach((item) => nextMap.set(item.bookId, item.quantity));
+
+        const allBookIds = new Set([...currentMap.keys(), ...nextMap.keys()]);
+        const bookSnapshots = new Map();
+
+        for (const bookId of allBookIds) {
+            const bookRef = doc(db, 'books', bookId);
+            const bookSnap = await transaction.get(bookRef);
+            if (!bookSnap.exists()) {
+                throw new Error('Một trong các sách đã chọn không còn tồn tại.');
+            }
+            bookSnapshots.set(bookId, { ref: bookRef, snap: bookSnap });
+        }
+
+        for (const bookId of allBookIds) {
+            const currentQty = currentMap.get(bookId) || 0;
+            const nextQtyNeed = nextMap.get(bookId) || 0;
+            const stockNow = Number(bookSnapshots.get(bookId)?.snap.data()?.availableQuantity || 0);
+            const stockAfter = stockNow + currentQty - nextQtyNeed;
+            if (stockAfter < 0) {
+                const title = bookSnapshots.get(bookId)?.snap.data()?.title || 'Sách đã chọn';
+                throw new Error(`Số lượng "${title}" không đủ để cập nhật phiếu.`);
+            }
+        }
+
+        for (const bookId of allBookIds) {
+            const currentQty = currentMap.get(bookId) || 0;
+            const nextQtyNeed = nextMap.get(bookId) || 0;
+            const stockNow = Number(bookSnapshots.get(bookId)?.snap.data()?.availableQuantity || 0);
+            const stockAfter = stockNow + currentQty - nextQtyNeed;
+
+            transaction.update(bookSnapshots.get(bookId).ref, {
+                availableQuantity: stockAfter,
+                status: stockAfter > 0 ? 'available' : 'out_of_stock'
+            });
+        }
+
+        const nextBookDetails = normalizedBooks.map((item) => {
+            const bookData = bookSnapshots.get(item.bookId)?.snap.data() || {};
+            return {
+                bookId: item.bookId,
+                title: bookData.title || 'Không rõ',
+                author: bookData.author || 'Không rõ',
+                coverUrl: bookData.coverUrl || '',
+                price: Number(bookData.price || 0),
+                quantity: item.quantity
+            };
+        });
+
+        transaction.update(recordRef, {
+            books: nextBookDetails,
+            adminNote: (note || '').trim() || record.adminNote || '',
+            updatedAt: serverTimestamp()
+        });
+    });
+};
+
 export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') => {
     if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
 
@@ -457,8 +635,10 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
 
         // === WRITE PHASE: Ghi tất cả sau khi đọc xong ===
         for (const { bookRef, bookSnap } of bookReadResults) {
+            const matchedItem = books.find((b) => b?.bookId === bookRef.id);
+            const returnQty = Math.max(1, Number(matchedItem?.quantity || 1));
             const currentQty = Number(bookSnap.data()?.availableQuantity || 0);
-            const nextQty = currentQty + 1;
+            const nextQty = currentQty + returnQty;
             transaction.update(bookRef, {
                 availableQuantity: nextQty,
                 status: 'available'
@@ -501,15 +681,24 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
 
         // === CẬP NHẬT ĐIỂM UY TÍN ===
         // Trừ điểm uy tín khi trả trễ (-5 điểm/ngày trễ, tối thiểu 0)
-        if (daysLate > 0 && userSnap && userSnap.exists()) {
+        if (userSnap && userSnap.exists()) {
             const currentScore = typeof userSnap.data().reputationScore === 'number'
                 ? userSnap.data().reputationScore
                 : (typeof userSnap.data().trustScore === 'number' ? userSnap.data().trustScore : 100);
-            const penalty = calculateReputationPenalty(daysLate);
-            const newScore = Math.max(0, currentScore - penalty);
+            const evalResult = calculateReputationDeltaForReturn({ daysLate, note: finalNote });
+            const noViolationBonus = (daysLate <= 0 && totalFine <= 0)
+                ? calculateNoViolationBonus({ lastPenaltyAt: userSnap.data().lastPenaltyAt })
+                : 0;
+            const delta = Number(evalResult.delta || 0) + Number(noViolationBonus || 0);
+            const newScore = Math.max(0, Math.min(100, currentScore + delta));
+            const nextStatus = (totalFine > 0 || evalResult.shouldLockAccount)
+                ? 'locked'
+                : (userSnap.data().status || 'active');
             transaction.update(userRef, {
                 reputationScore: newScore,
                 trustScore: newScore,
+                status: nextStatus,
+                lastPenaltyAt: delta < 0 ? serverTimestamp() : (userSnap.data().lastPenaltyAt || null),
                 updatedAt: serverTimestamp()
             });
         }
