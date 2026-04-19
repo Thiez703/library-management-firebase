@@ -1,5 +1,6 @@
 import { auth, db } from './firebase-config.js';
-import { collection, query, orderBy, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { collection, query, orderBy, getDocs, doc, getDoc, updateDoc, serverTimestamp, onSnapshot, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { signOut } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
 import { requireAdmin } from './admin-guard.js';
 import { showToast } from './notify.js';
 
@@ -24,24 +25,32 @@ const initFinesPage = async () => {
     const logoutBtn = document.getElementById('adminLogoutBtn');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async () => {
-            await auth.signOut();
+            await signOut(auth);
             window.location.href = '../user/login.html';
         });
     }
 
-    await loadFines();
+    loadFines();
     bindEvents();
 };
 
-const loadFines = async () => {
+const loadFines = () => {
     try {
         const finesRef = collection(db, 'fines');
         const q = query(finesRef, orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
-
-        allFines = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        renderDashboard();
-        renderFinesTable();
+        onSnapshot(q, (snapshot) => {
+            allFines = snapshot.docs.map(d => {
+                const data = d.data();
+                // Normalize: amount field may be stored as overdueAmount + damageAmount
+                const amount = Number(data.amount) || (Number(data.overdueAmount || 0) + Number(data.damageAmount || 0));
+                return { id: d.id, ...data, amount };
+            });
+            renderDashboard();
+            renderFinesTable();
+        }, (error) => {
+            console.error("Error loading fines:", error);
+            showToast('Không thể tải danh sách phiếu phạt', 'error');
+        });
     } catch (error) {
         console.error("Error loading fines:", error);
         showToast('Không thể tải danh sách phiếu phạt', 'error');
@@ -132,20 +141,21 @@ const handlePayFine = async (docId) => {
 
     try {
         const fineRef = doc(db, 'fines', docId);
-        await updateDoc(fineRef, {
-            status: 'paid',
-            paidAt: serverTimestamp()
-        });
+        await updateDoc(fineRef, { status: 'paid', paidAt: serverTimestamp() });
 
-        // Optimistic UI update
-        const fineIndex = allFines.findIndex(f => f.id === docId);
-        if (fineIndex > -1) {
-            allFines[fineIndex].status = 'paid';
-            allFines[fineIndex].paidAt = new Date();
+        // If user was locked due to this fine, restore to active if no other unpaid fines
+        const fine = allFines.find(f => f.id === docId);
+        if (fine?.userId) {
+            const otherUnpaid = allFines.filter(f => f.id !== docId && f.userId === fine.userId && f.status === 'unpaid');
+            if (otherUnpaid.length === 0) {
+                const userRef = doc(db, 'users', fine.userId);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists() && userSnap.data().status === 'locked') {
+                    await updateDoc(userRef, { status: 'active', updatedAt: serverTimestamp() });
+                }
+            }
         }
 
-        renderDashboard();
-        renderFinesTable();
         showToast('Đã xác nhận thu tiền phạt thành công!', 'success');
     } catch (error) {
         console.error("Pay error:", error);
@@ -202,17 +212,7 @@ const bindEvents = () => {
                 waivedAt: serverTimestamp()
             });
 
-            // Optimistic UI update
-            const fineIndex = allFines.findIndex(f => f.id === docId);
-            if (fineIndex > -1) {
-                allFines[fineIndex].status = 'waived';
-                allFines[fineIndex].waivedReason = reason;
-                allFines[fineIndex].waivedAt = new Date();
-            }
-
             waiveModal.classList.add('hidden');
-            renderDashboard();
-            renderFinesTable();
             showToast('Đã miễn phạt thành công!', 'success');
         } catch (error) {
             console.error("Waive error:", error);

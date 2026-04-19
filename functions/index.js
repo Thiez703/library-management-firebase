@@ -38,7 +38,7 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
                                 const bSnap = await t.get(bookRef);
                                 if (bSnap.exists) {
                                     const current = bSnap.data().availableQuantity || 0;
-                                    const next = current + 1;
+                                    const next = current + (Number(b.quantity) || 1);
                                     t.update(bookRef, {
                                         availableQuantity: next,
                                         status: next > 0 ? 'available' : 'out_of_stock'

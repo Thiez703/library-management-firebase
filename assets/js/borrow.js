@@ -625,10 +625,10 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             bookReadResults.push({ bookRef, bookSnap });
         }
 
-        // Đọc user doc cho reputation (phải đọc trước khi write)
+        // Đọc user doc cho reputation (phải đọc trước khi write) — luôn đọc để áp dụng bonus on-time
         let userSnap = null;
         let userRef = null;
-        if (daysLate > 0 && record.userId) {
+        if (record.userId) {
             userRef = doc(db, 'users', record.userId);
             userSnap = await transaction.get(userRef);
         }
@@ -680,25 +680,29 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
         }
 
         // === CẬP NHẬT ĐIỂM UY TÍN ===
-        // Trừ điểm uy tín khi trả trễ (-5 điểm/ngày trễ, tối thiểu 0)
         if (userSnap && userSnap.exists()) {
-            const currentScore = typeof userSnap.data().reputationScore === 'number'
-                ? userSnap.data().reputationScore
-                : (typeof userSnap.data().trustScore === 'number' ? userSnap.data().trustScore : 100);
+            const userData = userSnap.data();
+            const currentScore = typeof userData.reputationScore === 'number'
+                ? userData.reputationScore
+                : (typeof userData.trustScore === 'number' ? userData.trustScore : 100);
             const evalResult = calculateReputationDeltaForReturn({ daysLate, note: finalNote });
-            const noViolationBonus = (daysLate <= 0 && totalFine <= 0)
-                ? calculateNoViolationBonus({ lastPenaltyAt: userSnap.data().lastPenaltyAt })
+            // noViolationBonus chỉ áp dụng khi trả đúng hạn và không có phạt hỏng
+            const noViolationBonus = (daysLate <= 0 && normalizeMoney(damageFee) <= 0)
+                ? calculateNoViolationBonus({ lastPenaltyAt: userData.lastPenaltyAt })
                 : 0;
             const delta = Number(evalResult.delta || 0) + Number(noViolationBonus || 0);
             const newScore = Math.max(0, Math.min(100, currentScore + delta));
-            const nextStatus = (totalFine > 0 || evalResult.shouldLockAccount)
+            // Chỉ khóa tài khoản khi vi phạm nghiêm trọng (điểm quá thấp hoặc mất sách)
+            // Không khóa chỉ vì có phạt tiền — đọc giả vẫn có thể trả tiền sau
+            const currentStatus = userData.status || 'active';
+            const nextStatus = evalResult.shouldLockAccount
                 ? 'locked'
-                : (userSnap.data().status || 'active');
+                : (['banned', 'permanently_banned', 'permanent_ban'].includes(currentStatus) ? currentStatus : 'active');
             transaction.update(userRef, {
                 reputationScore: newScore,
                 trustScore: newScore,
                 status: nextStatus,
-                lastPenaltyAt: delta < 0 ? serverTimestamp() : (userSnap.data().lastPenaltyAt || null),
+                lastPenaltyAt: delta < 0 ? serverTimestamp() : (userData.lastPenaltyAt || null),
                 updatedAt: serverTimestamp()
             });
         }
