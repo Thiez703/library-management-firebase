@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Lịch sử mượn trả</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Turbo: giữ lại navbar khi điều hướng nội bộ -->
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .tab-btn.active {
+            color: #2563eb;
+            border-bottom-width: 2px;
+            border-bottom-color: #2563eb;
+            font-weight: 700;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav id="site-navbar" data-turbo-permanent class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='index.html'">
+                    <div
+                        class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                        <i class="ph-fill ph-books text-white text-2xl"></i>
+                    </div>
+                    <span
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span
+                            class="text-primary-600">Space</span></span>
+                </div>
+
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-slate-500 p-2" title="Tìm kiếm"><i
+                            class="ph ph-magnifying-glass text-xl"></i></button>
+                    <!-- Favorite List -->
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count
+                            class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">2</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <!-- User Account -->
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot>
+                        <div class="flex items-center gap-3" data-auth-signed-out>
+                            <a href="login.html"
+                                class="text-slate-600 font-medium hover:text-primary-600 transition-colors text-sm px-3">Đăng
+                                nhập</a>
+                            <a href="login.html"
+                                class="bg-primary-600 hover:bg-primary-700 text-white font-medium text-sm px-5 py-2.5 rounded-xl shadow-md shadow-primary-500/20 transition-all active:scale-95">Đăng
+                                ký ngay</a>
+                        </div>
+                        <div class="hidden items-center gap-3" data-auth-signed-in>
+                            <div class="text-right hidden md:block">
+                                <p class="text-xs text-slate-500 font-medium" data-auth-greeting="Xin chào,">Xin chào,</p>
+                                <p class="text-sm font-bold text-slate-900" data-auth-name>Nguyễn Văn A</p>
+                            </div>
+                            <div class="relative group">
+                                <button type="button"
+                                    class="flex items-center gap-2 hover:bg-slate-50 py-1 pl-1 pr-3 rounded-full border border-slate-200 transition-colors">
+                                    <img data-auth-avatar src="../assets/images/avatar-placeholder.svg"
+                                        class="w-8 h-8 rounded-full border border-slate-200 object-cover"
+                                        alt="User profile avatar">
+                                    <i class="ph-bold ph-caret-down text-slate-400 text-xs"></i>
+                                </button>
+                                <div
+                                    class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 transform origin-top-right scale-95 group-hover:scale-100 z-50">
+                                    <a href="profile.html"
+                                        class="block px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-primary-600"><i
+                                            class="ph ph-user mr-2"></i>Hồ sơ cá nhân</a>
+                                    <a href="borrow-history.html"
+                                        class="block px-4 py-2 text-sm text-primary-600 font-medium bg-primary-50"><i
+                                            class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn trả</a>
+                                    <div class="h-px bg-slate-100 my-1"></div>
+                                    <button id="logoutBtnHeader"
+                                        class="block w-full text-left px-4 py-2 text-sm text-rose-500 hover:bg-rose-50"><i
+                                            class="ph ph-sign-out mr-2"></i>Đăng xuất</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
+
+        <div class="flex flex-col lg:flex-row gap-8">
+
+            <!-- LEFT SIDEBAR: User Nav -->
+            <aside class="w-full lg:w-64 shrink-0">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden sticky top-24">
+                    <!-- User Info Mini Profile -->
+                    <div class="p-6 text-center border-b border-slate-100 bg-slate-50/50">
+                        <div class="relative inline-block mb-3">
+                            <img id="borrow-history-avatar" src="../assets/images/avatar-placeholder.svg" alt="Avatar"
+                                class="w-20 h-20 rounded-full border-4 border-white shadow-md object-cover">
+                            <div
+                                class="absolute bottom-0 right-0 w-5 h-5 bg-emerald-500 border-2 border-white rounded-full">
+                            </div>
+                        </div>
+                        <h2 id="borrow-history-name" class="text-lg font-bold text-slate-800">Nguyễn Văn A</h2>
+                        <p id="borrow-history-meta" class="text-sm text-slate-500">MSSV: 20234567</p>
+                        <div id="borrow-history-role"
+                            class="mt-3 inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold uppercase rounded-full border border-amber-200">
+                            <i class="ph-fill ph-crown"></i> Hạng Vàng
+                        </div>
+                    </div>
+
+                    <!-- Navigation Links -->
+                    <nav class="p-3 space-y-1">
+                        <a href="profile.html"
+                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
+                            <i class="ph ph-user text-lg text-slate-400"></i> Hồ sơ cá nhân
+                        </a>
+                        <a href="borrow-history.html"
+                            class="flex items-center justify-between px-4 py-2.5 text-sm font-medium bg-primary-50 text-primary-700 rounded-xl transition-colors">
+                            <div class="flex items-center gap-3">
+                                <i class="ph ph-books text-lg"></i> Quản lý Mượn/Trả
+                            </div>
+                            <span id="borrow-history-active-nav-count"
+                                class="w-5 h-5 rounded-full bg-primary-600 text-white flex items-center justify-center text-[10px] font-bold">2</span>
+                        </a>
+                        <a href="favorites.html"
+                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
+                            <i class="ph ph-heart text-lg text-slate-400"></i> Sách yêu thích
+                        </a>
+                        <a href="notifications.html"
+                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
+                            <i class="ph ph-bell-ringing text-lg text-slate-400"></i> Thông báo
+                        </a>
+                        <div class="h-px bg-slate-100 my-2 mx-4"></div>
+                        <a id="borrowHistoryLogoutBtn" href="#"
+                            class="flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors">
+                            <i class="ph ph-sign-out text-lg text-rose-400"></i> Đăng xuất
+                        </a>
+                    </nav>
+                </div>
+            </aside>
+
+            <!-- RIGHT CONTENT: History Dashboard -->
+            <section class="flex-1">
+
+                <h1 class="text-2xl md:text-3xl font-bold text-slate-800 mb-2">Thư viện của tôi</h1>
+                <p class="text-slate-500 mb-8">Theo dõi và quản lý thông tin mượn trả tài liệu của bạn.</p>
+
+                <!-- Warning Alert (Overdue Book Example) -->
+                <div id="borrow-history-warning" hidden
+                    class="bg-rose-50 border border-rose-200 rounded-xl p-4 mb-8 flex items-start gap-4 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-1 h-full bg-rose-500"></div>
+                    <div class="bg-rose-100 p-2 rounded-full text-rose-600 shrink-0">
+                        <i class="ph-bold ph-warning-circle text-xl"></i>
+                    </div>
+                    <div>
+                        <h4 id="borrow-history-warning-title" class="text-sm font-bold text-rose-800">Cảnh báo: Có sách sắp quá hạn!</h4>
+                        <p id="borrow-history-warning-text" class="text-sm text-rose-600 mt-1">Cuốn sách <span id="borrow-history-warning-book" class="font-bold">"Clean
+                                Architecture"</span> của bạn sẽ hết hạn trả vào <span
+                                id="borrow-history-warning-date" class="font-bold border-b border-rose-300">Ngày mai</span>. Vui lòng mang sách tới thư
+                            viện hoặc gia hạn trực tuyến để tránh bị phạt phí.</p>
+                    </div>
+                </div>
+
+                <!-- Tabs Navigation -->
+                <div class="flex border-b border-slate-200 mb-6">
+                    <button
+                        data-borrow-tab="borrowing"
+                        class="tab-btn active px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors">
+                        Đang Mượn (<span id="borrow-history-active-count">2</span>)
+                    </button>
+                    <button
+                        data-borrow-tab="returned"
+                        class="tab-btn px-6 py-3 text-sm font-medium text-slate-500 hover:text-slate-700 transition-colors relative">
+                        Đã Trả <span id="borrow-history-returned-count"
+                            class="ml-1 text-xs px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full font-bold">14</span>
+                    </button>
+                    <button
+                        data-borrow-tab="issues"
+                        class="tab-btn px-6 py-3 text-sm font-medium text-rose-500 hover:text-rose-600 transition-colors hidden sm:block">
+                        Vấn đề & Báo mất
+                    </button>
+                    <button
+                        data-borrow-tab="fines"
+                        class="tab-btn px-6 py-3 text-sm font-medium text-amber-500 hover:text-amber-600 transition-colors relative">
+                        Tiền Phạt <span id="borrow-history-fines-count"
+                            class="ml-1 text-xs px-2 py-0.5 bg-amber-100 text-amber-600 rounded-full font-bold hidden">0</span>
+                    </button>
+                </div>
+
+                <!-- History Fines Tab -->
+                <div id="tab-content-fines" class="tab-pane hidden space-y-4">
+                    <div id="finesList" class="space-y-4">
+                        <!-- Items rendered by JS -->
+                    </div>
+                </div>
+
+                <!-- Active Borrowing List -->
+                <div id="borrow-history-list" class="space-y-4 hidden" data-mock-books="borrow-history-list">
+
+                    <!-- Book Item 1 (Active, near due) -->
+                    <div
+                        data-record-id="REC-20260318-001"
+                        class="bg-white rounded-2xl border border-rose-200 shadow-sm shadow-rose-100 overflow-hidden flex flex-col md:flex-row relative group hover:border-rose-300 transition-colors">
+                        <!-- Color status bar -->
+                        <div class="absolute left-0 top-0 h-full w-1.5 bg-rose-500"></div>
+
+                        <!-- Book Cover & Detail -->
+                        <div class="p-5 flex gap-5 flex-1 items-start">
+                            <div
+                                class="w-20 h-28 shrink-0 rounded bg-slate-100 shadow-sm border border-slate-200 overflow-hidden relative">
+                                <img src="../assets/images/book_cover_3.png" alt="Cover"
+                                    class="w-full h-full object-cover filter hue-rotate-180">
+                            </div>
+                            <div class="flex flex-col flex-1 h-full min-w-0">
+                                <span
+                                    class="inline-flex items-center w-fit px-2.5 py-1 bg-rose-100 text-rose-700 text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
+                                    <i class="ph-fill ph-clock-countdown mr-1"></i> Còn 1 ngày
+                                </span>
+                                <h3 class="text-lg font-bold text-slate-800 leading-tight mb-1 truncate">Clean
+                                    Architecture</h3>
+                                <p class="text-sm text-slate-500 mb-4 truncate">Robert C. Martin</p>
+
+                                <div class="mt-auto flex items-center divide-x divide-slate-200 text-xs text-slate-600">
+                                    <div class="pr-4">
+                                        <span class="text-slate-400 block mb-0.5">Ngày mượn</span>
+                                        <span class="font-bold text-slate-700">18/03/2026</span>
+                                    </div>
+                                    <div class="pl-4">
+                                        <span class="text-rose-400 block mb-0.5">Phải trả vào</span>
+                                        <span class="font-bold text-rose-600">01/04/2026</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div
+                            class="bg-slate-50 p-5 md:w-48 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center gap-3">
+                            <button
+                                class="w-full bg-white border-2 border-primary-600 text-primary-600 hover:bg-primary-50 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm focus:ring-2 focus:ring-primary-500/20">
+                                <i class="ph-bold ph-calendar-plus mr-1"></i> Xin Gia Hạn
+                            </button>
+                            <button
+                                class="w-full bg-green-50 border-2 border-green-500 text-green-600 hover:bg-green-100 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm">
+                                <i class="ph-bold ph-book"></i> Trả Sách
+                            </button>
+                            <button
+                                class="w-full text-slate-500 hover:text-slate-700 font-medium py-2 rounded-xl text-sm transition-colors flex items-center justify-center gap-1">
+                                <i class="ph-bold ph-book-open"></i> Xem chi tiết
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Book Item 2 (Active, Safe) -->
+                    <div
+                        data-record-id="REC-20260325-002"
+                        class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row relative group hover:border-slate-300 transition-colors">
+                        <!-- Color status bar -->
+                        <div class="absolute left-0 top-0 h-full w-1.5 bg-emerald-500"></div>
+
+                        <!-- Book Cover & Detail -->
+                        <div class="p-5 flex gap-5 flex-1 items-start">
+                            <div
+                                class="w-20 h-28 shrink-0 rounded bg-slate-100 shadow-sm border border-slate-200 overflow-hidden relative">
+                                <img src="../assets/images/book-cover-placeholder-gray.svg" alt="Cover"
+                                    class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex flex-col flex-1 h-full min-w-0">
+                                <span
+                                    class="inline-flex items-center w-fit px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
+                                    <i class="ph-fill ph-check-circle mr-1"></i> Đang Mượn
+                                </span>
+                                <h3 class="text-lg font-bold text-slate-800 leading-tight mb-1 truncate">Mastering
+                                    Tailwind CSS</h3>
+                                <p class="text-sm text-slate-500 mb-4 truncate">Markus Aurelius</p>
+
+                                <div class="mt-auto flex items-center divide-x divide-slate-200 text-xs text-slate-600">
+                                    <div class="pr-4">
+                                        <span class="text-slate-400 block mb-0.5">Ngày mượn</span>
+                                        <span class="font-bold text-slate-700">25/03/2026</span>
+                                    </div>
+                                    <div class="pl-4">
+                                        <span class="text-slate-400 block mb-0.5">Phải trả vào</span>
+                                        <span class="font-bold text-slate-700">08/04/2026</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div
+                            class="bg-slate-50 p-5 md:w-48 border-t md:border-t-0 md:border-l border-slate-100 flex flex-col justify-center gap-3">
+                            <button
+                                class="w-full bg-white border-2 border-primary-600 text-primary-600 hover:bg-primary-50 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm focus:ring-2 focus:ring-primary-500/20">
+                                <i class="ph-bold ph-calendar-plus mr-1"></i> Xin Gia Hạn
+                            </button>
+                            <button
+                                class="w-full bg-green-50 border-2 border-green-500 text-green-600 hover:bg-green-100 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm">
+                                <i class="ph-bold ph-book"></i> Trả Sách
+                            </button>
+                            <button
+                                class="w-full text-slate-500 hover:text-slate-700 font-medium py-2 rounded-xl text-sm transition-colors flex items-center justify-center gap-1">
+                                <i class="ph-bold ph-book-open"></i> Xem chi tiết
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Book Item 3 (Returned History Example - Grayed out) -->
+                    <div
+                        class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row relative group opacity-60 hover:opacity-100 transition-all">
+                        <div class="absolute left-0 top-0 h-full w-1.5 bg-slate-300"></div>
+
+                        <!-- Book Cover & Detail -->
+                        <div class="p-5 flex gap-5 flex-1 items-start">
+                            <div
+                                class="w-20 h-28 shrink-0 rounded bg-slate-100 shadow-sm border border-slate-200 overflow-hidden relative grayscale group-hover:grayscale-0 transition-all">
+                                <img src="../assets/images/book_cover_4.png" alt="Cover"
+                                    class="w-full h-full object-cover">
+                            </div>
+                            <div class="flex flex-col flex-1 h-full min-w-0">
+                                <span
+                                    class="inline-flex items-center w-fit px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-md mb-2">
+                                    <i class="ph-bold ph-arrow-u-up-left mr-1"></i> Đã Trả
+                                </span>
+                                <h3
+                                    class="text-lg font-bold text-slate-800 leading-tight mb-1 truncate line-through decoration-slate-300">
+                                    Sapiens - Lược sử loài người</h3>
+                                <p class="text-sm text-slate-500 mb-4 truncate">Yuval Noah Harari</p>
+
+                                <div class="mt-auto flex items-center divide-x divide-slate-200 text-xs text-slate-600">
+                                    <div class="pr-4">
+                                        <span class="text-slate-400 block mb-0.5">Đã mượn</span>
+                                        <span class="font-medium text-slate-700">10/02/2026</span>
+                                    </div>
+                                    <div class="pl-4">
+                                        <span class="text-slate-400 block mb-0.5">Ngày trả</span>
+                                        <span class="font-medium text-slate-700">22/02/2026</span>
+                                    </div>
+                                    <div class="pl-4">
+                                        <span class="text-slate-400 block mb-0.5">Đánh giá</span>
+                                        <div class="flex items-center text-amber-400">
+                                            <i class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i
+                                                class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i
+                                                class="ph-fill ph-star"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div
+                            class="bg-slate-50 p-5 md:w-48 border-t md:border-t-0 md:border-l border-slate-100 flex items-center justify-center gap-3">
+                            <button
+                                class="w-full bg-slate-900 text-white hover:bg-slate-800 font-bold py-2 rounded-xl text-sm transition-colors shadow-sm flex items-center justify-center gap-2">
+                                Mượn lại <i class="ph-bold ph-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+                <div id="borrow-history-empty" class="bg-white border border-slate-200 rounded-2xl p-8 text-center">
+                    <p class="text-slate-500 font-medium">Chưa có lịch sử mượn trả.</p>
+                </div>
+
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex justify-center md:justify-start items-center gap-2 mb-6 md:mb-0">
+                    <div class="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                        <i class="ph-fill ph-books text-white text-lg"></i>
+                    </div>
+                    <span class="text-lg font-bold text-slate-800">LibSpace Library</span>
+                </div>
+            </div>
+            <div
+                class="mt-8 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+                <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
+              
+            </div>
+        </div>
+    </footer>
+
+    <script type="module" src="../assets/js/auth.js?v=2"></script>
+    <script type="module" src="../assets/js/borrow-history.js?v=2"></script>
+
+</body>
+
+</html>

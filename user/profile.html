@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Hồ sơ cá nhân</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+    <nav id="site-navbar" class="bg-white border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <a href="index.html" class="text-xl font-bold text-slate-800">Lib<span class="text-primary-600">Space</span></a>
+                <div class="flex items-center gap-4">
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-10 flex-1 space-y-6">
+        <header class="mb-2">
+            <h1 class="text-3xl font-bold text-slate-900">Hồ sơ cá nhân</h1>
+            <p class="text-slate-500 mt-2">Quản lý thông tin tài khoản và bảo mật của bạn.</p>
+        </header>
+
+        <!-- Thông tin tổng quan -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <div class="flex items-center gap-5 mb-6">
+                <img id="profileAvatar" src="../assets/images/avatar-placeholder.svg" alt="Avatar"
+                    class="w-20 h-20 rounded-full border-2 border-slate-200 object-cover shadow-sm">
+                <div>
+                    <p id="profileName" class="text-xl font-bold text-slate-800">Đang tải...</p>
+                    <p id="profileMemberCode" class="text-sm font-mono text-slate-500 mt-0.5">--</p>
+                    <span id="profileRole" class="mt-1 inline-block text-xs font-semibold text-primary-600 bg-primary-50 px-2.5 py-1 rounded-full">Độc giả</span>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Email</p>
+                    <p id="profileEmail" class="mt-1 font-medium text-slate-800 text-sm break-all">--</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Trạng thái</p>
+                    <p id="profileStatus" class="mt-1 font-medium text-emerald-700 text-sm">--</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Ngày tham gia</p>
+                    <p id="profileCreatedAt" class="mt-1 font-medium text-slate-800 text-sm">--</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Xác minh danh tính</p>
+                    <div id="profileVerifyStatus" class="mt-1">--</div>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Điểm uy tín</p>
+                    <p id="profileReputationScore" class="mt-1 text-sm font-bold text-emerald-600">--</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                    <p class="text-xs uppercase tracking-wider text-slate-400 font-semibold">Liên kết nhanh</p>
+                    <a href="borrow-history.html" class="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-primary-600 hover:text-primary-700">
+                        <i class="ph ph-clock-counter-clockwise"></i> Lịch sử mượn
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Form chỉnh sửa thông tin -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-5 flex items-center gap-2">
+                <i class="ph ph-user-circle text-primary-600 text-xl"></i> Thông tin cá nhân
+            </h2>
+            <form id="profileEditForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Họ và Tên <span class="text-rose-500">*</span></label>
+                        <input id="profileNameInput" type="text" required placeholder="Nhập họ tên"
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 transition-colors">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Số Điện Thoại</label>
+                        <input id="profilePhoneInput" type="tel" placeholder="0123456789"
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-300 transition-colors">
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit"
+                        class="px-6 py-2.5 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl shadow-sm text-sm transition-all active:scale-95">
+                        <i class="ph ph-floppy-disk mr-1.5"></i> Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <!-- Form đổi mật khẩu -->
+        <section class="bg-white border border-slate-200 rounded-2xl p-6">
+            <h2 class="text-lg font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <i class="ph ph-lock text-primary-600 text-xl"></i> Bảo mật
+            </h2>
+            <p class="text-sm text-slate-500 mb-5">Chỉ áp dụng cho tài khoản đăng nhập bằng Email/Mật khẩu.</p>
+            <form id="profilePasswordForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Mật khẩu hiện tại</label>
+                        <div class="relative">
+                            <input id="currentPassword" type="password" placeholder="••••••••"
+                                class="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors">
+                            <button type="button" id="toggle_currentPassword"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                <i class="ph ph-eye-slash text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Mật khẩu mới</label>
+                        <div class="relative">
+                            <input id="newPassword" type="password" placeholder="Ít nhất 6 ký tự"
+                                class="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors">
+                            <button type="button" id="toggle_newPassword"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                <i class="ph ph-eye-slash text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Xác nhận mật khẩu</label>
+                        <div class="relative">
+                            <input id="confirmPassword" type="password" placeholder="Nhập lại mật khẩu"
+                                class="w-full px-4 py-2.5 pr-10 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors">
+                            <button type="button" id="toggle_confirmPassword"
+                                class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                                <i class="ph ph-eye-slash text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit"
+                        class="px-6 py-2.5 bg-slate-800 hover:bg-slate-900 text-white font-semibold rounded-xl shadow-sm text-sm transition-all active:scale-95">
+                        <i class="ph ph-key mr-1.5"></i> Đổi mật khẩu
+                    </button>
+                </div>
+            </form>
+        </section>
+    </main>
+
+    <script type="module" src="../assets/js/auth.js"></script>
+    <script type="module" src="../assets/js/profile.js"></script>
+</body>
+</html>

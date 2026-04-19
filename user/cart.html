@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Giỏ mượn sách</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased min-h-screen relative overflow-x-hidden">
+    <div class="pointer-events-none absolute inset-0 -z-10">
+        <div class="absolute -top-20 -left-16 w-72 h-72 rounded-full bg-primary-200/40 blur-3xl"></div>
+        <div class="absolute -bottom-24 -right-20 w-80 h-80 rounded-full bg-rose-200/30 blur-3xl"></div>
+    </div>
+
+    <nav id="site-navbar" class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="index.html" class="font-bold text-xl tracking-tight">Lib<span class="text-primary-600">Space</span></a>
+            <a href="catalog.html" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-primary-200 bg-primary-50 text-primary-700 text-sm font-semibold hover:bg-primary-100 hover:border-primary-300 transition-colors shadow-sm" title="Quay lại kho học liệu">
+                <i class="ph ph-book-open"></i>
+                Tiếp tục chọn sách
+            </a>
+        </div>
+    </nav>
+
+    <main id="cartPageRoot" class="flex-1 w-full px-4 py-8 md:py-12 flex items-center justify-center">
+        <div class="w-full max-w-5xl">
+            <div class="text-center mb-6 md:mb-8">
+                <p class="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Quản lý đăng ký mượn</p>
+                <h1 class="text-3xl md:text-4xl font-black tracking-tight text-slate-900 mt-2">Giỏ mượn của bạn</h1>
+                <p class="text-slate-500 mt-2">Xem lại đầu sách đã chọn và hoàn tất thông tin trước khi gửi phiếu mượn.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 bg-white/75 backdrop-blur-sm border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/60 p-4 md:p-6">
+                <section class="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-5 md:p-6 min-h-[340px]">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xl font-bold">Danh sách sách mượn</h2>
+                        <span class="text-xs px-2.5 py-1 rounded-full bg-primary-50 text-primary-700 font-semibold">Tối đa 5 cuốn</span>
+                    </div>
+
+                    <div class="h-px bg-slate-100 mb-4"></div>
+
+                    <div id="cartEmpty" class="hidden text-center py-16 text-slate-500">
+                        <div class="w-14 h-14 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                            <i class="ph ph-books text-2xl"></i>
+                        </div>
+                        Giỏ mượn đang trống.
+                    </div>
+
+                    <div id="cartList" class="space-y-3"></div>
+                </section>
+
+                <section class="bg-gradient-to-b from-white to-slate-50 border border-slate-200 rounded-2xl p-5 md:p-6 space-y-4">
+                    <h2 class="text-lg font-bold">Thông tin đăng ký</h2>
+                    <p class="text-sm text-slate-500">Điền thông tin để thư viện xác nhận và tạo mã phiếu mượn.</p>
+
+                    <div id="checkoutLocked" class="text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl p-3">
+                        Bạn cần đăng nhập để gửi phiếu mượn.
+                    </div>
+
+                    <!-- Banner uy tín thấp -->
+                    <div id="reputationWarning" class="hidden text-sm bg-amber-50 border border-amber-200 rounded-xl p-3">
+                        <div class="flex items-center gap-2 text-amber-700 font-semibold mb-1">
+                            <i class="ph ph-warning-circle text-lg"></i>
+                            <span>Điểm uy tín thấp</span>
+                        </div>
+                        <p class="text-amber-600">Điểm uy tín của bạn là <strong id="reputationScoreDisplay">0</strong>/100. Dưới 30 điểm sẽ không thể mượn sách.</p>
+                    </div>
+
+                    <!-- Banner bị chặn mượn -->
+                    <div id="reputationBlocked" class="hidden text-sm bg-rose-50 border border-rose-200 rounded-xl p-3">
+                        <div class="flex items-center gap-2 text-rose-700 font-semibold mb-1">
+                            <i class="ph ph-prohibit text-lg"></i>
+                            <span>Không thể mượn sách</span>
+                        </div>
+                        <p class="text-rose-600">Điểm uy tín của bạn quá thấp (<strong id="reputationScoreBlocked">0</strong>/100). Vui lòng liên hệ thủ thư để được hỗ trợ.</p>
+                    </div>
+
+                    <!-- === FORM XÁC MINH (hiện khi chưa verified) === -->
+                    <div id="verifySection" class="hidden space-y-3">
+                        <div class="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-700">
+                            <div class="flex items-center gap-2 font-semibold mb-1">
+                                <i class="ph ph-shield-check text-lg"></i>
+                                Xác minh danh tính lần đầu
+                            </div>
+                            <p>Để đảm bảo an toàn, bạn cần xác minh SĐT và CCCD <strong>một lần duy nhất</strong>. Thông tin sẽ được bảo mật và không thể thay đổi sau khi xác minh.</p>
+                        </div>
+
+                        <form id="verifyForm" class="space-y-3">
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Họ và tên</label>
+                                <input id="verifyFullName" required placeholder="Nguyễn Văn A"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Số điện thoại</label>
+                                <input id="verifyPhone" required placeholder="0901234567" maxlength="10" pattern="0\d{9}"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                                <p class="text-xs text-slate-400 mt-1">Nhập đúng 10 số, bắt đầu bằng 0</p>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium text-slate-700">Số CCCD</label>
+                                <input id="verifyCccd" required placeholder="012345678901" maxlength="12" pattern="\d{12}"
+                                    class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500" />
+                                <p class="text-xs text-slate-400 mt-1">Nhập đúng 12 số. CCCD sẽ được mã hóa trước khi lưu.</p>
+                            </div>
+                            <button id="verifyBtn" type="submit"
+                                class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg py-2.5 transition-colors shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2">
+                                <i class="ph ph-shield-check text-lg"></i>
+                                Xác minh danh tính
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- === FORM CHECKOUT (hiện khi đã verified) === -->
+                    <form id="checkoutForm" class="hidden space-y-3">
+                        <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-2.5 text-xs text-emerald-700 flex items-center gap-2">
+                            <i class="ph-fill ph-seal-check text-lg"></i>
+                            <span>Danh tính đã xác minh — Thông tin được tự động điền.</span>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Họ và tên</label>
+                            <input id="checkoutFullName" readonly
+                                class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Số điện thoại <span class="text-emerald-600 text-xs">✓ Đã xác minh</span></label>
+                            <input id="checkoutPhone" readonly
+                                class="w-full mt-1 border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-slate-50 text-slate-600 cursor-not-allowed" />
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-700">Điểm uy tín</label>
+                            <div id="checkoutReputation" class="mt-1 text-sm font-semibold text-emerald-600">100 / 100</div>
+                        </div>
+                        <button id="checkoutBtn" type="submit" class="w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5 transition-colors shadow-lg shadow-primary-500/20">
+                            Xác nhận đăng ký mượn
+                        </button>
+                    </form>
+                </section>
+            </div>
+
+            <div class="text-center mt-5">
+                <a href="catalog.html" class="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-primary-600 transition-colors">
+                    <i class="ph ph-arrow-left"></i>
+                    Quay lại kho học liệu
+                </a>
+            </div>
+        </div>
+    </main>
+
+    <div id="checkoutSuccessModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4">
+        <div class="max-w-md mx-auto mt-28 bg-white rounded-2xl p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-emerald-700 mb-2">Đăng ký thành công</h3>
+            <p class="text-sm text-slate-600">Mã phiếu của bạn là:</p>
+            <p id="ticketCode" class="font-mono text-xl font-bold text-slate-800 my-3">LIB-XXXXXX</p>
+            <p class="text-sm text-slate-600">Vui lòng đến thư viện trong vòng 24h để nhận sách.</p>
+            <button id="closeSuccessModalBtn" class="mt-5 w-full bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-lg py-2.5">Đã hiểu</button>
+        </div>
+    </div>
+
+    <script type="module" src="../assets/js/auth.js"></script>
+    <script type="module" src="../assets/js/cart-page.js"></script>
+</body>
+</html>

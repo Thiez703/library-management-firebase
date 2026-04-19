@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Sách yêu thích</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+    <nav id="site-navbar" data-turbo-permanent class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <div class="flex items-center gap-2 cursor-pointer" onclick="window.location.href='index.html'">
+                    <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                        <i class="ph-fill ph-books text-white text-2xl"></i>
+                    </div>
+                    <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span class="text-primary-600">Space</span></span>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button data-favorite-trigger type="button" class="relative text-rose-600 p-2" title="Sách yêu thích">
+                        <i class="ph-fill ph-heart text-2xl"></i>
+                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot></div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main id="favoritesPageRoot" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10 flex-1">
+        <header class="mb-8">
+            <p class="text-sm uppercase tracking-wider text-rose-600 font-bold">Bo suu tap ca nhan</p>
+            <h1 class="text-3xl md:text-4xl font-black tracking-tight text-slate-900 mt-2">Sách yêu thích</h1>
+            <p class="text-slate-500 mt-2">Lưu lại các đầu sách bạn muốn đọc sau và truy cập nhanh bất cứ lúc nào.</p>
+            <p class="text-sm text-slate-600 mt-3">Tổng số sách đã lưu: <span id="favoriteTotalCount" class="font-bold text-rose-600">0</span></p>
+        </header>
+
+        <div id="favoriteAuthHint" class="hidden mb-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+            Vui lòng đăng nhập để xem danh sách sách yêu thích của bạn.
+        </div>
+
+        <section id="favoriteEmpty" class="bg-white border border-slate-200 rounded-2xl p-10 text-center">
+            <div class="w-16 h-16 rounded-full bg-rose-50 text-rose-500 flex items-center justify-center mx-auto mb-4">
+                <i class="ph-fill ph-heart text-3xl"></i>
+            </div>
+            <h2 class="text-xl font-bold text-slate-800">Chưa có sách yêu thích</h2>
+            <p class="text-slate-500 mt-2">Bạn có thể bấm biểu tượng tim ở trang danh mục hoặc chi tiết sách để lưu lại.</p>
+            <a href="catalog.html" class="inline-flex mt-6 px-5 py-2.5 rounded-xl bg-primary-600 text-white font-semibold hover:bg-primary-700 transition-colors">Khám phá sách ngay</a>
+        </section>
+
+        <section id="favoriteGrid" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6"></section>
+    </main>
+
+    <footer class="bg-white border-t border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-sm text-slate-500 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
+            <p>Trang quản lý sách yêu thích của độc giả.</p>
+        </div>
+    </footer>
+
+    <script type="module" src="../assets/js/auth.js"></script>
+    <script type="module" src="../assets/js/favorites-page.js"></script>
+</body>
+</html>

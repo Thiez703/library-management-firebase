@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace Admin - Quản lý phạt sách</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } } } } }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full">
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800">
+                <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
+                <h1 class="text-white font-bold text-xl tracking-tight">Lib<span class="text-primary-500">Admin</span></h1>
+            </div>
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý chung</p>
+                <a href="admin.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-squares-four text-xl mr-3"></i>Bảng điều khiển</a>
+                <a href="books.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-book-open text-xl mr-3"></i>Quản lý Sách</a>
+                <a href="categories.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-bookmarks text-xl mr-3"></i>Quản lý Thể loại</a>
+                <a href="readers.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-users text-xl mr-3"></i>Quản lý Độc giả</a>
+                <a href="loans.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-arrows-left-right text-xl mr-3"></i>Mượn/Trả</a>
+                <a href="fines.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-primary-600 text-white shadow-md shadow-primary-500/20"><i class="ph ph-receipt text-xl mr-3"></i>Quản lý Phạt</a>
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ thống</p>
+                <a href="reports.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-chart-bar text-xl mr-3"></i>Báo cáo</a>
+                <a href="settings.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-gear text-xl mr-3"></i>Cài đặt</a>
+            </div>
+            <div class="p-4 border-t border-slate-800">
+                <button id="adminLogoutBtn" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800">
+                    <i class="ph ph-sign-out"></i> Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-screen overflow-hidden">
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center px-6 shrink-0">
+                <div class="relative w-full max-w-xl">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input id="fineSearchInput" type="text" placeholder="Tìm theo tên độc giả hoặc mã phiếu..." class="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Phân hệ Quản lý Phạt Quá Hạn</h2>
+                    <p class="text-sm text-slate-500 mt-1">Danh sách phiếu phạt sinh ra khi độc giả trả sách trễ hạn.</p>
+                </div>
+
+                <!-- Thống kê Dashboard -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                        <div class="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-money text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-medium">Tổng tiền nợ phạt</p>
+                            <p id="totalUnpaidAmount" class="text-2xl font-bold text-slate-800">0 ₫</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                        <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-warning-circle text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-medium">Phiếu chưa thanh toán</p>
+                            <p id="unpaidCount" class="text-2xl font-bold text-slate-800">0</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-check-circle text-2xl"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm text-slate-500 font-medium">Phiếu đã xử lý</p>
+                            <p id="processedCount" class="text-2xl font-bold text-slate-800">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Toolbar -->
+                <div class="flex justify-between items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm w-fit">
+                    <button data-fine-status="unpaid" class="px-5 py-2 rounded-lg bg-primary-600 text-white font-semibold text-sm shadow-md">Chưa thanh toán</button>
+                    <button data-fine-status="paid" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">Đã thanh toán</button>
+                    <button data-fine-status="waived" class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm">Đã miễn phạt</button>
+                </div>
+
+                <!-- Bảng danh sách -->
+                <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50 border-b border-slate-200 text-xs uppercase tracking-wider text-slate-500 font-semibold">
+                                    <th class="px-6 py-4">Mã Phiếu Phạt</th>
+                                    <th class="px-6 py-4">Độc giả</th>
+                                    <th class="px-6 py-4">Số Ngày Trễ</th>
+                                    <th class="px-6 py-4">Số Tiền Phạt</th>
+                                    <th class="px-6 py-4">Trạng thái</th>
+                                    <th class="px-6 py-4 text-center">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="finesTableBody" class="divide-y divide-slate-100 text-sm">
+                                <tr><td colspan="6" class="px-6 py-10 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Miễn Phạt -->
+    <div id="waiveModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center">
+        <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+            <h3 class="text-xl font-bold text-slate-800 mb-2">Xác nhận miễn phạt</h3>
+            <p class="text-sm text-slate-500 mb-4">Mã phiếu: <span id="waiveFineId" class="font-bold">--</span></p>
+            <p class="text-sm text-rose-600 mb-4 bg-rose-50 p-3 rounded-lg border border-rose-100"><i class="ph-fill ph-warning"></i> Lưu ý: Hành động miễn phạt <b>không thể hoàn tác</b>.</p>
+            
+            <form id="waiveForm" class="space-y-4">
+                <input type="hidden" id="waiveDocId">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Lý do miễn phạt <span class="text-rose-500">*</span></label>
+                    <textarea id="waiveReason" required minlength="10" rows="3" placeholder="Nhập lý do miễn phạt (tối thiểu 10 ký tự)..." class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary-500"></textarea>
+                    <p class="text-xs text-slate-400 mt-1">Lý do sẽ được ghi lại vào lịch sử hệ thống.</p>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="closeWaiveModalBtn" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm">Hủy</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-medium text-sm shadow-md">Xác nhận Miễn</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script type="module" src="../assets/js/admin-fines.js"></script>
+</body>
+</html>

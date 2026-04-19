@@ -1,76 +1,82 @@
 import { db, storage } from './firebase-config.js';
-import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+import { requireAdmin } from './admin-guard.js';
+import { collection, addDoc, updateDoc, doc, deleteDoc, serverTimestamp, onSnapshot, query, orderBy, getDoc, getDocs, limit, startAfter, where } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { ref, uploadBytesResumable, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-storage.js";
+import { showToast, showConfirm } from './notify.js';
 
 const getElem = (id) => document.getElementById(id);
+const MAX_BOOK_QUANTITY = 3000;
+const COVER_PLACEHOLDER = '../assets/images/book-cover-placeholder-gray.svg';
+let currentCoverUrl = '';
+let previewObjectUrl = '';
 
-// --- 1. Toast Thông báo (Cải tiến) ---
-const showToast = (message, type = 'success') => {
-    const container = getElem('toast-container');
-    if (!container) return { update: () => {}, close: () => {} };
-    
-    const toast = document.createElement('div');
-    const bg = type === 'success' ? 'bg-emerald-500' : (type === 'info' ? 'bg-blue-500' : 'bg-rose-500');
-    toast.className = `${bg} text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-3 animate-fade-in mb-3 transition-all z-[100]`;
-    toast.innerHTML = `<i class="ph-fill ${type === 'success' ? 'ph-check-circle' : 'ph-info-circle'} text-xl"></i><span class="msg-text text-sm font-semibold">${message}</span>`;
-    
-    container.appendChild(toast);
-    const close = () => { toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); };
-    if (type !== 'info') setTimeout(close, 3000);
-    
-    return { 
-        update: (newMsg) => { const txt = toast.querySelector('.msg-text'); if(txt) txt.innerText = newMsg; },
-        close
-    };
+const revokePreviewObjectUrl = () => {
+    if (!previewObjectUrl) return;
+    URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = '';
 };
 
+const setCoverPreview = (src = COVER_PLACEHOLDER) => {
+    const previewImg = getElem('book-cover-preview');
+    if (!previewImg) return;
+    previewImg.src = src || COVER_PLACEHOLDER;
+};
+
+const updateCoverPreviewFromFile = (file) => {
+    revokePreviewObjectUrl();
+
+    if (file) {
+        previewObjectUrl = URL.createObjectURL(file);
+        setCoverPreview(previewObjectUrl);
+        return;
+    }
+
+    setCoverPreview(currentCoverUrl || COVER_PLACEHOLDER);
+};
+
+const resetBookCoverPreview = () => {
+    currentCoverUrl = '';
+    revokePreviewObjectUrl();
+    const bookImageInput = getElem('bookImage');
+    if (bookImageInput) bookImageInput.value = '';
+    setCoverPreview(COVER_PLACEHOLDER);
+};
+
+const openAddBookModal = () => {
+    const modal = getElem('addBookModal');
+    if (!modal) return;
+
+    const form = getElem('bookForm');
+    if (form) form.reset();
+    if (getElem('book-id')) getElem('book-id').value = '';
+    if (getElem('modalTitle')) getElem('modalTitle').textContent = 'Thêm Sách Mới';
+
+    resetBookCoverPreview();
+    modal.classList.replace('hidden', 'flex');
+};
+
+const closeBookModal = () => {
+    const modal = getElem('addBookModal');
+    if (!modal) return;
+
+    modal.classList.replace('flex', 'hidden');
+    resetBookCoverPreview();
+};
+
+window.openAddBookModal = openAddBookModal;
+window.closeBookModal = closeBookModal;
+
 // --- 2. Khởi tạo Trang ---
+let adminAllBooks = [];
+let adminSearchTerm = '';
+let adminCurrentPage = 1;
+const adminPageSize = 10;
+
 const initAdminBooks = () => {
     const tableBody = getElem('books-table-body');
     if (!tableBody) return;
 
     console.log("System: Admin Books Module Loaded");
-
-    // Điều hướng phân bước
-    const step1 = getElem('step-1');
-    const step2 = getElem('step-2');
-    const btnNext = getElem('btn-next-step');
-    const btnPrev = getElem('btn-prev-step');
-    const btnSubmit = getElem('btn-submit-book');
-
-    const showStep = (step) => {
-        if (step === 1) {
-            step1.classList.remove('hidden');
-            step2.classList.add('hidden');
-            btnNext.classList.remove('hidden');
-            btnPrev.classList.add('hidden');
-            btnSubmit.classList.add('hidden');
-        } else {
-            step1.classList.add('hidden');
-            step2.classList.remove('hidden');
-            btnNext.classList.add('hidden');
-            btnPrev.classList.remove('hidden');
-            btnSubmit.classList.remove('hidden');
-        }
-    };
-
-    btnNext.onclick = () => {
-        // Validation cơ bản bước 1
-        if (!getElem('book-title').value || !getElem('book-author').value || !getElem('book-category').value) {
-            showToast("Vui lòng điền các thông tin bắt buộc (*)", "error");
-            return;
-        }
-        showStep(2);
-    };
-    btnPrev.onclick = () => showStep(1);
-
-    // Reset về bước 1 khi mở modal thêm mới (nút Thêm sách mới nằm ở ngoài)
-    document.querySelector('[onclick*="addBookModal"]')?.addEventListener('click', () => {
-        getElem('book-id').value = '';
-        getElem('bookForm').reset();
-        getElem('modalTitle').textContent = "Thêm Sách Mới";
-        showStep(1);
-    });
 
     // Lắng nghe Thể loại
     onSnapshot(collection(db, 'categories'), (snap) => {
@@ -84,7 +90,8 @@ const initAdminBooks = () => {
 
     // Lắng nghe Danh sách Sách
     onSnapshot(query(collection(db, 'books'), orderBy('createdAt', 'desc')), (snap) => {
-        renderBooksTable(snap.docs);
+        adminAllBooks = snap.docs;
+        renderAdminPage();
     });
 
     // Sự kiện Form
@@ -92,7 +99,8 @@ const initAdminBooks = () => {
     if (form) {
         form.onsubmit = async (e) => {
             e.preventDefault();
-            const submitBtn = getElem('btn-submit-book');
+            // Tìm nút submit của form này (có thể nằm ngoài thẻ form)
+            const submitBtn = document.querySelector('button[type="submit"][form="bookForm"]') || form.querySelector('button[type="submit"]');
             
             try {
                 if (submitBtn) {
@@ -111,9 +119,57 @@ const initAdminBooks = () => {
             }
         };
     }
+
+    const searchInput = getElem('adminBookSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', (e) => {
+            adminSearchTerm = (e.target.value || '').trim().toLowerCase();
+            adminCurrentPage = 1;
+            renderAdminPage();
+        });
+    }
+
+    const imageInput = getElem('bookImage');
+    if (imageInput) {
+        imageInput.addEventListener('change', (e) => {
+            const selectedFile = e.target.files?.[0] || null;
+            updateCoverPreviewFromFile(selectedFile);
+        });
+    }
+
+    getElem('btn-open-book-modal')?.addEventListener('click', openAddBookModal);
+    getElem('btn-close-book-modal')?.addEventListener('click', closeBookModal);
+    getElem('btn-cancel-book-modal')?.addEventListener('click', closeBookModal);
+
+    setCoverPreview(COVER_PLACEHOLDER);
 };
 
-const renderBooksTable = (docs) => {
+const renderAdminPage = () => {
+    let filteredBooks = adminAllBooks;
+    if (adminSearchTerm) {
+        filteredBooks = adminAllBooks.filter(snap => {
+            const book = snap.data();
+            const title = (book.title || '').toLowerCase();
+            const author = (book.author || '').toLowerCase();
+            return title.includes(adminSearchTerm) || author.includes(adminSearchTerm);
+        });
+    }
+
+    const totalCount = filteredBooks.length;
+    const totalPages = Math.ceil(totalCount / adminPageSize);
+    
+    if (adminCurrentPage > totalPages) adminCurrentPage = totalPages;
+    if (adminCurrentPage < 1) adminCurrentPage = 1;
+    
+    const startIdx = (adminCurrentPage - 1) * adminPageSize;
+    const endIdx = startIdx + adminPageSize;
+    const docsToRender = filteredBooks.slice(startIdx, endIdx);
+    
+    renderBooksTable(docsToRender, totalCount);
+    renderAdminPagination(totalCount, totalPages);
+};
+
+const renderBooksTable = (docs, totalCount) => {
     const tableBody = getElem('books-table-body');
     if (!tableBody) return;
 
@@ -126,7 +182,7 @@ const renderBooksTable = (docs) => {
 
         return `
             <tr class="hover:bg-slate-50/80 transition-colors group">
-                <td class="px-3 py-2"><div class="w-10 h-14 rounded-md overflow-hidden bg-slate-100 border border-slate-200"><img src="${book.coverUrl || '../assets/images/book_cover_2.png'}" class="w-full h-full object-cover" onerror="this.src='../assets/images/book_cover_2.png'"></div></td>
+                <td class="px-3 py-2"><div class="w-10 h-14 rounded-md overflow-hidden bg-slate-100 border border-slate-200"><img src="${book.coverUrl || '../assets/images/book-cover-placeholder-gray.svg'}" class="w-full h-full object-cover" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'"></div></td>
                 <td class="px-3 py-2 font-semibold text-slate-800 truncate max-w-[200px]">${book.title}</td>
                 <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.author}</td>
                 <td class="px-3 py-2 text-slate-600 truncate max-w-[120px]">${book.publisher || '--'}</td>
@@ -143,8 +199,72 @@ const renderBooksTable = (docs) => {
             </tr>`;
     }).join('');
 
-    if (getElem('total-summary')) getElem('total-summary').innerText = docs.length;
-    if (getElem('pagination-info')) getElem('pagination-info').innerHTML = `Hiển thị <strong>${docs.length}</strong> / <strong>${docs.length}</strong> cuốn sách`;
+    if (getElem('total-summary')) getElem('total-summary').innerText = totalCount;
+};
+
+const renderAdminPagination = (totalCount, totalPages) => {
+    const info = getElem('pagination-info');
+    const controls = getElem('pagination-controls');
+    
+    if (!info || !controls) return;
+    
+    if (totalCount === 0) {
+        info.innerHTML = `Không có sách nào`;
+        controls.classList.add('hidden');
+        return;
+    }
+    
+    const startItem = (adminCurrentPage - 1) * adminPageSize + 1;
+    const endItem = Math.min(adminCurrentPage * adminPageSize, totalCount);
+    info.innerHTML = `Hiển thị <strong>${startItem} - ${endItem}</strong> / <strong>${totalCount}</strong> cuốn sách`;
+    
+    if (totalPages <= 1) {
+        controls.classList.add('hidden');
+        return;
+    }
+    
+    controls.classList.remove('hidden');
+    let btnsHtml = `
+        <button class="btn-prev-page p-1 rounded hover:bg-slate-200 text-slate-500 transition-colors ${adminCurrentPage === 1 ? 'opacity-50 cursor-not-allowed' : ''}" title="Trang trước"><i class="ph-bold ph-caret-left"></i></button>
+    `;
+    
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === 1 || i === totalPages || (i >= adminCurrentPage - 1 && i <= adminCurrentPage + 1)) {
+            if (i === adminCurrentPage) {
+                btnsHtml += `<button class="btn-page w-7 h-7 rounded bg-primary-600 text-white font-bold text-xs" data-page="${i}">${i}</button>`;
+            } else {
+                btnsHtml += `<button class="btn-page w-7 h-7 rounded hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors" data-page="${i}">${i}</button>`;
+            }
+        } else if (i === adminCurrentPage - 2 || i === adminCurrentPage + 2) {
+            btnsHtml += `<span class="text-slate-400 font-medium px-1 text-xs">...</span>`;
+        }
+    }
+    
+    btnsHtml += `
+        <button class="btn-next-page p-1 rounded hover:bg-slate-200 text-slate-500 transition-colors ${adminCurrentPage === totalPages ? 'opacity-50 cursor-not-allowed' : ''}" title="Trang sau"><i class="ph-bold ph-caret-right"></i></button>
+    `;
+    
+    controls.innerHTML = btnsHtml;
+    
+    const prevBtn = controls.querySelector('.btn-prev-page');
+    const nextBtn = controls.querySelector('.btn-next-page');
+    
+    if (adminCurrentPage > 1) {
+        prevBtn.onclick = () => { adminCurrentPage--; renderAdminPage(); };
+    }
+    if (adminCurrentPage < totalPages) {
+        nextBtn.onclick = () => { adminCurrentPage++; renderAdminPage(); };
+    }
+    
+    controls.querySelectorAll('.btn-page').forEach(btn => {
+        btn.onclick = (e) => {
+            const p = parseInt(e.target.getAttribute('data-page'));
+            if (p !== adminCurrentPage) {
+                adminCurrentPage = p;
+                renderAdminPage();
+            }
+        };
+    });
 };
 
 // --- 3. Xử lý Lưu dữ liệu ---
@@ -155,36 +275,48 @@ const handleSaveBook = async () => {
     const catSelect = getElem('book-category');
     const file = getElem('bookImage').files[0];
 
-    if (!title || !author || !catSelect.value || !getElem('book-shelf').value) {
-        throw new Error("Vui lòng điền đầy đủ các thông tin bắt buộc!");
+    if (!title || !author || !catSelect.value) {
+        throw new Error("Vui lòng điền đầy đủ Tên sách, Tác giả và Thể loại!");
     }
 
-    const qty = parseInt(getElem('book-quantity').value) || 0;
+    const qty = parseInt(getElem('book-quantity').value, 10);
+    if (!Number.isInteger(qty) || qty < 1) {
+        throw new Error("Số lượng sách phải là số nguyên lớn hơn 0.");
+    }
+    if (qty > MAX_BOOK_QUANTITY) {
+        throw new Error(`Số lượng sách tối đa là ${MAX_BOOK_QUANTITY} cuốn.`);
+    }
+
     const data = {
         title, author,
         publisher: getElem('book-publisher').value.trim(),
         categoryId: catSelect.value,
         categoryName: catSelect.options[catSelect.selectedIndex].getAttribute('data-name'),
         publishYear: getElem('book-year').value || null,
+        titleLower: title.toLowerCase(),
         totalQuantity: qty,
         availableQuantity: qty,
         borrowDuration: parseInt(getElem('book-duration').value) || 14,
         description: getElem('book-description').value.trim(),
-        
-        // Thông tin chi tiết mới
-        isbn: getElem('book-isbn').value.trim(),
-        language: getElem('book-language').value.trim(),
-        dimensions: getElem('book-dimensions').value.trim(),
-        weight: parseInt(getElem('book-weight').value) || 0,
-        coverType: getElem('book-cover-type').value,
-        shelfLocation: getElem('book-shelf').value.trim(),
-        pages: parseInt(getElem('book-pages').value) || 0,
-
         updatedAt: serverTimestamp()
     };
 
     let bookId = id;
     if (id) {
+        // BUG FIX: Khi chỉnh sửa, tính lại availableQuantity dựa trên số đang mượn
+        // thay vì gàn cứng = totalQuantity (sẽ mất thông tin sách đang cho mượn)
+        const existingSnap = await getDoc(doc(db, 'books', id));
+        if (existingSnap.exists()) {
+            const existingData = existingSnap.data();
+            const currentTotal = Number(existingData.totalQuantity || 0);
+            const currentAvailable = Number(existingData.availableQuantity || 0);
+            // Số đang mượn = totalQuantity cũ - availableQuantity cũ
+            const currentlyBorrowed = Math.max(0, currentTotal - currentAvailable);
+            // Số có thể mượn mới = totalQuantity mới - số đang mượn
+            data.availableQuantity = Math.max(0, qty - currentlyBorrowed);
+        } else {
+            data.availableQuantity = qty;
+        }
         await updateDoc(doc(db, 'books', id), data);
     } else {
         data.createdAt = serverTimestamp();
@@ -192,8 +324,8 @@ const handleSaveBook = async () => {
         bookId = newDoc.id;
     }
 
-    // Đóng modal và reset form ngay
-    getElem('addBookModal').classList.replace('flex', 'hidden');
+    // Đóng modal và reset form ngay để tạo cảm giác nhanh
+    closeBookModal();
     getElem('bookForm').reset();
 
     // Xử lý tải ảnh bìa (chạy ngầm)
@@ -236,40 +368,106 @@ window.editBookAction = async (id) => {
         getElem('book-quantity').value = book.totalQuantity;
         getElem('book-duration').value = book.borrowDuration || 14;
         getElem('book-description').value = book.description || '';
-        
-        // Đổ dữ liệu các trường mới
-        getElem('book-isbn').value = book.isbn || '';
-        getElem('book-language').value = book.language || '';
-        getElem('book-dimensions').value = book.dimensions || '';
-        getElem('book-weight').value = book.weight || '';
-        getElem('book-cover-type').value = book.coverType || 'Bìa mềm';
-        getElem('book-shelf').value = book.shelfLocation || '';
-        getElem('book-pages').value = book.pages || '';
 
+        currentCoverUrl = book.coverUrl || '';
+        revokePreviewObjectUrl();
+        setCoverPreview(currentCoverUrl || COVER_PLACEHOLDER);
+        const imageInput = getElem('bookImage');
+        if (imageInput) imageInput.value = '';
+        
         getElem('modalTitle').textContent = "Chỉnh Sửa Sách";
-        
-        // Reset về bước 1 khi mở modal edit
-        getElem('step-1').classList.remove('hidden');
-        getElem('step-2').classList.add('hidden');
-        getElem('btn-next-step').classList.remove('hidden');
-        getElem('btn-prev-step').classList.add('hidden');
-        getElem('btn-submit-book').classList.add('hidden');
-
         getElem('addBookModal').classList.replace('hidden', 'flex');
     } catch (e) { showToast("Lỗi khi lấy thông tin sách", "error"); }
 };
 
 window.deleteBookAction = async (id, title) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa sách "${title}"?`)) {
-        try {
-            await deleteDoc(doc(db, 'books', id));
-            showToast("Đã xóa sách thành công.");
-        } catch (e) { showToast("Lỗi khi xóa sách", "error"); }
+    const ok = await showConfirm(`Bạn có chắc chắn muốn xóa sách "${title}"?`, {
+        title: 'Xác nhận xóa sách',
+        confirmText: 'Xóa sách',
+        cancelText: 'Hủy',
+        type: 'warning'
+    });
+
+    if (!ok) return;
+
+    try {
+        await deleteDoc(doc(db, 'books', id));
+        showToast("Đã xóa sách thành công.");
+    } catch (e) {
+        showToast("Lỗi khi xóa sách", "error");
     }
 };
 
-// --- 5. Khởi chạy ---
-document.addEventListener('turbo:load', initAdminBooks);
-document.addEventListener('turbo:render', initAdminBooks);
-if (document.readyState !== 'loading') initAdminBooks();
-else document.addEventListener('DOMContentLoaded', initAdminBooks);
+// Khởi chạy — bảo vệ bằng admin guard (chỉ chạy khi ở trang admin)
+const guardedInit = () => {
+    if (!document.getElementById('books-table-body')) return;
+    requireAdmin(() => initAdminBooks());
+};
+document.addEventListener('turbo:load', guardedInit);
+document.addEventListener('turbo:render', guardedInit);
+if (document.readyState !== 'loading') guardedInit();
+else document.addEventListener('DOMContentLoaded', guardedInit);
+
+// --- 6. Thành viên 5 - Tìm kiếm & Phân trang ---
+export const loadBooksPage = async (lastDocNode = null, pageSize = 12) => {
+    let q;
+    if (lastDocNode) {
+        q = query(collection(db, 'books'), orderBy('createdAt', 'desc'), startAfter(lastDocNode), limit(pageSize));
+    } else {
+        q = query(collection(db, 'books'), orderBy('createdAt', 'desc'), limit(pageSize));
+    }
+    const snapshot = await getDocs(q);
+    return {
+        docs: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })),
+        lastDocNode: snapshot.docs[snapshot.docs.length - 1]
+    };
+};
+
+export const searchBooks = async (keyword) => {
+    const term = keyword.toLowerCase().trim();
+    // Prefix search with >= and <= trick
+    const q = query(
+        collection(db, 'books'),
+        where('titleLower', '>=', term),
+        where('titleLower', '<=', term + '\uf8ff'),
+        orderBy('titleLower') // Required when using range filter
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+export const filterByCategory = async (categoryId) => {
+    const q = query(
+        collection(db, 'books'),
+        where('categoryId', '==', categoryId)
+    );
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+};
+
+// Kết hợp tìm kiếm và lọc: dùng trên client vì Firestore hạn chế
+export const searchAndFilterClientSide = async (keyword, categoryId) => {
+    let baseQuery;
+    
+    if (categoryId) {
+        // Lấy theo danh mục trước (tiện nhất). Loại bỏ orderBy để tương thích data cũ chưa có trường createdAt và không cần composite index
+        baseQuery = query(collection(db, 'books'), where('categoryId', '==', categoryId));
+    } else {
+        // Lấy tất cả gần đây (thay vì fetch all)
+        baseQuery = query(collection(db, 'books'), orderBy('createdAt', 'desc'), limit(200)); 
+    }
+    
+    const snapshot = await getDocs(baseQuery);
+    let results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    
+    // Áp dụng bộ lọc từ khóa trên client-side
+    if (keyword) {
+        const term = keyword.toLowerCase().trim();
+        results = results.filter(b => 
+            (b.title && b.title.toLowerCase().includes(term)) || 
+            (b.author && b.author.toLowerCase().includes(term))
+        );
+    }
+    
+    return results;
+};

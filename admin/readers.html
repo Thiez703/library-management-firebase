@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace Admin - Quản lý độc giả</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } } } } }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800">
+                <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
+                <h1 class="text-white font-bold text-xl tracking-tight">Lib<span class="text-primary-500">Admin</span>
+                </h1>
+            </div>
+            <!-- Navigation -->
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản
+                    lý chung</p>
+                <a href="admin.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-squares-four text-xl mr-3 group-hover:text-primary-400"></i>
+                    Bảng điều khiển</a>
+                <a href="books.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-book-open text-xl mr-3 group-hover:text-primary-400"></i>
+                    Quản lý Sách</a>
+                <a href="categories.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-bookmarks text-xl mr-3 group-hover:text-primary-400"></i>
+                    Quản lý Thể loại</a>
+                <!-- ACTIVE LINK: ĐỘC GIẢ -->
+                <a href="readers.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-primary-600 text-white shadow-md shadow-primary-500/20 group transition-all"><i
+                        class="ph ph-users text-xl mr-3"></i> Quản lý Độc
+                    giả</a>
+                <a href="loans.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-arrows-left-right text-xl mr-3 group-hover:text-primary-400"></i>
+                    Mượn/Trả</a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ
+                    thống</p>
+                <a href="reports.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-chart-bar text-xl mr-3 group-hover:text-primary-400"></i>
+                    Báo cáo</a>
+                <a href="settings.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-gear text-xl mr-3 group-hover:text-primary-400"></i>
+                    Cài đặt</a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Thoát</p>
+                <a href="../user/index.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all"><i
+                        class="ph ph-house text-xl mr-3 text-emerald-400 group-hover:text-emerald-300"></i>
+                    Trang Người dùng</a>
+            </div>
+            <div class="p-4 border-t border-slate-800">
+                <div class="flex items-center gap-3">
+                    <img src="../assets/images/admin_avatar.png" alt="Admin"
+                        class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover"
+                        onerror="this.src='https://i.pravatar.cc/150?img=11'">
+                    <div class="flex-1 min-w-0">
+                        <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
+                        <p class="text-xs text-slate-400 truncate">Quản trị viên</p>
+                    </div>
+                    <button id="adminLogoutBtn" class="text-slate-400 hover:text-white p-1 transition-colors" title="Đăng xuất">
+                        <i class="ph ph-sign-out text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <script type="module">
+            import { checkAuthState, signOutUser } from '../assets/js/auth.js';
+            checkAuthState((user, userData) => {
+                if (!user || userData?.role !== 'admin') {
+                    window.location.href = '../user/login.html';
+                    return;
+                }
+                const adminName = document.getElementById('adminName');
+                const adminAvatar = document.querySelector('aside img');
+                if (adminName) adminName.innerText = userData.displayName || user.email;
+                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
+            });
+            document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                signOutUser();
+            });
+        </script>
+
+        <!-- Main Wrapper -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden">
+            <!-- Topbar -->
+            <header
+                class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+                <div class="flex-1 max-w-md">
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-magnifying-glass text-slate-400 group-focus-within:text-primary-500"></i>
+                        </div>
+                        <input id="readerSearchTopInput" type="text"
+                            class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                            placeholder="Tìm kiếm nhanh...">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button title="Thông báo" class="relative p-2 text-slate-400 hover:text-slate-600"><i
+                            class="ph ph-bell text-xl"></i><span
+                            class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span></button>
+                    <div class="w-px h-6 bg-slate-200"></div>
+                    <img src="../assets/images/admin_avatar.png" alt="Avatar"
+                        class="w-8 h-8 rounded-full border border-slate-200"
+                        onerror="this.src='https://i.pravatar.cc/150?img=11'">
+                </div>
+            </header>
+
+            <!-- NỘI DUNG ĐỘC GIẢ -->
+            <div class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6 relative">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold text-slate-800">Quản
+                            lý Độc Giả</h2>
+                        <p class="text-sm text-slate-500 mt-1">Theo dõi
+                            thông tin thành viên, lịch sử và xử lý vi
+                            phạm.</p>
+                    </div>
+                    <button id="addGuestReaderBtn"
+                        class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95">
+                        <i class="ph-bold ph-user-plus text-lg"></i>
+                        Thêm
+                        Độc Giả Vãng Lai
+                    </button>
+                </div>
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng
+                            độc giả</p>
+                        <p id="stat-total-readers" class="text-3xl font-bold text-slate-800">0</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Đang
+                            hoạt động</p>
+                        <p id="stat-active-readers" class="text-3xl font-bold text-emerald-600">0</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tài
+                            khoản bị khóa</p>
+                        <p id="stat-blocked-readers" class="text-3xl font-bold text-rose-600">0</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng
+                            tiền chưa thu</p>
+                        <p id="stat-total-unpaid-fines" class="text-3xl font-bold text-slate-800">0 ₫</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-3 mb-4 flex flex-col lg:flex-row lg:items-center gap-3 lg:justify-between">
+                    <div class="relative w-full lg:max-w-md">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-magnifying-glass text-slate-400"></i>
+                        </div>
+                        <input id="readerSearchInput" type="text"
+                            class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                            placeholder="Tìm theo tên, mã thẻ, email, số điện thoại...">
+                    </div>
+                    <div id="readerFilterTabs" class="flex flex-wrap items-center gap-2">
+                        <button type="button" data-filter="all" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Tất cả</button>
+                        <button type="button" data-filter="borrowing" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Đang mượn</button>
+                        <button type="button" data-filter="fines" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Nợ phạt</button>
+                        <button type="button" data-filter="risk" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Rủi ro</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden mb-4">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left whitespace-nowrap">
+                            <thead>
+                                <tr
+                                    class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
+                                    <th class="px-6 py-4">Độc
+                                        Giả</th>
+                                    <th class="px-6 py-4 hidden lg:table-cell">Mã Thẻ</th>
+                                    <th class="px-6 py-4 hidden lg:table-cell">Email</th>
+                                    <th class="px-6 py-4 text-center">Đang
+                                        Mượn</th>
+                                    <th class="px-6 py-4 text-right">Nợ phạt</th>
+                                    <th class="px-6 py-4">Uy tín</th>
+                                    <th class="px-6 py-4">Trạng
+                                        Thái</th>
+                                    <th class="px-6 py-4 text-right">Thao
+                                        Tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="readersTableBody" class="divide-y divide-slate-100 text-sm">
+                                <tr>
+                                    <td colspan="8" class="px-6 py-10 text-center text-slate-500">Đang tải dữ liệu độc giả...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Phân trang -->
+                <div class="flex items-center justify-between border-t border-slate-200 pt-4 pb-4">
+                    <div class="text-sm text-slate-500">
+                        Hiển thị <span class="font-medium text-slate-900" id="page-start-info">0</span> đến 
+                        <span class="font-medium text-slate-900" id="page-end-info">0</span> trong tổng số 
+                        <span class="font-medium text-slate-900" id="total-items-info">0</span> độc giả
+                    </div>
+                    <div class="flex gap-2" id="pagination-controls">
+                        <!-- Buttons rendered by JS -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal Tạo Độc Giả Vãng Lai -->
+    <div id="guestReaderModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-slate-800">Tạo Độc Giả Vãng Lai</h3>
+                <button id="closeGuestReaderModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <form id="guestReaderForm" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Họ và Tên <span class="text-rose-500">*</span></label>
+                    <input id="guestFullName" type="text" required placeholder="Nhập họ tên" 
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Số Điện Thoại <span class="text-rose-500">*</span></label>
+                    <input id="guestPhone" type="tel" required placeholder="0123456789"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">CCCD/Căn Cước <span class="text-rose-500">*</span></label>
+                    <input id="guestCccd" type="text" required placeholder="Nhập CCCD"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Email (Tùy chọn)</label>
+                    <input id="guestEmail" type="email" placeholder="email@example.com"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Ghi Chú</label>
+                    <textarea id="guestNote" rows="2" placeholder="Ghi chú thêm..."
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-4">
+                    <button type="button" id="cancelGuestReaderBtn" class="px-5 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                        Huỷ
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm">
+                        <i class="ph ph-check-circle mr-1"></i> Tạo Độc Giả
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Xem Chi Tiết Độc Giả -->
+    <div id="readerDetailModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col animate-fade-in overflow-hidden">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <h3 class="text-xl font-bold text-slate-800">Chi tiết độc giả</h3>
+                <button id="closeReaderDetailModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 grid grid-cols-1 lg:grid-cols-3 gap-5">
+                <div class="lg:col-span-1 space-y-4">
+                    <div class="flex items-center gap-4">
+                        <div id="readerDetailAvatar" class="w-16 h-16 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-xl shrink-0">--</div>
+                        <div>
+                            <p id="readerDetailName" class="text-lg font-bold text-slate-800">--</p>
+                            <p id="readerDetailCode" class="text-sm text-slate-500 font-mono mt-0.5">--</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Thông tin cá nhân</p>
+                        <p><span class="text-slate-500">Email:</span> <span id="readerDetailEmail" class="font-medium text-slate-700 break-all">--</span></p>
+                        <p><span class="text-slate-500">Số điện thoại:</span> <span id="readerDetailPhone" class="font-medium text-slate-700">--</span></p>
+                        <p><span class="text-slate-500">Ngày tham gia:</span> <span id="readerDetailCreatedAt" class="font-medium text-slate-700">--</span></p>
+                        <p><span class="text-slate-500">Mã thẻ:</span> <span id="readerDetailMemberCode" class="font-mono text-xs text-slate-700">--</span></p>
+                    </div>
+
+                    <div class="space-y-2 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Uy tín hiện tại</p>
+                        <div class="flex items-center justify-between">
+                            <p id="readerDetailTrustScore" class="text-2xl font-bold text-slate-800">0</p>
+                            <span id="readerDetailTrustRank" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">--</span>
+                        </div>
+                        <div class="w-full h-[6px] bg-slate-200 rounded-full overflow-hidden">
+                            <div id="readerDetailTrustBar" class="h-full bg-emerald-500" style="width:0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 text-sm">
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <p class="text-xs text-slate-400">Tổng nợ</p>
+                            <p id="readerDetailTotalDebt" class="font-bold text-rose-600 mt-1">0 ₫</p>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <p class="text-xs text-slate-400">Vi phạm</p>
+                            <p id="readerDetailViolationCount" class="font-bold text-amber-600 mt-1">0</p>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <p class="text-xs text-slate-400">Đang mượn</p>
+                            <p id="readerDetailBorrowing" class="font-bold text-blue-600 mt-1">0</p>
+                        </div>
+                        <div class="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                            <p class="text-xs text-slate-400">Trạng thái</p>
+                            <p id="readerDetailStatus" class="font-semibold text-slate-700 mt-1">--</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p class="text-xs text-slate-400 uppercase tracking-wide">Lịch sử điểm uy tín</p>
+                        <div id="readerDetailTrustTimeline" class="space-y-2 max-h-[200px] overflow-y-auto">
+                            <p class="text-sm text-slate-400">Đang tải...</p>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div class="lg:col-span-2 space-y-4">
+                    <div class="bg-white border border-slate-200 rounded-xl p-4">
+                        <p class="text-sm font-semibold text-slate-700 mb-3">Sách đang mượn</p>
+                        <div id="readerDetailBorrowingList" class="space-y-2 max-h-[220px] overflow-y-auto">
+                            <p class="text-sm text-slate-400">Đang tải...</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-white border border-slate-200 rounded-xl p-4">
+                        <p class="text-sm font-semibold text-slate-700 mb-3">Lịch sử phạt gần nhất</p>
+                        <div id="readerDetailFinesList" class="space-y-2 max-h-[220px] overflow-y-auto">
+                            <p class="text-sm text-slate-400">Đang tải...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 border-t border-slate-100 flex gap-3 shrink-0">
+                <button id="readerDetailLockBtn" type="button" class="flex-1 px-4 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 font-semibold text-sm transition-colors">
+                    <i class="ph ph-lock mr-1"></i> Khóa tài khoản
+                </button>
+                <button id="readerDetailEditBtn" type="button" class="flex-1 px-4 py-2.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-sm transition-colors">
+                    <i class="ph ph-pencil-simple mr-1"></i> Chỉnh sửa
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: Chỉnh Sửa Độc Giả -->
+    <div id="readerEditModal" class="hidden fixed inset-0 bg-slate-900/50 z-[130] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 class="text-xl font-bold text-slate-800">Chỉnh sửa độc giả</h3>
+                <button id="closeReaderEditModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <form id="readerEditForm" class="p-6 space-y-4">
+                <input type="hidden" id="editReaderId">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Họ và Tên <span class="text-rose-500">*</span></label>
+                    <input id="editReaderName" type="text" required placeholder="Họ tên độc giả"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Số Điện Thoại</label>
+                    <input id="editReaderPhone" type="tel" placeholder="0123456789"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Email</label>
+                    <input id="editReaderEmail" type="email" placeholder="email@example.com"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="cancelReaderEditBtn"
+                        class="px-5 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">Huỷ</button>
+                    <button type="submit"
+                        class="px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm">
+                        <i class="ph ph-check-circle mr-1"></i> Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3"></div>
+    <script type="module" src="../assets/js/readers.js"></script>
+</body>
+
+</html>

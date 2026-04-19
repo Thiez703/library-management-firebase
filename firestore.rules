@@ -1,0 +1,184 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helper Functions ──────────────────────────────────────────────────────
+
+    /** Kiểm tra user đã đăng nhập */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Lấy dữ liệu user từ Firestore (dùng để kiểm tra role) */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    /** Kiểm tra user hiện tại có role admin không */
+    function isAdmin() {
+      return isSignedIn() && getUserData().role == 'admin';
+    }
+
+    /** Kiểm tra đây có phải chính tài khoản đó không */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ── Collection: users ─────────────────────────────────────────────────────
+
+    match /users/{userId} {
+      // User đọc được thông tin của chính mình; admin đọc được tất cả
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Tạo tài khoản mới: chỉ cho phép nếu đang đăng nhập bằng uid tương ứng
+      // hoặc admin (tạo độc giả vãng lai)
+      allow create: if isOwner(userId) || isAdmin();
+
+      // Cập nhật:
+      // 1. Admin được sửa mọi thứ.
+      // 2. User không được sửa role, status, reputationScore.
+      // 3. User chỉ được sửa phone, cccdHash, isVerified, verifiedAt KHI đang thực hiện xác minh lần đầu (isVerified: false -> true).
+      allow update: if isAdmin() || (
+        isOwner(userId) 
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'reputationScore'])
+        && (
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone', 'cccdHash', 'isVerified', 'verifiedAt'])
+          || (resource.data.get('isVerified', false) == false && request.resource.data.isVerified == true)
+        )
+      );
+
+      // Chỉ admin được xóa user
+      allow delete: if isAdmin();
+
+      // Subcollection: favorites
+      match /favorites/{favoriteId} {
+        allow read, write: if isOwner(userId) || isAdmin();
+      }
+    }
+
+    // ── Collection: books ─────────────────────────────────────────────────────
+
+    match /books/{bookId} {
+      // Ai cũng được đọc danh sách sách (kể cả chưa đăng nhập — catalog công khai)
+      allow read: if true;
+
+      // Chỉ admin được thêm/xóa sách
+      allow create, delete: if isAdmin();
+      
+      // Admin được sửa tất cả.
+      // User được update sách nếu chỉ giảm/tăng quantity (khi mượn/trả sách)
+      allow update: if isAdmin() || (
+        isSignedIn() 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableQuantity', 'status'])
+        && request.resource.data.availableQuantity >= 0
+      );
+    }
+
+    // ── Collection: categories ────────────────────────────────────────────────
+
+    match /categories/{categoryId} {
+      // Catalog công khai — ai cũng đọc được
+      allow read: if true;
+
+      // Chỉ admin được quản lý thể loại
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ── Collection: borrowRecords ─────────────────────────────────────────────
+
+    match /borrowRecords/{recordId} {
+      // User đọc được phiếu mượn của chính mình; admin đọc tất cả
+      allow read: if isSignedIn() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+
+      // User được tạo phiếu mượn cho chính mình (handleCheckout)
+      allow create: if isSignedIn() &&
+                      request.resource.data.userId == request.auth.uid
+                    || isAdmin();
+
+      // Chỉ admin được cập nhật phiếu mượn (duyệt, trả sách, hủy)
+      // Ngoại lệ: transaction từ handleCheckout sẽ dùng user auth
+      allow update: if isAdmin() ||
+                    // Cho phép user tự cancel phiếu của mình khi còn 'pending'
+                    (isSignedIn() &&
+                      resource.data.userId == request.auth.uid &&
+                      resource.data.status == 'pending' &&
+                      request.resource.data.status == 'cancelled');
+
+      // Chỉ admin được xóa phiếu mượn (cleanup legacy records)
+      allow delete: if isAdmin();
+    }
+
+    // ── Collection: phones (Unique phone index) ───────────────────────────────
+
+    match /phones/{phoneNumber} {
+      // User đã đăng nhập được đọc (để check trùng trước khi xác minh)
+      allow read: if isSignedIn();
+
+      // User được tạo index cho chính mình (1 lần duy nhất trong transaction verifyUser)
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+
+      // Chỉ admin mới được sửa/xóa (khi admin cập nhật SĐT cho user)
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Collection: cccds (Unique CCCD hash index) ────────────────────────────
+
+    match /cccds/{cccdHash} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ── Collection: identityAuditLog (Admin audit trail) ─────────────────────
+
+    match /identityAuditLog/{logId} {
+      // Chỉ admin đọc và tạo log
+      allow read, create: if isAdmin();
+      // Không ai được sửa hoặc xóa audit log
+      allow update, delete: if false;
+    }
+
+    // ── Collection: system (cài đặt thư viện) ────────────────────────────────
+
+    match /system/{docId} {
+      // Chỉ admin được đọc và ghi cài đặt hệ thống
+      allow read, write: if isAdmin();
+    }
+
+    // ── Collection: mail (Firebase Trigger Email Extension) ───────────────────
+
+    match /mail/{docId} {
+      // Chỉ server-side (admin SDK) hoặc user đã đăng nhập được tạo email
+      allow create: if isSignedIn();
+      // Không cho phép đọc hay xóa từ client
+      allow read, update, delete: if isAdmin();
+    }
+
+    // ── Collection: reservations (đặt trước sách — P2) ────────────────────────
+
+    match /reservations/{reservationId} {
+      allow read: if isSignedIn() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() &&
+                      request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() ||
+                              (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // ── Collection: fines (Quản lý Phạt) ──────────────────────────────────────
+    match /fines/{fineId} {
+      allow read: if isSignedIn() &&
+                    (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin(); // Chỉ server/admin (trong transaction returnTicket) mới tạo phạt
+      allow update: if isAdmin(); // Thủ thư/Admin thanh toán hoặc miễn phạt
+      allow delete: if false;     // BIZ-12: Không được phép xóa phiếu phạt
+    }
+
+    // ── Default: từ chối tất cả truy cập không khớp rule nào ─────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

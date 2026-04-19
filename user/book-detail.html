@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chi Tiết Sách - Thư Viện ABC</title>
+    <title>LibSpace - Chi tiết sách</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Google Fonts: Inter -->
@@ -89,31 +89,21 @@
                             class="text-primary-600">Space</span></span>
                 </div>
 
-                <!-- Navigation Links (Desktop) -->
-                <div class="hidden md:flex space-x-8 items-center">
-                    <a href="index.html"
-                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Trang
-                        chủ</a>
-                    <a href="catalog.html"
-                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Kho học
-                        liệu</a>
-                    <a href="rules.html"
-                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Quy định</a>
-                    <a href="about.html"
-                        class="text-slate-500 hover:text-slate-900 font-medium transition-colors px-1 py-1">Về chúng
-                        tôi</a>
-                </div>
-
                 <!-- Actions -->
                 <div class="flex items-center gap-4">
                     <button class="md:hidden text-slate-500 p-2" title="Tìm kiếm"><i
                             class="ph ph-magnifying-glass text-xl"></i></button>
                     <!-- Favorite List -->
-                    <button class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors">
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
                         <i class="ph ph-heart text-2xl"></i>
-                        <span
+                        <span data-favorite-count
                             class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
                     </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count
+                            class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
                     <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
                     <!-- Auth Buttons -->
                     <div class="hidden sm:flex items-center gap-3" data-auth-slot>
@@ -133,9 +123,7 @@
                             <div class="relative group">
                                 <button type="button"
                                     class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
-                                    <img data-auth-avatar
-                                        src="https://ui-avatars.com/api/?name=Người%20dùng&background=0D8ABC&color=fff"
-                                        alt="Avatar">
+                                    <img data-auth-avatar src="../assets/images/avatar-placeholder.svg" alt="Avatar">
                                 </button>
                                 <div
                                     class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
@@ -183,7 +171,7 @@
                         <li>
                             <div class="flex items-center">
                                 <i class="ph ph-caret-right text-slate-400 mx-1"></i>
-                                <span class="text-slate-800 font-medium ml-1 md:ml-2">Phần mềm</span>
+                                <span id="detail-breadcrumb-category" class="text-slate-800 font-medium ml-1 md:ml-2">Phần mềm</span>
                             </div>
                         </li>
                     </ol>
@@ -201,11 +189,11 @@
                             </div>
 
                             <!-- Cover Image -->
-                            <img id="book-cover" src="../assets/images/book_cover_2.png" alt="Book Cover"
+                            <img id="detail-cover" src="../assets/images/book-cover-placeholder-gray.svg" alt="Book Cover"
                                 class="w-full h-full object-cover rounded-md book-shadow transform origin-left transition-all duration-500 z-10 relative border border-slate-200/50">
 
                             <!-- Status Badge -->
-                            <div id="book-status-badge"
+                            <div id="detail-status-badge"
                                 class="absolute top-4 left-4 z-20 px-3 py-1.5 bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-1.5">
                                 <i class="ph-bold ph-check"></i> Còn sách
                             </div>
@@ -221,19 +209,24 @@
                     <!-- Right: Info -->
                     <div class="w-full flex-1 pt-2">
                         <!-- Badges/Tags -->
-                        <div id="book-category-tags" class="flex gap-2 mb-4">
-                            <span
-                                class="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-md border border-slate-200">Đang tải...</span>
+                        <div class="flex gap-2 mb-4">
+                            <span id="detail-tag-type"
+                                class="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-md border border-slate-200">Giáo
+                                trình</span>
+                            <span id="detail-tag-category"
+                                class="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-wider rounded-md border border-indigo-100">Công
+                                nghệ thông tin</span>
                         </div>
 
                         <!-- Title & Author -->
-                        <h1 id="book-title"
+                        <h1 id="detail-title"
                             class="text-3xl md:text-4xl lg:text-5xl font-extrabold text-slate-800 leading-tight tracking-tight mb-3">
-                            ...</h1>
+                            Mastering Tailwind CSS Framework - Tập 2</h1>
 
                         <div
                             class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6 mb-8 text-slate-600 pb-8 border-b border-slate-200">
-                            <p class="text-lg">Bởi <a href="#" id="book-author" class="text-primary-600 font-bold hover:underline">...</a></p>
+                                <p class="text-lg">Bởi <a id="detail-author" href="#" class="text-primary-600 font-bold hover:underline">Markus
+                                    Aurelius</a></p>
                             <span class="hidden sm:inline-block w-1.5 h-1.5 rounded-full bg-slate-300"></span>
                             <div
                                 class="flex items-center text-amber-500 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-100 w-fit">
@@ -241,7 +234,7 @@
                                     class="ph-fill ph-star"></i><i class="ph-fill ph-star"></i><i
                                     class="ph-fill ph-star-half mr-1"></i>
                                 <span class="text-slate-800 font-bold text-sm ml-1">4.9</span>
-                                <span class="text-slate-500 font-medium text-sm ml-1">(Dữ liệu mẫu)</span>
+                                <span class="text-slate-500 font-medium text-sm ml-1">(128 lượt đánh giá)</span>
                             </div>
                         </div>
 
@@ -250,20 +243,20 @@
                             <div>
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Nhà xuất bản
                                 </p>
-                                <p id="book-publisher" class="font-medium text-slate-800">...</p>
+                                <p id="detail-publisher" class="font-medium text-slate-800">NXB Thanh Niên</p>
                             </div>
                             <div>
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Năm xuất bản
                                 </p>
-                                <p id="book-year" class="font-medium text-slate-800">...</p>
+                                <p id="detail-year" class="font-medium text-slate-800">2024</p>
                             </div>
                             <div>
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Số trang</p>
-                                <p id="book-pages" class="font-medium text-slate-800">...</p>
+                                <p id="detail-pages" class="font-medium text-slate-800">452 Trang</p>
                             </div>
                             <div>
                                 <p class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">Đã mượn</p>
-                                <p class="font-medium text-slate-800 flex items-center gap-1"><i
+                                <p id="detail-borrowed-count" class="font-medium text-slate-800 flex items-center gap-1"><i
                                         class="ph-fill ph-trend-up text-emerald-500"></i> 1,204 Lần</p>
                             </div>
                         </div>
@@ -273,21 +266,23 @@
                             class="flex flex-col sm:flex-row gap-4 p-6 bg-slate-50 border border-slate-200 rounded-2xl items-center box-shadow-sm">
                             <div class="mr-auto w-full sm:w-auto">
                                 <p class="text-sm font-medium text-slate-500 mb-1">Tình trạng lưu kho:</p>
-                                <p class="text-lg font-bold text-slate-800"><span id="book-available-qty">0</span> cuốn có sẵn (Kệ số: <span
-                                        id="book-shelf-location" class="text-primary-600">...</span>)</p>
+                                <p id="detail-stock" class="text-lg font-bold text-slate-800">4 cuốn có sẵn (Kệ số: <span
+                                    class="text-primary-600">IT-A04</span>)</p>
                             </div>
 
                             <div class="flex gap-3 w-full sm:w-auto mt-4 sm:mt-0">
                                 <button
+                                    id="detailFavoriteBtn"
+                                    type="button"
                                     class="flex-1 sm:flex-none w-12 h-12 rounded-xl border border-slate-300 text-slate-600 flex items-center justify-center hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 transition-colors tooltip tooltip-top bg-white shadow-sm"
                                     title="Lưu vào Sách Yêu Thích">
-                                    <i class="ph-bold ph-heart text-xl"></i>
+                                    <i class="ph ph-heart text-xl"></i>
                                 </button>
 
                                 <button
                                     id="borrowBookBtn"
                                     class="flex-1 sm:flex-none px-8 h-12 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 transition-all active:scale-95 transform whitespace-nowrap">
-                                    <i class="ph-bold ph-plus text-lg"></i> Đăng Ký Mượn Sách
+                                    <i class="ph-bold ph-plus text-lg"></i> Thêm vào giỏ mượn
                                 </button>
                             </div>
                         </div>
@@ -307,8 +302,32 @@
                         <i class="ph-fill ph-text-align-left text-primary-600"></i> Giới Thiệu Chuyên Sâu
                     </h2>
 
-                    <div id="book-description" class="prose max-w-none text-slate-600 leading-normal">
-                        <p class="mb-4">Đang tải mô tả sách...</p>
+                    <div class="prose max-w-none text-slate-600 leading-normal">
+                        <p id="detail-description" class="mb-4">
+                            <strong>"Mastering Tailwind CSS Framework"</strong> là cuốn cẩm nang toàn diện nhất dành cho
+                            các lập trình viên Front-End muốn làm chủ thư viện CSS tiện ích Tailwind. Bằng cách tiếp cận
+                            từ thực tiễn tới lý thuyết, tác giả Markus Aurelius đã đúc kết kinh nghiệm từ hàng trăm dự
+                            án thực tế để trực quan hoá lợi thế khổng lồ của Utility-First CSS.
+                        </p>
+                        <p class="mb-4">
+                            Các nội dung nổi bật trong cuốn sách:
+                        </p>
+                        <ul class="list-disc pl-5 mb-6 space-y-2">
+                            <li>Lý thuyết móng nền và tại sao Utility-First CSS giải quyết triệt để các hạn chế của
+                                Semantic CSS truyền thống (như BEM).</li>
+                            <li>Kỹ thuật thiết lập <code>tailwind.config.js</code> linh hoạt cho các dự án quy mô doanh
+                                nghiệp lớn (Enterprise).</li>
+                            <li>Tối ưu hóa dung lượng với JIT Compiler, purge CSS qua từng phiên bản.</li>
+                            <li>Xây dựng Design System chuyên nghiệp với Colors, Typography, Spacing mà không cần viết
+                                CSS thuần.</li>
+                            <li>Xử lý Responsive Design, Dark Mode và Animations bằng các class có sẵn.</li>
+                            <li>Xây dựng 5 giao diện mẫu hoàn chỉnh từ Landing Page đến Dashboard System.</li>
+                        </ul>
+                        <p>
+                            Với hệ thống bài tập thực hành đồ sộ, sách không chỉ dạy bạn cách code mà còn là cách tự duy
+                            kiến trúc (Architecture Mindset) vững chắc – giúp website tải nhanh, dễ bảo trì và hoạt động
+                            ổn định trên mọi thiết bị.
+                        </p>
                     </div>
 
                     <!-- Divider -->
@@ -323,23 +342,23 @@
                         <tbody>
                             <tr class="border-b border-slate-200 bg-slate-50">
                                 <td class="px-5 py-3 font-semibold text-slate-700 w-1/3">Mã ISBN / Barcode</td>
-                                <td id="book-isbn" class="px-5 py-3 text-slate-600">...</td>
+                                <td class="px-5 py-3 text-slate-600">978-604-36-7241-5</td>
                             </tr>
                             <tr class="border-b border-slate-200">
                                 <td class="px-5 py-3 font-semibold text-slate-700 w-1/3">Ngôn ngữ</td>
-                                <td id="book-language" class="px-5 py-3 text-slate-600">...</td>
+                                <td class="px-5 py-3 text-slate-600">Tiếng Việt (Dịch từ Tiếng Anh)</td>
                             </tr>
                             <tr class="border-b border-slate-200 bg-slate-50">
                                 <td class="px-5 py-3 font-semibold text-slate-700 w-1/3">Kích thước</td>
-                                <td id="book-dimensions" class="px-5 py-3 text-slate-600">...</td>
+                                <td class="px-5 py-3 text-slate-600">16 x 24 cm</td>
                             </tr>
                             <tr class="border-b border-slate-200">
                                 <td class="px-5 py-3 font-semibold text-slate-700 w-1/3">Trọng lượng</td>
-                                <td id="book-weight" class="px-5 py-3 text-slate-600">... gram</td>
+                                <td class="px-5 py-3 text-slate-600">550 gram</td>
                             </tr>
                             <tr class="bg-slate-50">
                                 <td class="px-5 py-3 font-semibold text-slate-700 w-1/3">Hình thức bìa</td>
-                                <td id="book-cover-type" class="px-5 py-3 text-slate-600">...</td>
+                                <td class="px-5 py-3 text-slate-600">Bìa mềm</td>
                             </tr>
                         </tbody>
                     </table>
@@ -386,7 +405,7 @@
                     class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 hover:-translate-y-1 transition-all duration-300">
                     <a href="book-detail.html"
                         class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 shrink-0 flex items-center justify-center">
-                        <img src="../assets/images/book_cover_2.png" alt="Cover"
+                            <img src="../assets/images/book-cover-placeholder-gray.svg" alt="Cover"
                             class="w-full h-full object-cover rounded-md book-shadow filter hue-rotate-180 transform group-hover:scale-105 group-hover:rotate-1 transition-all duration-500">
                     </a>
                     <div class="p-3 md:p-4 flex flex-col flex-1">
@@ -513,159 +532,187 @@
                     </div>
                     <span class="text-lg font-bold text-slate-800">LibSpace Library</span>
                 </div>
-                <div class="flex justify-center space-x-6">
-                    <a href="index.html" class="text-slate-400 hover:text-slate-900 transition-colors">Trang chủ</a>
-                    <a href="catalog.html" class="text-slate-400 hover:text-slate-900 transition-colors">Kho học
-                        liệu</a>
-                    <a href="rules.html" class="text-slate-400 hover:text-slate-900 transition-colors">Quy định</a>
-                    <a href="about.html" class="text-slate-400 hover:text-slate-900 transition-colors">Về chúng tôi</a>
-                    <a href="../admin/admin.html" class="text-slate-400 hover:text-primary-600 transition-colors"><i
-                            class="ph-bold ph-shield-check mr-1"></i>Trang Admin</a>
-                </div>
             </div>
             <div
                 class="mt-8 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
                 <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
-                <p class="mt-2 md:mt-0">Xây dựng bằng Firebase & TailwindCSS</p>
+                
             </div>
         </div>
     </footer>
 
     <!-- Firebase & Auth & Borrow -->
     <script type="module">
-        import { db } from '../assets/js/firebase-config.js';
-        import { doc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
-        import { borrowBook } from '../assets/js/borrow.js';
+        import { db, auth } from '../assets/js/firebase-config.js';
+        import { doc, getDoc, collection, addDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
+        import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+        import { addToCart, ensureFloatingCartButton, showCartActionToast, updateCartBadges } from '../assets/js/cart.js';
         import { showToast } from '../assets/js/auth.js';
+        import { initFavoriteFeature, refreshFavoriteButtons } from '../assets/js/favorites.js';
 
-        const getElem = (id) => document.getElementById(id);
+        // Lấy bookId từ URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookId = urlParams.get('id') || 'sample-book-001';
+        const FALLBACK_COVER = '../assets/images/book-cover-placeholder-gray.svg';
 
-        const initBookDetail = async () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const bookId = urlParams.get('id');
+        const setText = (id, value, fallback = '--') => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.textContent = value || fallback;
+        };
 
-            console.log("🔍 Đang tìm kiếm sách với ID:", bookId);
+        const renderBookDetail = (book) => {
+            const available = Number(book.availableQuantity || 0);
+            const total = Number(book.totalQuantity || 0);
+            const borrowed = Math.max(total - available, 0);
+
+            const cover = document.getElementById('detail-cover');
+            if (cover) {
+                    cover.src = book.coverUrl || FALLBACK_COVER;
+                    cover.onerror = () => { cover.src = FALLBACK_COVER; };
+            }
+
+            document.title = `${book.title || 'Chi tiết sách'} - Thư Viện ABC`;
+            setText('detail-title', book.title, 'Tên sách chưa cập nhật');
+            setText('detail-author', book.author, 'Tác giả chưa cập nhật');
+            setText('detail-breadcrumb-category', book.categoryName, 'Sách');
+            setText('detail-tag-category', book.categoryName, 'Sách');
+            setText('detail-tag-type', book.type || 'Giáo trình', 'Giáo trình');
+            setText('detail-publisher', book.publisher, 'Chưa rõ');
+            setText('detail-year', book.publishYear ? String(book.publishYear) : '--');
+            setText('detail-pages', book.pages ? `${book.pages} Trang` : '--');
+            setText('detail-borrowed-count', `${borrowed.toLocaleString('vi-VN')} Lần`);
+            setText('detail-description', book.description, 'Chưa có mô tả cho đầu sách này.');
+
+            const stockEl = document.getElementById('detail-stock');
+            if (stockEl) {
+                const shelf = book.shelfCode || '---';
+                stockEl.innerHTML = `${available.toLocaleString('vi-VN')} cuốn có sẵn (Kệ số: <span class="text-primary-600">${shelf}</span>)`;
+            }
+
+            const badge = document.getElementById('detail-status-badge');
+            if (badge) {
+                const isOut = available <= 0;
+                badge.className = `absolute top-4 left-4 z-20 px-3 py-1.5 ${isOut ? 'bg-rose-500' : 'bg-emerald-500'} text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-1.5`;
+                badge.innerHTML = `<i class="ph-bold ${isOut ? 'ph-x' : 'ph-check'}"></i> ${isOut ? 'Hết sách' : 'Còn sách'}`;
+            }
+        };
+        
+        const initDetailBook = async () => {
+            ensureFloatingCartButton();
+            updateCartBadges();
+            initFavoriteFeature();
+
+            const borrowBtn = document.getElementById('borrowBookBtn');
+            const favoriteBtn = document.getElementById('detailFavoriteBtn');
+            if (!borrowBtn) return;
 
             if (!bookId) {
-                console.error("❌ Không tìm thấy ID sách trên URL");
-                showToast("Không tìm thấy mã sách!", "error");
+                showToast('Thiếu mã sách. Vui lòng chọn lại từ danh mục.', 'error');
                 return;
             }
 
+            let currentBook = null;
+
             try {
-                const docRef = doc(db, "books", bookId);
-                
-                // Sử dụng onSnapshot để cập nhật dữ liệu thời gian thực (ví dụ khi admin sửa sách)
-                onSnapshot(docRef, (docSnap) => {
-                    if (docSnap.exists()) {
-                        const book = docSnap.data();
-                        console.log("📖 Dữ liệu sách tải được:", book);
-                        renderBookData(book, bookId);
-                    } else {
-                        console.error("❌ Sách không tồn tại trong Firestore ID:", bookId);
-                        showToast("Sách không tồn tại!", "error");
-                    }
-                }, (error) => {
-                    console.error("❌ Lỗi lắng nghe Firestore:", error);
-                });
-            } catch (error) {
-                console.error("❌ Lỗi khởi tạo:", error);
-            }
-        };
-
-        const renderBookData = (book, bookId) => {
-            try {
-                // Tiêu đề & Tác giả
-                if(getElem('book-title')) getElem('book-title').innerText = book.title || 'Chưa có tên';
-                if(getElem('book-author')) getElem('book-author').innerText = book.author || 'Chưa rõ tác giả';
-                
-                // Ảnh bìa
-                const coverImg = getElem('book-cover');
-                if(coverImg) {
-                    coverImg.src = book.coverUrl || '../assets/images/book_cover_2.png';
-                    coverImg.onerror = () => { coverImg.src = '../assets/images/book_cover_2.png'; };
+                const snap = await getDoc(doc(db, 'books', bookId));
+                if (!snap.exists()) {
+                    showToast('Không tìm thấy dữ liệu sách!', 'error');
+                    return;
                 }
 
-                // Thông tin chung
-                if(getElem('book-publisher')) getElem('book-publisher').innerText = book.publisher || 'N/A';
-                if(getElem('book-year')) getElem('book-year').innerText = book.publishYear || '...';
-                if(getElem('book-pages')) getElem('book-pages').innerText = (book.pages || '0') + ' Trang';
-                
-                // Thể loại
-                const tagContainer = getElem('book-category-tags');
-                if(tagContainer) {
-                    tagContainer.innerHTML = `
-                        <span class="px-3 py-1 bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider rounded-md border border-slate-200">Sách</span>
-                        <span class="px-3 py-1 bg-indigo-50 text-indigo-600 text-xs font-bold uppercase tracking-wider rounded-md border border-indigo-100">${book.categoryName || 'Chưa phân loại'}</span>
-                    `;
+                currentBook = snap.data() || {};
+                renderBookDetail(currentBook);
+
+                if (favoriteBtn) {
+                    favoriteBtn.setAttribute('data-favorite-book', bookId);
+                    favoriteBtn.setAttribute('data-book-title', currentBook.title || 'Sách chưa đặt tên');
+                    favoriteBtn.setAttribute('data-book-author', currentBook.author || 'Tác giả chưa cập nhật');
+                    favoriteBtn.setAttribute('data-book-cover', currentBook.coverUrl || FALLBACK_COVER);
+                    favoriteBtn.setAttribute('data-book-category', currentBook.categoryName || 'Sách');
+                    refreshFavoriteButtons(document);
                 }
 
-                // Mô tả
-                const descContainer = getElem('book-description');
-                if(descContainer) {
-                    descContainer.innerHTML = book.description 
-                        ? `<p class="leading-relaxed">${book.description.replace(/\n/g, '</p><p class="mt-4 leading-relaxed">')}</p>` 
-                        : '<p>Chưa có mô tả cho cuốn sách này.</p>';
-                }
-
-                // Kho & Trạng thái
-                const availQty = parseInt(book.availableQuantity) || 0;
-                if(getElem('book-available-qty')) getElem('book-available-qty').innerText = availQty;
-                if(getElem('book-shelf-location')) getElem('book-shelf-location').innerText = book.shelfLocation || 'Đang cập nhật';
-
-                const badge = getElem('book-status-badge');
-                const borrowBtn = getElem('borrowBookBtn');
-
-                if (availQty > 0) {
-                    if(badge) {
-                        badge.className = "absolute top-4 left-4 z-20 px-3 py-1.5 bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-1.5";
-                        badge.innerHTML = '<i class="ph-bold ph-check"></i> Còn sách';
-                    }
-                    if(borrowBtn) {
-                        borrowBtn.disabled = false;
-                        borrowBtn.innerHTML = '<i class="ph-bold ph-plus text-lg"></i> Đăng Ký Mượn Sách';
-                        borrowBtn.className = "flex-1 sm:flex-none px-8 h-12 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 transition-all active:scale-95 transform whitespace-nowrap";
-                    }
+                if (Number(currentBook.availableQuantity || 0) <= 0) {
+                    // Chuyển nút thành nút Đặt trước
+                    borrowBtn.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+                    borrowBtn.classList.add('bg-violet-600', 'hover:bg-violet-700');
+                    borrowBtn.innerHTML = '<i class="ph-bold ph-bookmark-simple text-lg"></i> Đặt trước sách';
+                    borrowBtn.setAttribute('data-action', 'reserve');
                 } else {
-                    if(badge) {
-                        badge.className = "absolute top-4 left-4 z-20 px-3 py-1.5 bg-rose-500 text-white font-bold text-xs uppercase tracking-wider rounded-lg shadow-lg flex items-center gap-1.5";
-                        badge.innerHTML = '<i class="ph-bold ph-x"></i> Hết sách';
-                    }
-                    if(borrowBtn) {
-                        borrowBtn.disabled = true;
-                        borrowBtn.innerText = "Đã được mượn hết";
-                        borrowBtn.className = "flex-1 sm:flex-none px-8 h-12 rounded-xl bg-slate-200 text-slate-400 font-bold flex items-center justify-center gap-2 cursor-not-allowed whitespace-nowrap";
-                    }
+                    borrowBtn.setAttribute('data-action', 'borrow');
                 }
-
-                // Thông số kỹ thuật
-                if(getElem('book-isbn')) getElem('book-isbn').innerText = book.isbn || 'Đang cập nhật';
-                if(getElem('book-language')) getElem('book-language').innerText = book.language || 'Tiếng Việt';
-                if(getElem('book-dimensions')) getElem('book-dimensions').innerText = book.dimensions || '...';
-                if(getElem('book-weight')) getElem('book-weight').innerText = (book.weight || '...') + ' gram';
-                if(getElem('book-cover-type')) getElem('book-cover-type').innerText = book.coverType || 'Bìa mềm';
-
-                // Sự kiện mượn sách
-                if(borrowBtn) {
-                    borrowBtn.onclick = async (e) => {
-                        e.preventDefault();
-                        const cachedUser = localStorage.getItem('lib_user');
-                        if (!cachedUser) {
-                            showToast('Vui lòng đăng nhập trước!', 'error');
-                            setTimeout(() => window.location.href = 'login.html', 1500);
-                            return;
-                        }
-                        const user = JSON.parse(cachedUser);
-                        await borrowBook(user.uid, bookId);
-                    };
-                }
-
             } catch (err) {
-                console.error("❌ Lỗi render dữ liệu:", err);
+                console.error('Detail load error:', err);
+                showToast('Không thể tải chi tiết sách. Vui lòng thử lại!', 'error');
             }
+
+            borrowBtn.onclick = async (e) => {
+                e.preventDefault();
+                if (!currentBook) return;
+
+                const action = borrowBtn.getAttribute('data-action');
+
+                if (action === 'reserve') {
+                    if (!auth.currentUser) {
+                        showToast('Vui lòng đăng nhập để đặt trước sách.', 'error');
+                        window.location.href = 'login.html';
+                        return;
+                    }
+
+                    borrowBtn.disabled = true;
+                    borrowBtn.innerHTML = '<i class="ph ph-spinner animate-spin text-lg"></i> Đang xử lý...';
+
+                    try {
+                        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+                        const userData = userDoc.exists() ? userDoc.data() : {};
+                        const userFullName = userData.fullName || auth.currentUser.displayName || auth.currentUser.email;
+
+                        await addDoc(collection(db, 'reservations'), {
+                            userId: auth.currentUser.uid,
+                            userEmail: auth.currentUser.email,
+                            userName: userFullName,
+                            bookId: bookId,
+                            bookTitle: currentBook.title,
+                            bookCover: currentBook.coverUrl || FALLBACK_COVER,
+                            status: 'waiting', // waiting, notified, expired
+                            createdAt: serverTimestamp()
+                        });
+
+                        showToast('Đã đặt trước sách thành công! Chúng tôi sẽ thông báo qua email khi có sách.', 'success', { duration: 5000 });
+                        borrowBtn.classList.remove('bg-violet-600', 'hover:bg-violet-700');
+                        borrowBtn.classList.add('bg-emerald-600');
+                        borrowBtn.innerHTML = '<i class="ph-bold ph-check text-lg"></i> Đã ghi nhận đặt trước';
+                    } catch (error) {
+                        console.error('Reserve error:', error);
+                        showToast('Có lỗi xảy ra, vui lòng thử lại sau.', 'error');
+                        borrowBtn.disabled = false;
+                        borrowBtn.innerHTML = '<i class="ph-bold ph-bookmark-simple text-lg"></i> Đặt trước sách';
+                    }
+                    return;
+                }
+
+                // Normal Borrow Logic
+                if (Number(currentBook.availableQuantity || 0) <= 0) {
+                    showToast('Sách đã hết, không thể thêm vào giỏ.', 'error');
+                    return;
+                }
+
+                const result = addToCart({
+                    bookId,
+                    title: currentBook.title,
+                    author: currentBook.author,
+                    coverUrl: currentBook.coverUrl || FALLBACK_COVER,
+                    price: Number(currentBook.price || 0)
+                });
+                showCartActionToast(result);
+            };
         };
 
-        initBookDetail();
+        document.addEventListener('turbo:load', initDetailBook);
+        document.addEventListener('turbo:render', initDetailBook);
+        if (document.readyState !== 'loading') initDetailBook();
+        else document.addEventListener('DOMContentLoaded', initDetailBook);
     </script>
     <script type="module" src="../assets/js/auth.js"></script>
 </body>

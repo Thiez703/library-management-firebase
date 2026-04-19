@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="vi" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Quy định & Chính sách</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Turbo: giữ lại navbar khi điều hướng nội bộ -->
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f8fafc; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        .subtle-pattern {
+            background-color: #f8fafc;
+            background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+
+        /* Add scrolling offset for sticky header */
+        :target {
+            scroll-margin-top: 100px;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav id="site-navbar" data-turbo-permanent class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 cursor-pointer">
+                    <div class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                        <i class="ph-fill ph-books text-white text-2xl"></i>
+                    </div>
+                    <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span class="text-primary-600">Space</span></span>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-slate-500 p-2"><i class="ph ph-magnifying-glass text-xl"></i></button>
+                    <!-- Favorite List -->
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <!-- Auth Buttons -->
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot>
+                        <div class="flex items-center gap-3" data-auth-signed-out>
+                            <a href="login.html" class="text-slate-600 font-medium hover:text-primary-600 transition-colors text-sm px-3">Đăng nhập</a>
+                            <a href="login.html" class="bg-primary-600 hover:bg-primary-700 text-white font-medium text-sm px-5 py-2.5 rounded-xl shadow-md shadow-primary-500/20 transition-all active:scale-95">Đăng ký ngay</a>
+                        </div>
+                        <div class="hidden items-center gap-3" data-auth-signed-in>
+                            <div class="text-right hidden md:block">
+                                <p class="text-xs text-slate-500 font-medium" data-auth-greeting="Xin chào,">Xin chào,</p>
+                                <p class="text-sm font-bold text-slate-900" data-auth-name>Người dùng</p>
+                            </div>
+                            <div class="relative group">
+                                <button type="button" class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+                                    <img data-auth-avatar src="../assets/images/avatar-placeholder.svg" alt="Avatar">
+                                </button>
+                                <div class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
+                                    <a href="borrow-history.html" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors"><i class="ph ph-clock-counter-clockwise"></i> Lịch sử mượn</a>
+                                    <div class="h-px bg-slate-100 my-1"></div>
+                                    <button id="logoutBtnHeader" class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"><i class="ph ph-sign-out"></i> Đăng xuất</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <header class="subtle-pattern border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">Nội Quy & Chính Sách Thư Viện</h1>
+            <p class="mt-2 text-slate-600 max-w-2xl">Vui lòng đọc kỹ các quy định dưới đây để đảm bảo quyền lợi và duy trì không gian tri thức chung tốt đẹp cho tất cả mọi người.</p>
+            <p class="mt-4 text-xs font-medium text-slate-400">Cập nhật lần cuối: Tháng 3, 2026</p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full py-10">
+        <div class="flex flex-col lg:flex-row gap-10">
+            
+            <!-- LEFT SIDEBAR: Index/Table of contents -->
+            <aside class="w-full lg:w-72 shrink-0">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 sticky top-24">
+                    <h3 class="text-sm font-bold text-slate-800 mb-4 uppercase tracking-wider flex items-center gap-2">
+                        <i class="ph-bold ph-list-bullets text-primary-600"></i> Mục lục
+                    </h3>
+                    <ul class="space-y-1">
+                        <li><a href="#dieu-1" class="block px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg transition-colors">1. Đối tượng phục vụ & Thẻ thư viện</a></li>
+                        <li><a href="#dieu-2" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors">2. Quy định Mượn - Trả tài liệu</a></li>
+                        <li><a href="#dieu-3" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors">3. Quy định tại Phòng đọc</a></li>
+                        <li><a href="#dieu-4" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors">4. Xử lý vi phạm</a></li>
+                        <li><a href="#dieu-5" class="block px-3 py-2 text-sm font-medium text-slate-600 hover:text-primary-600 hover:bg-slate-50 rounded-lg transition-colors">5. Chính sách bảo mật</a></li>
+                    </ul>
+                </div>
+            </aside>
+
+            <!-- RIGHT CONTENT: Text Rules -->
+            <section class="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-10">
+                <div class="prose max-w-none text-slate-600">
+                    
+                    <div id="dieu-1" class="mb-12">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm">1</span> 
+                            Đối tượng phục vụ & Thẻ thư viện
+                        </h2>
+                        <div class="space-y-4 pl-11">
+                            <p>Thư viện mở cửa phục vụ mọi đối tượng độc giả bao gồm học sinh, sinh viên, cán bộ giảng viên và cộng đồng nói chung. Tuy nhiên, để sử dụng các dịch vụ trực tuyến và dịch vụ mượn tài liệu mang về, bạn cần phải có Thẻ thư viện điện tử (tài khoản đăng ký trên website).</p>
+                            <ul class="list-disc pl-5 space-y-2">
+                                <li>Mỗi độc giả chỉ được đăng ký một (01) tài khoản duy nhất tương ứng với một CCCD/CMND.</li>
+                                <li>Người dùng tuyệt đối không chia sẻ tài khoản của mình cho người khác. Mọi giao dịch phát sinh từ thẻ/tài khoản đều do chủ tài khoản chịu trách nhiệm trực tiếp.</li>
+                                <li>Trường hợp làm mất quyền truy cập tài khoản, người dùng cần báo ngay cho Quản trị viên thư viện qua Fanpage hoặc Hotline để được khoá tài khoản tạm thời.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100 my-8">
+
+                    <div id="dieu-2" class="mb-12">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm">2</span> 
+                            Quy định Mượn - Trả tài liệu
+                        </h2>
+                        <div class="space-y-4 pl-11">
+                            <p>Dịch vụ mượn sách mang về chỉ áp dụng cho một số đầu sách nằm trong danh mục "Có sẵn để mượn". Các tài liệu như Bách khoa toàn thư, Sách quý hiếm, Luận văn chỉ được phép tham khảo tại chỗ.</p>
+                            
+                            <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-5 mt-4">
+                                <h4 class="font-bold text-indigo-900 mb-2">Hạn mức và thời gian mượn:</h4>
+                                <ul class="list-none space-y-2 text-indigo-800">
+                                    <li class="flex items-start gap-2"><i class="ph-bold ph-check text-indigo-500 mt-1"></i> Số lượng tối đa: 03 cuốn/lần mượn.</li>
+                                    <li class="flex items-start gap-2"><i class="ph-bold ph-check text-indigo-500 mt-1"></i> Thời hạn mượn mặc định: 14 ngày.</li>
+                                    <li class="flex items-start gap-2"><i class="ph-bold ph-check text-indigo-500 mt-1"></i> Gia hạn: Chỉ được phép gia hạn 01 lần (thêm 07 ngày) nếu tựa sách đó chưa có người khác đăng ký chờ mượn (đặt gạch).</li>
+                                </ul>
+                            </div>
+
+                            <p class="mt-4">Quy trình mượn - trả sách:</p>
+                            <ul class="list-disc pl-5 space-y-2">
+                                <li>Độc giả "thêm sách vào giỏ" trên website, hẹn ngày tới lấy. Sách sẽ được giữ tại quầy trong vòng 24h. Quá thời gian này, yêu cầu mượn tự động bị huỷ.</li>
+                                <li>Cần kiểm tra kỹ tình trạng sách (rách, bẩn, mất trang...) và báo với thủ thư trước khi rời quầy. Nếu không báo, những lỗi về sau sẽ thuộc trách nhiệm của người mượn.</li>
+                                <li>Khi đến hạn trả sách, hệ thống website sẽ gửi thông báo tự động tới Email hoặc thông báo đẩy (Notification) trước 02 ngày để nhắc nhở.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100 my-8">
+
+                    <div id="dieu-3" class="mb-12">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm">3</span> 
+                            Quy định tại Phòng đọc Không gian xanh
+                        </h2>
+                        <div class="space-y-4 pl-11">
+                            <p>Không gian thư viện là nơi cần sự tĩnh lặng cao để phục vụ cho việc nghiên cứu và học tập. Mọi độc giả khi bước vào phòng đọc xin tuân thủ:</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                <div class="bg-emerald-50 text-emerald-800 p-4 rounded-xl border border-emerald-100">
+                                    <h4 class="font-bold mb-2 flex items-center gap-2"><i class="ph-fill ph-check-circle"></i> Được phép</h4>
+                                    <ul class="text-sm space-y-1 pl-4 list-disc">
+                                        <li>Đem máy tính xách tay cá nhân.</li>
+                                        <li>Để chế độ điện thoại rung hoặc im lặng.</li>
+                                        <li>Sử dụng bình nước cá nhân có nắp đậy kín.</li>
+                                        <li>Lấy tối đa 02 cuốn sách/lần ra bàn đọc tại chỗ.</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-rose-50 text-rose-800 p-4 rounded-xl border border-rose-100">
+                                    <h4 class="font-bold mb-2 flex items-center gap-2"><i class="ph-fill ph-x-circle"></i> Không được phép</h4>
+                                    <ul class="text-sm space-y-1 pl-4 list-disc">
+                                        <li>Mang đồ ăn thức uống (ngoại trừ nước lọc) vào phòng đọc.</li>
+                                        <li>Gây gổ, nói chuyện ồn ào ảnh hưởng người xung quanh.</li>
+                                        <li>Bẻ gáy sách, viết, vẽ bậy vào đồ vật của thư viện.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-100 my-8">
+
+                    <div id="dieu-4" class="mb-12">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-rose-100 text-rose-700 text-sm">4</span> 
+                            Xử lý vi phạm
+                        </h2>
+                        <div class="space-y-4 pl-11">
+                            <p>Để đảm bảo sự công bằng cho tất cả các độc giả, chúng tôi có các chế tài xử lý vi phạm cụ thể đối với các trường hợp trả sách trễ hạn hoặc làm hư hỏng tài liệu:</p>
+                            
+                            <table class="w-full text-sm text-left border-collapse border border-slate-200 mt-4 rounded-lg overflow-hidden">
+                                <thead class="bg-slate-50 text-slate-700">
+                                    <tr>
+                                        <th class="border border-slate-200 px-4 py-3 font-semibold w-1/3">Hành vi vi phạm</th>
+                                        <th class="border border-slate-200 px-4 py-3 font-semibold">Hình thức xử lý & Phạt phí</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td class="border border-slate-200 px-4 py-3 font-medium">Trả sách trễ hạn</td>
+                                        <td class="border border-slate-200 px-4 py-3 text-slate-600">Phạt 5.000 VNĐ / tài liệu / 1 ngày trễ. Quá 30 ngày sẽ được tính là mất sách. Khoá tài khoản cho tới khi trả toàn bộ số tiền.</td>
+                                    </tr>
+                                    <tr class="bg-slate-50/50">
+                                        <td class="border border-slate-200 px-4 py-3 font-medium">Làm rách, bẩn, vẽ bậy vào sách</td>
+                                        <td class="border border-slate-200 px-4 py-3 text-slate-600">Phạt bồi thường bằng 50% đến 100% giá trị cuốn sách hiện hành tuỳ theo mức độ phục hồi.</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="border border-slate-200 px-4 py-3 font-medium text-rose-600">Làm mất sách</td>
+                                        <td class="border border-slate-200 px-4 py-3 text-slate-600">Mua lại đúng đền lại cuốn sách đó nguyên vẹn, hoặc bồi thường gấp <span class="font-bold">2 lần</span> giá trị bìa sách. Khoá thẻ 3 tháng.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-slate-400 italic mt-2">* Mọi khoản tiền phạt sẽ được xung vào Quỹ phát triển Kho học liệu mới để mua thêm các đầu sách phục vụ độc giả.</p>
+                        </div>
+                    </div>
+
+                    <div id="dieu-5" class="mb-4">
+                        <h2 class="text-2xl font-bold text-slate-800 mb-4 flex items-center gap-3">
+                            <span class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-100 text-primary-700 text-sm">5</span> 
+                            Chính sách bảo mật dữ liệu
+                        </h2>
+                        <div class="space-y-4 pl-11">
+                            <p>Chúng tôi cam kết sử dụng thông tin cá nhân của bạn trên website (Họ tên, SĐT, Email) CHỈ cho mục đích quản lý mượn/trả sách. Thư viện cam kết KHÔNG chia sẻ, bán hoặc trao đổi dữ liệu cho bất kì bên thứ ba nào.</p>
+                            <p>Hệ thống Library Space được bảo vệ bởi tiêu chuẩn mã hóa SSL/TLS mới nhất và công nghệ điện toán đám mây Firebase của Google, đảm bảo an toàn tuyệt đối cho mọi dữ liệu của bạn.</p>
+                        </div>
+                    </div>
+
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex justify-center md:justify-start items-center gap-2 mb-6 md:mb-0">
+                    <div class="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                        <i class="ph-fill ph-books text-white text-lg"></i>
+                    </div>
+                    <span class="text-lg font-bold text-slate-800">LibSpace Library</span>
+                </div>
+            </div>
+            <div class="mt-8 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+                <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
+                
+            </div>
+        </div>
+    </footer>
+
+    <!-- Firebase Auth Logic -->
+    <script type="module" src="../assets/js/auth.js"></script>
+</body>
+</html>

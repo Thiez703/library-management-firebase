@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace Admin - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } } } } }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .animate-fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full">
+
+        <!-- SIDEBAR CHUNG -->
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800">
+                <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
+                <h1 class="text-white font-bold text-xl tracking-tight">Lib<span class="text-primary-500">Admin</span>
+                </h1>
+            </div>
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản
+                    lý chung</p>
+
+                <!-- Đổi class active (bg-primary-600 text-white) cho đúng trang hiện tại -->
+                <a href="admin.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-primary-600 text-white shadow-md shadow-primary-500/20 group transition-all">
+                    <i class="ph ph-squares-four text-xl mr-3"></i> Bảng
+                    điều khiển
+                </a>
+                <a href="books.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-book-open text-xl mr-3 group-hover:text-primary-400"></i>
+                    Quản lý Sách
+                </a>
+                <a href="categories.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-bookmarks text-xl mr-3 group-hover:text-primary-400"></i>
+                    Quản lý Thể loại
+                </a>
+                <a href="readers.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-users text-xl mr-3 group-hover:text-primary-400"></i>
+                    Quản lý Độc giả
+                </a>
+                <a href="loans.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-arrows-left-right text-xl mr-3 group-hover:text-primary-400"></i>
+                    Mượn/Trả
+                </a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ
+                    thống</p>
+                <a href="reports.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-chart-bar text-xl mr-3 group-hover:text-primary-400"></i>
+                    Báo cáo
+                </a>
+                <a href="settings.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-gear text-xl mr-3 group-hover:text-primary-400"></i>
+                    Cài đặt
+                </a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Thoát</p>
+                <a href="../user/index.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-house text-xl mr-3 text-emerald-400 group-hover:text-emerald-300"></i>
+                    Trang Người dùng
+                </a>
+            </div>
+            <div class="p-4 border-t border-slate-800">
+                <div class="flex items-center gap-3">
+                    <img id="adminAvatar" src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Admin"
+                        class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover">
+                    <div class="flex-1 min-w-0">
+                        <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
+                        <p class="text-xs text-slate-400 truncate">Quản trị viên</p>
+                    </div>
+                    <button id="adminLogoutBtn" class="text-slate-400 hover:text-white p-1 transition-colors" title="Đăng xuất">
+                        <i class="ph ph-sign-out text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <script type="module">
+            import { checkAuthState, signOutUser } from '../assets/js/auth.js';
+            
+            // Bảo vệ trang Admin: Chỉ cho phép role 'admin'
+            checkAuthState((user, userData) => {
+                if (!user || userData?.role !== 'admin') {
+                    console.warn("Truy cập trái phép trang Admin!");
+                    window.location.href = '../user/login.html';
+                    return;
+                }
+                
+                // Cập nhật thông tin Admin thật
+                const adminName = document.getElementById('adminName');
+                const adminAvatar = document.getElementById('adminAvatar');
+                if (adminName) adminName.innerText = userData.displayName || user.email;
+                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
+            });
+
+            // Gắn sự kiện đăng xuất
+            document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
+                e.preventDefault();
+                signOutUser();
+            });
+        </script>
+        <script type="module" src="../assets/js/admin.js" data-turbo-track="reload"></script>
+
+
+        <!-- MAIN WRAPPER -->
+        <main class="flex-1 flex flex-col h-screen overflow-hidden">
+            <!-- TOPBAR CHUNG -->
+            <header
+                class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+                <div class="flex-1 max-w-md">
+                    <div class="relative group">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="ph ph-magnifying-glass text-slate-400 group-focus-within:text-primary-500"></i>
+                        </div>
+                        <input type="text"
+                            class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
+                            placeholder="Tìm kiếm nhanh...">
+                    </div>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button class="relative p-2 text-slate-400 hover:text-slate-600" title="Notifications"><i
+                            class="ph ph-bell text-xl"></i><span
+                            class="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span></button>
+                    <div class="w-px h-6 bg-slate-200"></div>
+                    <img src="../assets/images/admin_avatar.png" alt="Avatar"
+                        class="w-8 h-8 rounded-full border border-slate-200"
+                        onerror="this.src='https://i.pravatar.cc/150?img=11'">
+                </div>
+            </header>
+
+            <!-- ============================================== -->
+            <!-- VÙNG NỘI DUNG THAY ĐỔI CHO TỪNG TRANG -->
+            <!-- ============================================== -->
+            <div id="main-content"
+                class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6 relative animate-fade-in">
+
+                <div class="mb-8">
+                    <h2 class="text-2xl font-bold text-slate-800">Bảng Điều
+                        Khiển</h2>
+                    <p class="text-sm text-slate-500 mt-1">Chào mừng bạn trở
+                        lại, hệ thống đang hoạt động ổn định.</p>
+                </div>
+
+                <!-- KPI Stats Cards -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+                    <!-- Tổng Sách -->
+                    <div
+                        class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Tổng
+                                    Cuốn Sách</p>
+                                <p id="stat-total-books" class="text-4xl font-bold text-slate-800 mt-2">...</p>
+                                <p class="text-xs text-emerald-600 font-medium mt-3"><i
+                                        class="ph ph-trend-up inline mr-1"></i>Dữ liệu thực tế</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-blue-100/80 flex items-center justify-center">
+                                <i class="ph-fill ph-books text-blue-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Đang Cho Mượn -->
+                    <div
+                        class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Đang
+                                    Cho Mượn</p>
+                                <p id="stat-borrowing" class="text-4xl font-bold text-orange-600 mt-2">...</p>
+                                <p class="text-xs text-orange-600 font-medium mt-3"><i
+                                        class="ph ph-clock inline mr-1"></i>Đang lưu hành</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-orange-100/80 flex items-center justify-center">
+                                <i class="ph-fill ph-book-open text-orange-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Độc Giả Thẻ -->
+                    <div
+                        class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Độc
+                                    Giả Thẻ</p>
+                                <p id="stat-total-readers" class="text-4xl font-bold text-emerald-600 mt-2">...</p>
+                                <p class="text-xs text-emerald-600 font-medium mt-3"><i
+                                        class="ph ph-users inline mr-1"></i>Thành viên</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-emerald-100/80 flex items-center justify-center">
+                                <i class="ph-fill ph-users text-emerald-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Thể Loại -->
+                    <div
+                        class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-all">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <p class="text-sm font-medium text-slate-500 uppercase tracking-wider">Thể Loại</p>
+                                <p id="stat-total-categories" class="text-4xl font-bold text-rose-600 mt-2">...</p>
+                                <p class="text-xs text-rose-600 font-medium mt-3"><i
+                                        class="ph ph-bookmarks inline mr-1"></i>Phân loại</p>
+                            </div>
+                            <div class="w-12 h-12 rounded-xl bg-rose-100/80 flex items-center justify-center">
+                                <i class="ph-fill ph-bookmarks text-rose-600 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Hoạt Động Gần Đây -->
+                    <div class="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                            <h3 class="font-bold text-slate-800 text-lg">Hoạt
+                                Động Gần Đây</h3>
+                        </div>
+                        <div id="recent-activities" class="divide-y divide-slate-100 min-h-[300px]">
+                            <!-- Loading state -->
+                            <div class="px-6 py-12 text-center text-slate-400">
+                                <i class="ph ph-spinner animate-spin text-3xl mb-2"></i>
+                                <p class="text-sm">Đang tải hoạt động...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top 5 Sách Mượn Nhiều -->
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-5 border-b border-slate-200">
+                            <h3 class="font-bold text-slate-800 text-lg">Top Sách Mượn</h3>
+                        </div>
+                        <div id="top-borrowed-books" class="divide-y divide-slate-100">
+                            <!-- JS render -->
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+            <!-- ============================================== -->
+
+        </main>
+    </div>
+</body>
+
+</html>

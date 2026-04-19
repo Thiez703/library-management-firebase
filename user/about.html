@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace - Về chúng tôi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- Turbo: giữ lại navbar khi điều hướng nội bộ -->
+    <script type="module" src="https://unpkg.com/@hotwired/turbo@8.0.5/dist/turbo.es2017-esm.js"></script>
+    <!-- Custom Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            900: '#1e3a8a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f8fafc;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .hero-pattern {
+            background-color: #1e3a8a;
+            background-image: radial-gradient(circle at 80% 0%, rgba(59, 130, 246, 0.4) 0%, transparent 50%),
+                radial-gradient(circle at 20% 100%, rgba(37, 99, 235, 0.4) 0%, transparent 50%);
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased flex flex-col min-h-screen">
+
+    <!-- Top Navigation -->
+    <nav id="site-navbar" data-turbo-permanent class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 transition-all duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16 items-center">
+                <!-- Logo -->
+                <div class="flex items-center gap-2 cursor-pointer">
+                    <div
+                        class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                        <i class="ph-fill ph-books text-white text-2xl"></i>
+                    </div>
+                    <span
+                        class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span
+                            class="text-primary-600">Space</span></span>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button class="md:hidden text-slate-500 p-2" title="Tìm kiếm"><i class="ph ph-magnifying-glass text-xl"></i></button>
+                    <!-- Favorite List -->
+                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors" title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count
+                            class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors" title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <!-- Auth Buttons -->
+                    <div class="hidden sm:flex items-center gap-3" data-auth-slot>
+                        <div class="flex items-center gap-3" data-auth-signed-out>
+                            <a href="login.html"
+                                class="text-slate-600 font-medium hover:text-primary-600 transition-colors text-sm px-3">Đăng
+                                nhập</a>
+                            <a href="login.html"
+                                class="bg-primary-600 hover:bg-primary-700 text-white font-medium text-sm px-5 py-2.5 rounded-xl shadow-md shadow-primary-500/20 transition-all active:scale-95">Đăng
+                                ký ngay</a>
+                        </div>
+                        <div class="hidden items-center gap-3" data-auth-signed-in>
+                            <div class="text-right hidden md:block">
+                                <p class="text-xs text-slate-500 font-medium" data-auth-greeting="Xin chào,">Xin chào,</p>
+                                <p class="text-sm font-bold text-slate-900" data-auth-name>Người dùng</p>
+                            </div>
+                            <div class="relative group">
+                                <button type="button"
+                                    class="w-10 h-10 rounded-full bg-primary-100 text-primary-600 flex items-center justify-center border-2 border-white shadow-sm overflow-hidden">
+                                    <img data-auth-avatar src="../assets/images/avatar-placeholder.svg" alt="Avatar">
+                                </button>
+                                <div
+                                    class="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100]">
+                                    <a href="borrow-history.html"
+                                        class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                                        <i class="ph ph-clock-counter-clockwise"></i> Lịch sử mượn
+                                    </a>
+                                    <div class="h-px bg-slate-100 my-1"></div>
+                                    <button id="logoutBtnHeader"
+                                        class="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors">
+                                        <i class="ph ph-sign-out"></i> Đăng xuất
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero-pattern pt-20 pb-24 relative overflow-hidden">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center">
+            <span
+                class="inline-block py-1.5 px-4 rounded-full bg-blue-800/50 backdrop-blur-sm text-blue-200 text-xs font-bold tracking-widest uppercase mb-6 border border-blue-400/30">CÂU
+                CHUYỆN CỦA CHÚNG TÔI</span>
+            <h1 class="text-4xl md:text-5xl lg:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+                Không chỉ là sách, mà là <span
+                    class="text-transparent bg-clip-text bg-gradient-to-r from-blue-200 to-indigo-200">tương lai</span>.
+            </h1>
+            <p class="text-lg md:text-xl text-blue-100/90 max-w-2xl mx-auto font-light leading-relaxed mb-8">
+                Khởi nguồn từ một dự án thư viện số nhỏ, LibSpace đã vươn mình trở thành nền tảng chia sẻ tri thức cộng
+                đồng hàng đầu. Nơi mọi người kết nối, học hỏi và phát triển mỗi ngày.
+            </p>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full -mt-10 relative z-20 pb-20">
+
+        <!-- Stats / Quick Info -->
+        <div
+            class="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-100 p-8 md:p-12 mb-20 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100 text-center gap-y-8">
+            <div class="flex-1 px-4">
+                <div class="text-4xl font-extrabold text-primary-600 mb-2">10M+</div>
+                <div class="text-sm font-bold text-slate-800 uppercase tracking-widest mb-1">Đầu sách</div>
+                <p class="text-xs text-slate-500">Đa dạng thể loại & nội dung</p>
+            </div>
+            <div class="flex-1 px-4">
+                <div class="text-4xl font-extrabold text-emerald-500 mb-2">50K+</div>
+                <div class="text-sm font-bold text-slate-800 uppercase tracking-widest mb-1">Độc giả</div>
+                <p class="text-xs text-slate-500">Hoạt động sôi nổi mỗi tháng</p>
+            </div>
+            <div class="flex-1 px-4">
+                <div class="text-4xl font-extrabold text-amber-500 mb-2">24/7</div>
+                <div class="text-sm font-bold text-slate-800 uppercase tracking-widest mb-1">Phục vụ</div>
+                <p class="text-xs text-slate-500">Hệ thống mở xuyên suốt</p>
+            </div>
+        </div>
+
+        <!-- Vision & Mission -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-12 lg:gap-20 items-center mb-24">
+            <div>
+                <h2 class="text-3xl font-bold text-slate-800 mb-6">Tầm nhìn & Sứ mệnh</h2>
+                <div class="space-y-6">
+                    <div class="flex gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                            <i class="ph-fill ph-binoculars text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800 mb-2">Tầm nhìn</h3>
+                            <p class="text-slate-600 leading-relaxed">Trở thành một hệ sinh thái học tập và tra cứu số
+                                hoá 100%, phá vỡ mọi rào cản về địa lý và thời gian trong việc tiếp cận nguồn tri thức
+                                tinh hoa của nhân loại.</p>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div
+                            class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                            <i class="ph-fill ph-heart text-2xl"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-bold text-slate-800 mb-2">Sứ mệnh</h3>
+                            <p class="text-slate-600 leading-relaxed">Lan toả văn hoá đọc đến cộng đồng người trẻ. Cung
+                                cấp nền tảng quản lý mạnh mẽ giúp thư viện vận hành tối ưu với giao diện đẹp mắt và dễ
+                                sử dụng nhất.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="relative">
+                <!-- Decorative Image Layout -->
+                <div class="absolute inset-0 bg-primary-600 transform rounded-3xl rotate-3 scale-105 opacity-10"></div>
+                <div class="bg-slate-200 rounded-3xl aspect-[4/3] overflow-hidden relative shadow-lg">
+                    <img src="https://images.unsplash.com/photo-1568667256549-094345857637?auto=format&fit=crop&q=80&w=800"
+                        alt="Library Background" class="w-full h-full object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Our Team (Simulated with Admin Avatar) -->
+        <div class="mb-24 text-center">
+            <span
+                class="inline-block py-1.5 px-4 rounded-full bg-primary-50 text-primary-700 text-sm font-bold uppercase tracking-wider mb-4">Đội
+                ngũ sáng lập</span>
+            <h2 class="text-3xl font-bold text-slate-800 mb-4">Những người thổi hồn cho dự án</h2>
+            <p class="text-slate-500 max-w-2xl mx-auto mb-12">"Công nghệ chỉ thực sự hữu ích khi nó giúp kết nối con
+                người với tri thức một cách trơn tru nhất."</p>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+
+                <!-- Member 1 -->
+                <div
+                    class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 group hover:shadow-xl hover:border-primary-200 transition-all duration-300">
+                    <div
+                        class="w-24 h-24 mx-auto bg-slate-100 rounded-full overflow-hidden mb-4 border-4 border-white shadow-md group-hover:scale-110 transition-transform duration-300">
+                        <img src="../assets/images/admin_avatar.png" alt="Avatar"
+                            class="w-full h-full object-cover filter hue-rotate-15">
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800">David Trần</h3>
+                    <p class="text-sm font-medium text-primary-600 mb-3">Founder & CEO</p>
+                    <p class="text-xs text-slate-500 mb-4">Hơn 10 năm kinh nghiệm trong lĩnh vực EdTech và khoa học hệ
+                        thống dữ liệu.</p>
+                    <div class="flex justify-center gap-3 text-slate-400">
+                        <a href="#" class="hover:text-primary-600 transition-colors"><i
+                                class="ph-fill ph-linkedin-logo text-xl"></i></a>
+                    </div>
+                </div>
+
+                <!-- Member 2 -->
+                <div
+                    class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 group hover:shadow-xl hover:border-primary-200 transition-all duration-300">
+                    <div
+                        class="w-24 h-24 mx-auto bg-slate-100 rounded-full overflow-hidden mb-4 border-4 border-white shadow-md group-hover:scale-110 transition-transform duration-300">
+                        <img src="../assets/images/admin_avatar.png" alt="Avatar"
+                            class="w-full h-full object-cover filter hue-rotate-90">
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800">Sarah Nguyễn</h3>
+                    <p class="text-sm font-medium text-primary-600 mb-3">Head of Design</p>
+                    <p class="text-xs text-slate-500 mb-4">Người đứng sau mọi đường nét thiết kế mềm mại và trải nghiệm
+                        người dùng ấn tượng của LibSpace.</p>
+                    <div class="flex justify-center gap-3 text-slate-400">
+                        <a href="#" class="hover:text-primary-600 transition-colors"><i
+                                class="ph-fill ph-dribbble-logo text-xl"></i></a>
+                    </div>
+                </div>
+
+                <!-- Member 3 -->
+                <div
+                    class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 group hover:shadow-xl hover:border-primary-200 transition-all duration-300">
+                    <div
+                        class="w-24 h-24 mx-auto bg-slate-100 rounded-full overflow-hidden mb-4 border-4 border-white shadow-md group-hover:scale-110 transition-transform duration-300">
+                        <img src="../assets/images/admin_avatar.png" alt="Avatar"
+                            class="w-full h-full object-cover filter hue-rotate-180">
+                    </div>
+                    <h3 class="text-lg font-bold text-slate-800">Hoàng Phan</h3>
+                    <p class="text-sm font-medium text-primary-600 mb-3">Lead Developer</p>
+                    <p class="text-xs text-slate-500 mb-4">Kỹ sư trưởng chịu trách nhiệm cấu trúc Firebase và tốc độ
+                        phản hồi cực nhanh của hệ thống.</p>
+                    <div class="flex justify-center gap-3 text-slate-400">
+                        <a href="#" class="hover:text-primary-600 transition-colors"><i
+                                class="ph-fill ph-github-logo text-xl"></i></a>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Contact Section -->
+        <div class="bg-slate-900 rounded-3xl overflow-hidden shadow-2xl relative">
+            <!-- decorative bg -->
+            <div class="absolute inset-0 opacity-20"
+                style="background-image: radial-gradient(circle at 10% 10%, rgba(255, 255, 255, 0.4) 0%, transparent 50%);">
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2">
+                <div class="p-10 md:p-16 relative z-10 flex flex-col justify-center">
+                    <h2 class="text-3xl font-bold text-white mb-4">Sẵn sàng đồng hành cùng bạn</h2>
+                    <p class="text-slate-300 mb-8 max-w-md">Bất cứ lúc nào bạn cần hỗ trợ về mượn trả sách, hay hợp tác
+                        sử dụng phần mềm. Hãy liên hệ với chúng tôi.</p>
+
+                    <div class="space-y-6">
+                        <div class="flex items-center gap-4 text-white">
+                            <div
+                                class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <i class="ph-fill ph-map-pin text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400 font-medium tracking-wide">ĐỊA CHỈ</p>
+                                <p class="font-medium">123 Đường Sách, Phường 4, Quận XYZ</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 text-white">
+                            <div
+                                class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <i class="ph-fill ph-envelope-simple text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400 font-medium tracking-wide">EMAIL</p>
+                                <p class="font-medium">contact@libspace.vn</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 text-white">
+                            <div
+                                class="w-12 h-12 bg-white/10 rounded-xl flex items-center justify-center backdrop-blur-sm">
+                                <i class="ph-fill ph-phone text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm text-slate-400 font-medium tracking-wide">HOTLINE</p>
+                                <p class="font-medium">1900.8888</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-800 p-10 md:p-16 flex items-center justify-center relative z-10">
+                    <form class="w-full max-w-md space-y-4">
+                        <h3 class="text-xl font-bold text-white mb-6">Gửi tin nhắn</h3>
+                        <div>
+                            <input type="text" placeholder="Tên của bạn *"
+                                class="w-full bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 focus:outline-none focus:border-primary-500 transition-colors">
+                        </div>
+                        <div>
+                            <input type="email" placeholder="Email liên hệ *"
+                                class="w-full bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 focus:outline-none focus:border-primary-500 transition-colors">
+                        </div>
+                        <div>
+                            <textarea placeholder="Nội dung cần hỗ trợ..." rows="4"
+                                class="w-full bg-slate-900/50 border border-slate-700 text-white placeholder-slate-500 rounded-xl px-4 py-3 focus:outline-none focus:border-primary-500 transition-colors resize-none"></textarea>
+                        </div>
+                        <button type="button"
+                            class="w-full bg-primary-600 hover:bg-primary-700 text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-primary-500/30">
+                            Gửi Yêu Cầu
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 mt-auto">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div class="md:flex md:items-center md:justify-between">
+                <div class="flex justify-center md:justify-start items-center gap-2 mb-6 md:mb-0">
+                    <div class="w-8 h-8 bg-slate-800 rounded-lg flex items-center justify-center">
+                        <i class="ph-fill ph-books text-white text-lg"></i>
+                    </div>
+                    <span class="text-lg font-bold text-slate-800">LibSpace Library</span>
+                </div>
+            </div>
+            <div
+                class="mt-8 border-t border-slate-100 pt-8 flex flex-col md:flex-row justify-between items-center text-sm text-slate-500">
+                <p>&copy; 2026 LibSpace. Nền tảng Thư viện Số hiện đại.</p>
+                
+            </div>
+        </div>
+    </footer>
+
+    <!-- Firebase Auth Logic -->
+    <script type="module" src="../assets/js/auth.js"></script>
+</body>
+
+</html>
