@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace Admin - Quản lý tài chính</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } } } } }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+    <div class="flex h-screen w-full">
+        <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
+            <div class="h-16 flex items-center px-6 border-b border-slate-800">
+                <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
+                <h1 class="text-white font-bold text-xl tracking-tight">Lib<span class="text-primary-500">Admin</span></h1>
+            </div>
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý chung</p>
+                <a href="admin.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-squares-four text-xl mr-3"></i>Bảng điều khiển</a>
+                <a href="books.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-book-open text-xl mr-3"></i>Quản lý Sách</a>
+                <a href="categories.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-bookmarks text-xl mr-3"></i>Quản lý Thể loại</a>
+                <a href="readers.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-users text-xl mr-3"></i>Quản lý Độc giả</a>
+                <a href="loans.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-arrows-left-right text-xl mr-3"></i>Mượn/Trả</a>
+
+                <a href="finance.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-primary-600 text-white shadow-md shadow-primary-500/20"><i class="ph ph-currency-circle-dollar text-xl mr-3"></i>Quản lý Tài chính</a>
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ thống</p>
+                <a href="reports.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-chart-bar text-xl mr-3"></i>Báo cáo</a>
+                <a href="settings.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-gear text-xl mr-3"></i>Cài đặt</a>
+            </div>
+            <div class="p-4 border-t border-slate-800">
+                <button id="adminLogoutBtn" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800">
+                    <i class="ph ph-sign-out"></i> Đăng xuất
+                </button>
+            </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-screen overflow-hidden">
+            <header class="h-16 bg-white border-b border-slate-200 flex items-center px-6 shrink-0">
+                <div class="w-full flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                    <div class="relative w-full max-w-xl">
+                        <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input id="financeSearchInput" type="text" placeholder="Tìm theo tên độc giả, mã phiếu, mã nợ..." class="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20" />
+                    </div>
+
+                    <div class="flex flex-wrap items-center gap-2 justify-end">
+                        <label class="text-xs text-slate-500 hidden sm:inline">Khoảng thời gian</label>
+                        <select id="financeRangeSelect" class="text-sm border border-slate-200 rounded-lg px-3 py-2 bg-white">
+                            <option value="today">Hôm nay</option>
+                            <option value="week">Tuần này</option>
+                            <option value="month" selected>Tháng này</option>
+                            <option value="lastMonth">Tháng trước</option>
+                            <option value="year">Năm nay</option>
+                            <option value="all">Toàn bộ</option>
+                            <option value="custom">Tuỳ chọn…</option>
+                        </select>
+                        <div id="financeCustomRange" class="hidden items-center gap-2">
+                            <input id="financeFromInput" type="date" class="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white" />
+                            <span class="text-slate-400">→</span>
+                            <input id="financeToInput" type="date" class="text-sm border border-slate-200 rounded-lg px-2 py-2 bg-white" />
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Quản lý tài chính</h2>
+                    <p class="text-sm text-slate-500 mt-1">Theo dõi nợ chưa thanh toán, xác nhận thu tiền (tiền mặt / chuyển khoản) và lưu biên lai thanh toán.</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                        <div class="w-12 h-12 bg-amber-50 text-amber-700 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-warning-circle text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Chưa thanh toán (theo bộ lọc)</p>
+                            <p id="financeUnpaidTotal" class="text-2xl font-extrabold text-slate-900 mt-1">0 ₫</p>
+                            <p id="financeUnpaidCount" class="text-xs text-slate-500 mt-1">0 khoản</p>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 p-5 rounded-2xl flex items-center gap-4">
+                        <div class="w-12 h-12 bg-emerald-50 text-emerald-700 rounded-full flex items-center justify-center">
+                            <i class="ph-fill ph-check-circle text-2xl"></i>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Đã thanh toán (theo bộ lọc)</p>
+                            <p id="financePaidTotal" class="text-2xl font-extrabold text-slate-900 mt-1">0 ₫</p>
+                            <p id="financePaidCount" class="text-xs text-slate-500 mt-1">0 biên lai</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden">
+                    <div class="px-4 py-3 border-b border-slate-200 flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-2">
+                            <button type="button" data-finance-tab="unpaid" class="px-4 py-2 rounded-lg text-sm font-semibold bg-primary-600 text-white shadow-md">Chưa thanh toán</button>
+                            <button type="button" data-finance-tab="paid" class="px-4 py-2 rounded-lg text-sm font-semibold text-slate-600 hover:bg-slate-50">Đã thanh toán</button>
+                        </div>
+                        <button id="financeRefreshBtn" type="button" class="px-3 py-2 rounded-lg border border-slate-200 text-sm font-semibold text-slate-700 hover:bg-slate-50 inline-flex items-center gap-2">
+                            <i class="ph ph-arrows-clockwise"></i> Tải lại
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full text-sm">
+                            <thead class="bg-slate-50 text-slate-600">
+                                <tr>
+                                    <th class="text-left font-semibold px-6 py-3">Thời gian</th>
+                                    <th class="text-left font-semibold px-6 py-3">Độc giả</th>
+                                    <th class="text-left font-semibold px-6 py-3">Lý do</th>
+                                    <th class="text-right font-semibold px-6 py-3">Số tiền</th>
+                                    <th id="financePaidMethodHeader" class="text-left font-semibold px-6 py-3 hidden">Hình thức</th>
+                                    <th id="financeLastColHeader" class="text-right font-semibold px-6 py-3">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody id="financeTableBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal: Xác nhận thanh toán -->
+    <div id="financePayModal" class="fixed inset-0 z-[100] hidden">
+        <div class="absolute inset-0 bg-slate-900/50 backdrop-blur-sm"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 p-6">
+                <div class="flex items-start justify-between gap-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-900">Xác nhận thanh toán</h3>
+                        <p class="text-sm text-slate-500 mt-1">Ghi nhận biên lai thanh toán và cập nhật trạng thái nợ.</p>
+                    </div>
+                    <button id="financePayCloseBtn" type="button" class="text-slate-400 hover:text-slate-700">
+                        <i class="ph ph-x text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="mt-4 space-y-2 text-sm">
+                    <div class="flex justify-between gap-3">
+                        <span class="text-slate-500">Độc giả</span>
+                        <span id="financePayReader" class="font-semibold text-slate-900 text-right">--</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <span class="text-slate-500">Số tiền</span>
+                        <span id="financePayAmount" class="font-extrabold text-emerald-700 text-right">--</span>
+                    </div>
+                    <div class="flex justify-between gap-3">
+                        <span class="text-slate-500">Nguồn nợ</span>
+                        <span id="financePaySource" class="text-slate-800 text-right">--</span>
+                    </div>
+                </div>
+
+                <form id="financePayForm" class="mt-5 space-y-4">
+                    <input type="hidden" id="financePayKind" value="" />
+                    <input type="hidden" id="financePayFineDocId" value="" />
+                    <input type="hidden" id="financePayBorrowDocId" value="" />
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">Hình thức thanh toán</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="border border-slate-200 rounded-xl px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50">
+                                <input type="radio" name="financePayMethod" value="cash" class="accent-primary-600" checked />
+                                <span class="text-sm font-semibold text-slate-800">Tiền mặt</span>
+                            </label>
+                            <label class="border border-slate-200 rounded-xl px-3 py-2 flex items-center gap-2 cursor-pointer hover:bg-slate-50">
+                                <input type="radio" name="financePayMethod" value="bank_transfer" class="accent-primary-600" />
+                                <span class="text-sm font-semibold text-slate-800">Chuyển khoản</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="financePayNote" class="block text-sm font-medium text-slate-700 mb-1">Ghi chú</label>
+                        <textarea id="financePayNote" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20" placeholder="Ví dụ: mã giao dịch, người thu, thông tin bổ sung..."></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" id="financePayCancelBtn" class="px-4 py-2 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium text-sm">Huỷ</button>
+                        <button type="submit" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm shadow-md">Lưu thanh toán</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="../assets/js/admin-finance.js"></script>
+</body>
+</html>

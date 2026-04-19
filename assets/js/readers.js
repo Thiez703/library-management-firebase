@@ -5,11 +5,16 @@ import {
     onSnapshot,
     addDoc,
     updateDoc,
+    getDoc,
+    getDocs,
+    query,
+    where,
+    writeBatch,
     doc,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { showToast } from './auth.js';
-import { calculateReputationFromMetrics } from './identity.js';
+import { calculateReputationFromMetrics, getBorrowTierByScore } from './identity.js';
 
 const getElem = (id) => document.getElementById(id);
 
@@ -87,16 +92,13 @@ const isBlockedUser = (user = {}) => {
 
 const getTrustRankMeta = (score) => {
     const trust = Math.max(0, Math.min(100, Number(score || 0)));
-    if (trust >= 90) {
-        return { label: 'Xuất sắc', barClass: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700' };
-    }
-    if (trust >= 70) {
-        return { label: 'Tốt', barClass: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-700' };
-    }
-    if (trust >= 50) {
-        return { label: 'Trung bình', barClass: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700' };
-    }
-    return { label: 'Kém', barClass: 'bg-rose-500', badgeClass: 'bg-rose-50 text-rose-700' };
+    const tier = getBorrowTierByScore(trust);
+    if (trust >= 80) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700' };
+    if (trust >= 70) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-700' };
+    if (trust >= 60) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-cyan-500', badgeClass: 'bg-cyan-50 text-cyan-700' };
+    if (trust >= 50) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700' };
+    if (trust >= 40) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-orange-500', badgeClass: 'bg-orange-50 text-orange-700' };
+    return { label: tier.label, barClass: 'bg-rose-500', badgeClass: 'bg-rose-50 text-rose-700' };
 };
 
 const calcTrustScore = (user, metric) => {
@@ -542,6 +544,7 @@ const renderTable = () => {
                 <td class="px-6 py-4 text-right">
                     <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button title="Chi tiết" data-action="view" data-uid="${uid}" class="px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md">Chi tiết</button>
+                        ${metric.unpaidFine > 0 ? `<button title="Xác nhận thanh toán nợ" data-action="settle-debt" data-uid="${uid}" class="px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md">Thu nợ</button>` : ''}
                         <button title="Chỉnh sửa" data-action="edit" data-uid="${uid}" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"><i class="ph ph-pencil-simple text-lg"></i></button>
                         <button title="${metric.isBlocked ? 'Mở khóa' : 'Khóa'} tài khoản" data-action="lock" data-uid="${uid}" class="p-1.5 ${metric.isBlocked ? 'text-emerald-600 hover:bg-emerald-50' : 'text-rose-600 hover:bg-rose-50'} rounded-md"><i class="ph ph-${metric.isBlocked ? 'lock-open' : 'lock'} text-lg"></i></button>
                     </div>
@@ -560,6 +563,7 @@ const renderTable = () => {
             if (action === 'view') openReaderDetail(uid, readerItem.data);
             if (action === 'edit') openReaderEdit(uid, readerItem.data);
             if (action === 'lock') toggleLockReader(uid);
+            if (action === 'settle-debt') settleReaderDebt(uid);
         });
     });
 
@@ -777,18 +781,123 @@ const toggleLockReader = async (uid) => {
     const currentlyBlocked = isBlockedUser(readerItem.data);
     const nextBlocked = !currentlyBlocked;
     const actionLabel = nextBlocked ? 'khóa' : 'mở khóa';
+    let nextStatus = nextBlocked ? 'locked' : 'active';
+
+    if (nextBlocked) {
+        const shouldBanForever = window.confirm('Bạn có muốn khóa vĩnh viễn tài khoản này không?\nChọn OK để khóa vĩnh viễn, Cancel để chỉ khóa tạm.');
+        if (shouldBanForever) nextStatus = 'banned';
+    }
 
     try {
         await updateDoc(doc(db, 'users', uid), {
-            status: nextBlocked ? 'locked' : 'active',
+            status: nextStatus,
             isBlocked: nextBlocked,
             updatedAt: serverTimestamp()
         });
 
-        showToast(`Đã ${actionLabel} tài khoản thành công.`, 'success');
+        const msg = nextStatus === 'banned'
+            ? 'Đã khóa vĩnh viễn tài khoản thành công.'
+            : `Đã ${actionLabel} tài khoản thành công.`;
+        showToast(msg, 'success');
         getElem('readerDetailModal')?.classList.add('hidden');
     } catch (error) {
         showToast(error?.message || `Không thể ${actionLabel} tài khoản.`, 'error');
+    }
+};
+
+const settleReaderDebt = async (uid) => {
+    if (!uid) return;
+    const confirmed = window.confirm('Xác nhận đã thu đủ khoản nợ phạt của độc giả này?');
+    if (!confirmed) return;
+
+    try {
+        const [unpaidSnap, borrowSnap, allFineSnap] = await Promise.all([
+            getDocs(
+                query(
+                    collection(db, 'fines'),
+                    where('userId', '==', uid),
+                    where('status', '==', 'unpaid')
+                )
+            ),
+            getDocs(
+                query(
+                    collection(db, 'borrowRecords'),
+                    where('userId', '==', uid)
+                )
+            ),
+            getDocs(
+                query(
+                    collection(db, 'fines'),
+                    where('userId', '==', uid)
+                )
+            )
+        ]);
+
+        const fineRecordIdSet = new Set(
+            allFineSnap.docs
+                .map((snap) => (snap.data()?.recordId || '').toString().trim())
+                .filter(Boolean)
+        );
+
+        const legacyDebtRecords = borrowSnap.docs.filter((snap) => {
+            const data = snap.data() || {};
+            const legacyDebt = Number(data.fineOverdue || 0) + Number(data.fineDamage || 0);
+            if (legacyDebt <= 0) return false;
+            const recordId = (data.recordId || '').toString().trim();
+            // Chỉ xử lý debt legacy chưa có phiếu fines tương ứng
+            return !recordId || !fineRecordIdSet.has(recordId);
+        });
+
+        if (unpaidSnap.empty && legacyDebtRecords.length === 0) {
+            showToast('Độc giả hiện không có khoản nợ chưa thanh toán.', 'info');
+            return;
+        }
+
+        const batch = writeBatch(db);
+        unpaidSnap.docs.forEach((snap) => {
+            batch.update(snap.ref, {
+                status: 'paid',
+                paidAt: serverTimestamp()
+            });
+        });
+        legacyDebtRecords.forEach((snap) => {
+            batch.update(snap.ref, {
+                fineOverdue: 0,
+                fineDamage: 0,
+                updatedAt: serverTimestamp()
+            });
+        });
+        await batch.commit();
+
+        // Sau commit, kiểm tra lại còn nợ không để quyết định mở khóa.
+        const unpaidAfterSnap = await getDocs(
+            query(
+                collection(db, 'fines'),
+                where('userId', '==', uid),
+                where('status', '==', 'unpaid')
+            )
+        );
+
+        const userRef = doc(db, 'users', uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data() || {};
+        const status = (userData.status || '').toString().toLowerCase();
+        const score = typeof userData.reputationScore === 'number'
+            ? userData.reputationScore
+            : (typeof userData.trustScore === 'number' ? userData.trustScore : 100);
+        const isPermanentBlocked = ['banned', 'permanent_ban', 'permanently_banned'].includes(status);
+        if (!isPermanentBlocked && score >= 40 && unpaidAfterSnap.empty) {
+            await updateDoc(userRef, {
+                status: 'active',
+                isBlocked: false,
+                updatedAt: serverTimestamp()
+            });
+        }
+
+        const totalHandled = unpaidSnap.size + legacyDebtRecords.length;
+        showToast(`Đã xử lý ${totalHandled} khoản nợ (${unpaidSnap.size} phiếu phạt + ${legacyDebtRecords.length} nợ legacy).`, 'success');
+    } catch (error) {
+        showToast(error?.message || 'Không thể xác nhận thanh toán nợ.', 'error');
     }
 };
 

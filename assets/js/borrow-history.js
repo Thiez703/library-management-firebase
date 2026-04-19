@@ -1,8 +1,8 @@
 import { auth, db } from './firebase-config.js';
 import { doc, getDoc, collection, query, where, getDocs, orderBy } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
-import { cleanupLegacyBorrowRecords, getTicketStatusView, subscribeUserTickets } from './borrow.js';
-import { signOutUser } from './auth.js';
+import { cancelPendingTicket, cleanupLegacyBorrowRecords, getTicketStatusView, subscribeUserTickets, updatePendingTicket } from './borrow.js';
+import { showToast, signOutUser } from './auth.js';
 
 const escapeHtml = (v = '') => String(v)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -22,7 +22,12 @@ let unsubscribeAuth = null;
 const historyState = {
     activeTab: 'borrowing', // borrowing, returned, issues, fines
     tickets: [],
-    fines: []
+    fines: [],
+    currentUserId: '',
+    editingTicketId: '',
+    editSelectedBooks: [],
+    editBookCatalog: [],
+    editActiveBookId: ''
 };
 
 const toMillis = (tsLike) => {
@@ -68,7 +73,8 @@ const renderUserProfile = (user, userData) => {
 const getTicketBucket = (ticket) => {
     const view = getTicketStatusView(ticket);
     if (ticket?.status === 'returned') return 'returned';
-    if (ticket?.status === 'pending' || view === 'overdue') return 'issues';
+    if (view === 'overdue') return 'issues';
+    if (ticket?.status === 'pending') return 'borrowing';
     if (view === 'borrowing') return 'borrowing';
     return 'others';
 };
@@ -236,6 +242,115 @@ const statusBadge = (ticket) => {
     return '<span class="px-2 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">Đã huỷ</span>';
 };
 
+const getEditTotalQty = () => historyState.editSelectedBooks.reduce((sum, item) => sum + Math.max(1, Number(item?.quantity || 1)), 0);
+
+const closeEditModal = () => {
+    document.getElementById('editPendingTicketModal')?.classList.add('hidden');
+    document.getElementById('editPendingBookDropdown')?.classList.add('hidden');
+    historyState.editingTicketId = '';
+    historyState.editSelectedBooks = [];
+    historyState.editBookCatalog = [];
+    historyState.editActiveBookId = '';
+    const input = document.getElementById('editPendingBookSearchInput');
+    if (input) input.value = '';
+};
+
+const renderEditSelectedBooks = () => {
+    const list = document.getElementById('editPendingSelectedBooksList');
+    const totalText = document.getElementById('editPendingTotalQtyText');
+    if (!list) return;
+
+    const totalQty = getEditTotalQty();
+    if (totalText) totalText.textContent = `Tổng số cuốn: ${totalQty}/5`;
+
+    if (!historyState.editSelectedBooks.length) {
+        list.innerHTML = '<p class="text-sm text-slate-500">Chưa có sách nào trong phiếu.</p>';
+        return;
+    }
+
+    list.innerHTML = historyState.editSelectedBooks.map((item, idx) => {
+        const title = item.title || 'Sách không rõ';
+        return `
+            <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p class="text-sm text-slate-700 truncate">${idx + 1}. ${escapeHtml(title)}</p>
+                <div class="flex items-center gap-1">
+                    <button type="button" data-edit-decrease="${item.bookId}" class="w-8 h-8 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100">-</button>
+                    <span class="w-8 text-center text-sm font-semibold text-slate-700">${Math.max(1, Number(item.quantity || 1))}</span>
+                    <button type="button" data-edit-increase="${item.bookId}" class="w-8 h-8 rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100">+</button>
+                    <button type="button" data-edit-remove="${item.bookId}" class="px-2.5 py-1.5 text-rose-600 hover:bg-rose-50 rounded-md text-sm font-medium">
+                        <i class="ph ph-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+};
+
+const getFilteredEditBooks = (keyword = '') => {
+    const kw = (keyword || '').toLowerCase().trim();
+    const rows = kw
+        ? historyState.editBookCatalog.filter((b) => (b.title || '').toLowerCase().includes(kw))
+        : historyState.editBookCatalog;
+    return rows.slice(0, 80);
+};
+
+const renderEditBookDropdown = (keyword = '') => {
+    const dropdown = document.getElementById('editPendingBookDropdown');
+    if (!dropdown) return;
+    const rows = getFilteredEditBooks(keyword);
+    if (!rows.length) {
+        dropdown.innerHTML = '<div class="px-3 py-2 text-sm text-slate-500">Không tìm thấy sách phù hợp.</div>';
+        dropdown.classList.remove('hidden');
+        return;
+    }
+
+    dropdown.innerHTML = rows.map((b) => `
+        <button type="button" data-edit-book-id="${b.id}" class="w-full text-left px-3 py-2 hover:bg-slate-50 border-b border-slate-100 last:border-b-0">
+            <span class="text-sm font-medium text-slate-700">${escapeHtml(b.title || 'Không rõ')}</span>
+            <span class="text-xs text-slate-500 ml-1">(${Number(b.available || 0)})</span>
+        </button>
+    `).join('');
+    dropdown.classList.remove('hidden');
+};
+
+const openEditModal = async (ticket) => {
+    if (!ticket?.id) return;
+    historyState.editingTicketId = ticket.id;
+    historyState.editSelectedBooks = (Array.isArray(ticket.books) ? ticket.books : []).map((item) => ({
+        bookId: item.bookId,
+        title: item.title || 'Không rõ',
+        quantity: Math.max(1, Number(item.quantity || 1))
+    })).filter((item) => item.bookId);
+    historyState.editActiveBookId = '';
+
+    const booksSnap = await getDocs(collection(db, 'books'));
+    const catalog = [];
+    booksSnap.forEach((docSnap) => {
+        const data = docSnap.data() || {};
+        catalog.push({
+            id: docSnap.id,
+            title: data.title || 'Không rõ',
+            available: Number(data.availableQuantity || 0)
+        });
+    });
+
+    // Keep selected books visible even when currently out-of-stock.
+    const selectedMap = new Map(historyState.editSelectedBooks.map((x) => [x.bookId, x.title]));
+    selectedMap.forEach((title, id) => {
+        if (!catalog.some((c) => c.id === id)) {
+            catalog.push({ id, title, available: 0 });
+        }
+    });
+
+    catalog.sort((a, b) => (a.title || '').localeCompare((b.title || ''), 'vi'));
+    historyState.editBookCatalog = catalog;
+
+    const input = document.getElementById('editPendingBookSearchInput');
+    if (input) input.value = '';
+    renderEditSelectedBooks();
+    document.getElementById('editPendingTicketModal')?.classList.remove('hidden');
+};
+
 const renderSkeleton = () => {
     const list = document.querySelector('[data-mock-books="borrow-history-list"]');
     const empty = document.getElementById('borrow-history-empty');
@@ -318,9 +433,205 @@ const renderTickets = (tickets) => {
                     <p class="text-xs text-slate-500 mb-1">Danh sách sách</p>
                     <ul class="list-disc pl-5 text-sm text-slate-700 space-y-1">${bookLines}${remain}</ul>
                 </div>
+
+                ${ticket.status === 'pending' ? `
+                    <div class="pt-3 border-t border-slate-100 flex justify-end gap-2">
+                        <button data-edit-ticket="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold rounded-lg border border-primary-200 text-primary-600 hover:bg-primary-50">
+                            <i class="ph ph-pencil-simple mr-1"></i> Chỉnh sửa phiếu
+                        </button>
+                        <button data-cancel-ticket="${ticket.id}" class="px-3.5 py-2 text-sm font-semibold rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50">
+                            <i class="ph ph-x-circle mr-1"></i> Huỷ phiếu
+                        </button>
+                    </div>
+                ` : ''}
             </div>
         `;
     }).join('');
+};
+
+const bindTicketActions = () => {
+    const list = document.querySelector('[data-mock-books="borrow-history-list"]');
+    if (!list || list.dataset.bound === '1') return;
+    list.dataset.bound = '1';
+
+    list.addEventListener('click', async (event) => {
+        const cancelBtn = event.target.closest('[data-cancel-ticket]');
+        const editBtn = event.target.closest('[data-edit-ticket]');
+
+        if (editBtn) {
+            const ticketId = editBtn.getAttribute('data-edit-ticket');
+            const ticket = historyState.tickets.find((t) => t.id === ticketId);
+            if (!ticket || ticket.status !== 'pending') return;
+            try {
+                await openEditModal(ticket);
+            } catch (err) {
+                showToast(err.message || 'Không thể mở màn hình chỉnh sửa phiếu.', 'error');
+            }
+            return;
+        }
+
+        if (!cancelBtn) return;
+        const ticketId = cancelBtn.getAttribute('data-cancel-ticket');
+        if (!ticketId || !historyState.currentUserId) return;
+
+        const confirmed = window.confirm('Bạn chắc chắn muốn huỷ phiếu mượn này?');
+        if (!confirmed) return;
+
+        cancelBtn.setAttribute('disabled', 'disabled');
+        try {
+            await cancelPendingTicket(ticketId, historyState.currentUserId);
+            showToast('Đã huỷ phiếu mượn thành công.', 'success');
+        } catch (err) {
+            showToast(err.message || 'Không thể huỷ phiếu mượn.', 'error');
+        } finally {
+            cancelBtn.removeAttribute('disabled');
+        }
+    });
+};
+
+const bindEditPendingModalActions = () => {
+    const modal = document.getElementById('editPendingTicketModal');
+    const closeBtn = document.getElementById('closeEditPendingTicketModalBtn');
+    const cancelBtn = document.getElementById('cancelEditPendingTicketBtn');
+    const saveBtn = document.getElementById('saveEditPendingTicketBtn');
+    const searchInput = document.getElementById('editPendingBookSearchInput');
+    const dropdown = document.getElementById('editPendingBookDropdown');
+    const addBtn = document.getElementById('editPendingAddBookBtn');
+    const selectedList = document.getElementById('editPendingSelectedBooksList');
+
+    if (!modal || modal.dataset.bound === '1') return;
+    modal.dataset.bound = '1';
+
+    const close = () => closeEditModal();
+
+    closeBtn?.addEventListener('click', close);
+    cancelBtn?.addEventListener('click', close);
+
+    searchInput?.addEventListener('focus', () => renderEditBookDropdown(searchInput.value || ''));
+    searchInput?.addEventListener('input', () => {
+        historyState.editActiveBookId = '';
+        renderEditBookDropdown(searchInput.value || '');
+    });
+
+    searchInput?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const firstRow = getFilteredEditBooks(searchInput.value || '')[0];
+            if (firstRow) {
+                historyState.editActiveBookId = firstRow.id;
+                searchInput.value = firstRow.title;
+                dropdown?.classList.add('hidden');
+            }
+        }
+    });
+
+    dropdown?.addEventListener('click', (event) => {
+        const row = event.target.closest('[data-edit-book-id]');
+        if (!row) return;
+        const bookId = row.getAttribute('data-edit-book-id') || '';
+        const selected = historyState.editBookCatalog.find((b) => b.id === bookId);
+        historyState.editActiveBookId = bookId;
+        if (searchInput) searchInput.value = selected?.title || '';
+        dropdown.classList.add('hidden');
+    });
+
+    addBtn?.addEventListener('click', () => {
+        if (!historyState.editActiveBookId) {
+            showToast('Vui lòng chọn sách từ danh sách gợi ý.', 'error');
+            return;
+        }
+
+        const total = getEditTotalQty();
+        if (total >= 5) {
+            showToast('Tối đa 5 cuốn mỗi phiếu.', 'error');
+            return;
+        }
+
+        const existing = historyState.editSelectedBooks.find((x) => x.bookId === historyState.editActiveBookId);
+        if (existing) {
+            existing.quantity = Math.min(5, Number(existing.quantity || 1) + 1);
+        } else {
+            const book = historyState.editBookCatalog.find((x) => x.id === historyState.editActiveBookId);
+            historyState.editSelectedBooks.push({
+                bookId: historyState.editActiveBookId,
+                title: book?.title || 'Không rõ',
+                quantity: 1
+            });
+        }
+
+        historyState.editActiveBookId = '';
+        if (searchInput) searchInput.value = '';
+        renderEditSelectedBooks();
+    });
+
+    selectedList?.addEventListener('click', (event) => {
+        const decBtn = event.target.closest('[data-edit-decrease]');
+        const incBtn = event.target.closest('[data-edit-increase]');
+        const removeBtn = event.target.closest('[data-edit-remove]');
+        const btn = decBtn || incBtn || removeBtn;
+        if (!btn) return;
+
+        const bookId = btn.getAttribute('data-edit-decrease')
+            || btn.getAttribute('data-edit-increase')
+            || btn.getAttribute('data-edit-remove')
+            || '';
+        if (!bookId) return;
+
+        const idx = historyState.editSelectedBooks.findIndex((x) => x.bookId === bookId);
+        if (idx < 0) return;
+
+        if (removeBtn) {
+            historyState.editSelectedBooks.splice(idx, 1);
+            renderEditSelectedBooks();
+            return;
+        }
+
+        if (decBtn) {
+            historyState.editSelectedBooks[idx].quantity = Math.max(1, Number(historyState.editSelectedBooks[idx].quantity || 1) - 1);
+            renderEditSelectedBooks();
+            return;
+        }
+
+        const total = getEditTotalQty();
+        if (total >= 5) {
+            showToast('Tối đa 5 cuốn mỗi phiếu.', 'error');
+            return;
+        }
+        historyState.editSelectedBooks[idx].quantity = Math.min(5, Number(historyState.editSelectedBooks[idx].quantity || 1) + 1);
+        renderEditSelectedBooks();
+    });
+
+    saveBtn?.addEventListener('click', async () => {
+        if (!historyState.editingTicketId || !historyState.currentUserId) return;
+        if (!historyState.editSelectedBooks.length) {
+            showToast('Phiếu mượn phải có ít nhất một cuốn sách.', 'error');
+            return;
+        }
+
+        saveBtn.setAttribute('disabled', 'disabled');
+        try {
+            await updatePendingTicket(
+                historyState.editingTicketId,
+                historyState.currentUserId,
+                historyState.editSelectedBooks.map((item) => ({ bookId: item.bookId, quantity: item.quantity }))
+            );
+            showToast('Đã cập nhật phiếu mượn thành công.', 'success');
+            closeEditModal();
+        } catch (err) {
+            showToast(err.message || 'Không thể cập nhật phiếu mượn.', 'error');
+        } finally {
+            saveBtn.removeAttribute('disabled');
+        }
+    });
+
+    document.addEventListener('click', (event) => {
+        if (modal.classList.contains('hidden')) return;
+        const target = event.target;
+        if (!(target instanceof Element)) return;
+        if (!target.closest('#editPendingBookSearchInput') && !target.closest('#editPendingBookDropdown')) {
+            dropdown?.classList.add('hidden');
+        }
+    });
 };
 
 const renderFinesList = () => {
@@ -446,15 +757,20 @@ const initBorrowHistory = async () => {
 
     bindTabs();
     bindSidebarActions();
+    bindTicketActions();
+    bindEditPendingModalActions();
     setActiveTab('borrowing');
     historyState.tickets = [];
 
     unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
         if (!user) {
+            historyState.currentUserId = '';
             renderUserProfile(null, null);
             renderTickets([]);
             return;
         }
+
+        historyState.currentUserId = user.uid;
 
         const userDoc = await getDoc(doc(db, 'users', user.uid));
         renderUserProfile(user, userDoc.exists() ? userDoc.data() : null);

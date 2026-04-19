@@ -7,6 +7,7 @@ import { showToast as notifyToast, showConfirm } from './notify.js';
 const googleProvider = new GoogleAuthProvider();
 const getAuthSlot = () => document.querySelector('[data-auth-slot]');
 const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
+const isAccountLoginBlocked = (status) => ['banned', 'permanent_ban', 'permanently_banned'].includes((status || '').toString().toLowerCase());
 
 // --- LOGIC THANH ĐIỀU HƯỚNG (NAVBAR) ---
 const applyMainNavActiveState = () => {
@@ -131,6 +132,11 @@ export const signInWithGoogle = async () => {
         let userData;
         if (userDoc.exists()) {
             userData = userDoc.data();
+            if (isAccountLoginBlocked(userData?.status)) {
+                await signOut(auth);
+                showToast('Tài khoản đã bị khóa vĩnh viễn do vi phạm nghiêm trọng.', 'error');
+                return;
+            }
         } else {
             userData = {
                 email: result.user.email,
@@ -162,6 +168,11 @@ export const signIn = async (email, password) => {
         const userDoc = await getDoc(doc(db, "users", res.user.uid));
         if (userDoc.exists()) {
             const userData = userDoc.data();
+            if (isAccountLoginBlocked(userData?.status)) {
+                await signOut(auth);
+                showToast('Tài khoản đã bị khóa vĩnh viễn do vi phạm nghiêm trọng.', 'error');
+                return;
+            }
             saveUserCache(res.user, userData);
             showToast('Đăng nhập thành công! ✨');
             setTimeout(() => {
