@@ -36,7 +36,8 @@ const formatDate = (ts) => {
 const daysFromNow = (ts) => {
     const ms = toMillis(ts);
     if (!ms) return null;
-    return Math.ceil((ms - Date.now()) / 86400000);
+    // BIZ-13: Dùng floor để tránh hiển thị "quá hạn" khi vẫn còn vài giờ trong ngày
+    return Math.floor((ms - Date.now()) / 86400000);
 };
 
 // ─── Phân loại phiếu thành thông báo ─────────────────────────────────────────

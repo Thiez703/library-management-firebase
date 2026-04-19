@@ -8,6 +8,7 @@ import {
     doc,
     addDoc,
     deleteDoc,
+    getDoc,
     getDocs,
     onSnapshot,
     query,
@@ -23,13 +24,42 @@ export const MAX_BOOKS_PER_TICKET = 5;
 export const ONE_ACTIVE_TICKET_ONLY = true;
 export const RESERVE_EXPIRY_HOURS = 24;
 export const BORROW_DURATION_DAYS = 14;
-export const FINE_PER_DAY = 5000; // Để tương thích API cũ
+export const MAX_EXTENSIONS = 3; // BIZ-07: Tối đa 3 lần gia hạn mỗi phiếu
 
-export const calculateFineAmount = (daysLate) => {
+export const calculateFineAmount = (daysLate, schedule) => {
     if (daysLate <= 0) return 0;
+    const tiers = schedule?.lateFees;
+    if (tiers && tiers.length > 0) {
+        for (const tier of tiers) {
+            if (tier.maxDays === null || daysLate <= tier.maxDays) {
+                return daysLate * (tier.ratePerDay || 0);
+            }
+        }
+        return daysLate * (tiers[tiers.length - 1].ratePerDay || 0);
+    }
+    // Fallback to hardcoded tiers
     if (daysLate <= 7) return daysLate * 1000;
     if (daysLate <= 30) return daysLate * 2000;
     return daysLate * 5000;
+};
+
+let _feeScheduleCache = null;
+let _feeScheduleCacheMs = 0;
+const FEE_SCHEDULE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+export const getActiveFeeSchedule = async () => {
+    const now = Date.now();
+    if (_feeScheduleCache && now - _feeScheduleCacheMs < FEE_SCHEDULE_TTL_MS) {
+        return _feeScheduleCache;
+    }
+    try {
+        const snap = await getDoc(doc(db, 'system', 'feeSchedule'));
+        _feeScheduleCache = snap.exists() ? snap.data() : null;
+        _feeScheduleCacheMs = now;
+    } catch {
+        // Network error — use stale cache or null
+    }
+    return _feeScheduleCache;
 };
 
 const BORROW_COLLECTION = 'borrowRecords';
@@ -280,6 +310,7 @@ export const handleCheckout = async (userData, cartItems) => {
 
         await runTransaction(db, async (transaction) => {
             const bookRefs = books.map((item) => doc(db, 'books', item.bookId));
+            // BIZ-12: Đọc tất cả docs trong transaction — Firestore tự retry khi conflict
             const bookSnaps = await Promise.all(bookRefs.map((ref) => transaction.get(ref)));
 
             for (let i = 0; i < bookSnaps.length; i++) {
@@ -339,8 +370,10 @@ export const handleCheckout = async (userData, cartItems) => {
     }
 };
 
-export const approveTicket = async (recordDocId, initialNote = '') => {
+// BIZ-09: Nhận borrowDurationDays từ caller để đọc từ settings thay vì hardcode
+export const approveTicket = async (recordDocId, initialNote = '', borrowDurationDays = BORROW_DURATION_DAYS) => {
     if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
+    const duration = Math.max(1, Math.min(365, Number(borrowDurationDays) || BORROW_DURATION_DAYS));
 
     await runTransaction(db, async (transaction) => {
         const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
@@ -353,7 +386,7 @@ export const approveTicket = async (recordDocId, initialNote = '') => {
         }
 
         const dueDate = new Date();
-        dueDate.setDate(dueDate.getDate() + BORROW_DURATION_DAYS);
+        dueDate.setDate(dueDate.getDate() + duration);
         const dueDateStr = dueDate.toLocaleDateString('vi-VN');
 
         transaction.update(recordRef, {
@@ -380,6 +413,8 @@ export const approveTicket = async (recordDocId, initialNote = '') => {
 export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') => {
     if (!recordDocId) throw new Error('Thiếu mã tài liệu phiếu mượn.');
 
+    const feeSchedule = await getActiveFeeSchedule();
+
     await runTransaction(db, async (transaction) => {
         const recordRef = doc(db, BORROW_COLLECTION, recordDocId);
         const recordSnap = await transaction.get(recordRef);
@@ -397,7 +432,7 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
         let daysLate = 0;
         if (dueMs && nowMs > dueMs) {
             daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
-            fineOverdue = calculateFineAmount(daysLate); // BIZ-01
+            fineOverdue = calculateFineAmount(daysLate, feeSchedule); // BIZ-01: uses dynamic schedule
         }
 
         // === READ PHASE: Đọc tất cả documents trước ===
@@ -439,10 +474,10 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             updatedAt: serverTimestamp()
         });
 
-        // BIZ-02: Nếu có vi phạm, sinh ra phiếu phạt với tổng tiền thực tế
+        // BIZ-02: Dùng ID cố định = recordDocId để idempotent khi retry
         const totalFine = normalizeMoney(fineOverdue + damageFee);
         if (totalFine > 0) {
-            const fineRef = doc(collection(db, 'fines'));
+            const fineRef = doc(db, 'fines', recordDocId);
             transaction.set(fineRef, {
                 fineId: `F-${generateRecordId().replace('LIB-', '')}`,
                 recordId: record.recordId || recordDocId,
@@ -496,14 +531,22 @@ export const extendTicket = async (recordDocId, extraDays = 7, note = '') => {
             throw new Error('Chỉ có thể gia hạn phiếu đang ở trạng thái đang mượn.');
         }
 
-        // Tính hạn trả mới: lấy từ dueDate hiện tại (hoặc hôm nay nếu đã quá hạn)
-        const baseDateMs = Math.max(toMillis(record.dueDate) || Date.now(), Date.now());
+        // BIZ-07: Kiểm tra giới hạn số lần gia hạn
+        const currentExtensions = Number(record.extensionCount || 0);
+        if (currentExtensions >= MAX_EXTENSIONS) {
+            throw new Error(`Phiếu này đã gia hạn ${MAX_EXTENSIONS} lần, không thể gia hạn thêm.`);
+        }
+
+        // BIZ-04: Luôn tính từ dueDate gốc để đúng nghiệp vụ gia hạn
+        // (gia hạn 7 ngày từ hạn trả, không phải từ hôm nay)
+        const baseDateMs = toMillis(record.dueDate) || Date.now();
         const newDueDate = new Date(baseDateMs);
         newDueDate.setDate(newDueDate.getDate() + days);
 
         transaction.update(recordRef, {
             dueDate: Timestamp.fromDate(newDueDate),
-            adminNote: (note || '').trim() || `Gia hạn thêm ${days} ngày.`,
+            extensionCount: currentExtensions + 1,
+            adminNote: (note || '').trim() || `Gia hạn thêm ${days} ngày (lần ${currentExtensions + 1}/${MAX_EXTENSIONS}).`,
             updatedAt: serverTimestamp()
         });
     });

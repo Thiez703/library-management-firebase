@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(grep -l \"script\" D:/ThiezDuAn/library-management-firebase/user/*.html)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Bash(grep -E \"\\\\.\\(html|json|js\\)$\")",
+      "Bash(npm install *)"
     ]
   }
 }

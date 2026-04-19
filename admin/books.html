@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LibSpace Admin - Quản lý sách</title>
+    <title>LibSpace Admin - Quản lý sách & Thể loại</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -18,12 +18,15 @@
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .cat-item.active { background: #eff6ff; border-left: 3px solid #2563eb; }
+        .cat-item.active .cat-name { color: #1d4ed8; font-weight: 600; }
+        .cat-item:not(.active) { border-left: 3px solid transparent; }
     </style>
 </head>
 
 <body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
     <div class="flex h-screen w-full">
-        <!-- SIDEBAR -->
+        <!-- SIDEBAR NAV -->
         <aside class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0">
             <div class="h-16 flex items-center px-6 border-b border-slate-800">
                 <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
@@ -35,10 +38,7 @@
                     <i class="ph ph-squares-four text-xl mr-3 group-hover:text-primary-400"></i> Bảng điều khiển
                 </a>
                 <a href="books.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg bg-primary-600 text-white shadow-md shadow-primary-500/20 group transition-all">
-                    <i class="ph ph-book-open text-xl mr-3"></i> Quản lý Sách
-                </a>
-                <a href="categories.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
-                    <i class="ph ph-bookmarks text-xl mr-3 group-hover:text-primary-400"></i> Quản lý Thể loại
+                    <i class="ph ph-book-open text-xl mr-3"></i> Sách & Thể loại
                 </a>
                 <a href="readers.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
                     <i class="ph ph-users text-xl mr-3 group-hover:text-primary-400"></i> Quản lý Độc giả
@@ -46,6 +46,11 @@
                 <a href="loans.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
                     <i class="ph ph-arrows-left-right text-xl mr-3 group-hover:text-primary-400"></i> Mượn/Trả
                 </a>
+                <a href="fines.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-receipt text-xl mr-3"></i>Quản lý Phạt</a>
+                <a href="finance.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-currency-circle-dollar text-xl mr-3"></i>Tài chính & Biểu phí</a>
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ thống</p>
+                <a href="reports.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-chart-bar text-xl mr-3"></i>Báo cáo</a>
+                <a href="settings.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800"><i class="ph ph-gear text-xl mr-3"></i>Cài đặt</a>
                 <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Thoát</p>
                 <a href="../user/index.html" class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
                     <i class="ph ph-house text-xl mr-3 text-emerald-400 group-hover:text-emerald-300"></i> Trang Người dùng
@@ -86,106 +91,188 @@
 
         <!-- MAIN -->
         <main class="flex-1 flex flex-col h-screen overflow-hidden">
-            <header class="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
-                <div class="flex-1 max-w-md">
-                    <input type="text" id="adminBookSearchInput" class="block w-full px-4 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20" placeholder="Tìm kiếm nhanh...">
+            <!-- Top header -->
+            <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+                <div>
+                    <h2 class="text-base font-bold text-slate-800">Quản lý Sách & Thể loại</h2>
                 </div>
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-3">
                     <img src="../assets/images/admin_avatar.png" alt="Avatar" class="w-8 h-8 rounded-full border border-slate-200" onerror="this.src='https://i.pravatar.cc/150?img=11'">
                 </div>
             </header>
 
-            <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6 relative animate-fade-in">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-                    <div>
-                        <h2 class="text-xl font-bold text-slate-800">Quản lý Kho Sách</h2>
-                        <p class="text-xs text-slate-500 mt-0.5">Tổng: <strong id="total-summary">...</strong> cuốn</p>
-                    </div>
-                    <button id="btn-open-book-modal" class="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all active:scale-95">
-                        <i class="ph-bold ph-plus text-lg"></i> Thêm Sách Mới
-                    </button>
-                </div>
-
-                <!-- Table -->
-                <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-left whitespace-nowrap">
-                            <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold tracking-wider">
-                                <tr>
-                                    <th class="px-3 py-2">Bìa</th>
-                                    <th class="px-3 py-2">Tên Sách</th>
-                                    <th class="px-3 py-2">Tác Giả</th>
-                                    <th class="px-3 py-2">Nhà Xuất Bản</th>
-                                    <th class="px-3 py-2">Thể Loại</th>
-                                    <th class="px-3 py-2 text-center">Số Lượng</th>
-                                    <th class="px-3 py-2 text-center">Còn Lại</th>
-                                    <th class="px-3 py-2">Trạng Thái</th>
-                                    <th class="px-1.5 py-2 text-right">Thao Tác</th>
-                                </tr>
-                            </thead>
-                            <tbody id="books-table-body" class="divide-y divide-slate-100 text-sm">
-                                <!-- JS render -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- Footer -->
-                    <div class="px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50/50 text-xs">
-                        <div id="pagination-info" class="text-slate-600 font-medium">Đang tải...</div>
-                        <div id="pagination-controls" class="flex items-center gap-1 hidden">
-                            <!-- Nút phân trang thật sẽ được JS thêm vào nếu cần -->
+            <!-- 2-Column Content -->
+            <div class="flex-1 flex overflow-hidden">
+                <!-- CATEGORY SIDEBAR -->
+                <aside id="category-sidebar" class="w-[260px] bg-white border-r border-slate-200 flex flex-col shrink-0">
+                    <div class="px-4 pt-4 pb-3 border-b border-slate-100 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Thể loại</h3>
+                            <button id="btn-add-category" class="w-7 h-7 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 flex items-center justify-center transition-colors" title="Thêm thể loại">
+                                <i class="ph-bold ph-plus text-sm"></i>
+                            </button>
+                        </div>
+                        <div class="relative">
+                            <i class="ph ph-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                            <input type="text" id="categorySearchInput" placeholder="Tìm thể loại..."
+                                class="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-lg text-xs bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:bg-white">
                         </div>
                     </div>
-                </div>
-            </div>
-
-            <!-- Modal -->
-            <div id="addBookModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-y-auto animate-fade-in">
-                    <div class="sticky top-0 px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-white rounded-t-2xl z-10">
-                        <h3 id="modalTitle" class="text-xl font-bold text-slate-800">Thêm Sách Mới</h3>
-                        <button id="btn-close-book-modal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"><i class="ph ph-x text-2xl"></i></button>
+                    <div id="category-list" class="flex-1 overflow-y-auto py-2 px-2 space-y-0.5">
+                        <!-- Rendered by JS -->
                     </div>
-                    <form id="bookForm" class="p-6 space-y-6">
-                        <input type="hidden" id="book-id">
-                        <input type="hidden" id="old-category-id">
-                        <input type="hidden" id="old-total-quantity">
-                        <input type="hidden" id="old-available-quantity">
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                            <div class="sm:col-span-2">
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Tên Sách <span class="text-rose-500">*</span></label>
-                                <input type="text" id="book-title" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
+                </aside>
+
+                <!-- BOOKS AREA -->
+                <div class="flex-1 flex flex-col overflow-hidden bg-slate-50/50">
+                    <div id="main-content" class="flex-1 overflow-x-hidden overflow-y-auto p-6 relative animate-fade-in">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                            <div>
+                                <h2 id="current-category-name" class="text-xl font-bold text-slate-800">Tất cả sách</h2>
+                                <p class="text-xs text-slate-500 mt-0.5">Tổng: <strong id="total-summary">...</strong> cuốn</p>
                             </div>
-                            <input type="text" id="book-author" placeholder="Tác giả" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
-                            <input type="text" id="book-publisher" placeholder="Nhà xuất bản" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
-                            <select id="book-category" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white"></select>
-                            <input type="number" id="book-year" placeholder="Năm xuất bản" class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
-                            <input type="number" id="book-quantity" placeholder="Số lượng" min="1" max="3000" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
-                            <input type="number" id="book-duration" placeholder="Hạn mượn (ngày)" value="14" class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
-                        </div>
-                        <div class="border-t pt-6">
-                            <label class="block text-sm font-semibold text-slate-700 mb-2">Ảnh bìa</label>
-                            <input type="file" id="bookImage" accept="image/*" class="w-full text-sm text-slate-500">
-                            <div class="mt-3 w-28 h-40 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                <img
-                                    id="book-cover-preview"
-                                    src="../assets/images/book-cover-placeholder-gray.svg"
-                                    alt="Xem trước ảnh bìa"
-                                    class="w-full h-full object-cover"
-                                    onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'">
+                            <div class="flex items-center gap-3">
+                                <div class="relative">
+                                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                                    <input type="text" id="adminBookSearchInput" placeholder="Tìm sách..."
+                                        class="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-500/20 w-64">
+                                </div>
+                                <button id="btn-open-book-modal" class="flex items-center gap-2 px-5 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-semibold rounded-lg shadow-md transition-all active:scale-95">
+                                    <i class="ph-bold ph-plus text-lg"></i> Thêm Sách
+                                </button>
                             </div>
                         </div>
-                        <textarea id="book-description" rows="3" placeholder="Mô tả..." class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"></textarea>
-                    </form>
-                    <div class="sticky bottom-0 px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3 rounded-b-2xl">
-                        <button id="btn-cancel-book-modal" type="button" class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Huỷ</button>
-                        <button type="submit" form="bookForm" class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 shadow-md">Lưu Sách</button>
+
+                        <!-- Table -->
+                        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-left whitespace-nowrap">
+                                    <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 text-xs uppercase font-semibold tracking-wider">
+                                        <tr>
+                                            <th class="px-3 py-2.5">Bìa</th>
+                                            <th class="px-3 py-2.5">Tên Sách</th>
+                                            <th class="px-3 py-2.5">Tác Giả</th>
+                                            <th class="px-3 py-2.5">Nhà Xuất Bản</th>
+                                            <th class="px-3 py-2.5">Thể Loại</th>
+                                            <th class="px-3 py-2.5 text-center">Số Lượng</th>
+                                            <th class="px-3 py-2.5 text-center">Còn Lại</th>
+                                            <th class="px-3 py-2.5">Trạng Thái</th>
+                                            <th class="px-1.5 py-2.5 text-right">Thao Tác</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="books-table-body" class="divide-y divide-slate-100 text-sm">
+                                        <!-- JS render -->
+                                    </tbody>
+                                </table>
+                            </div>
+                            <!-- Footer -->
+                            <div class="px-4 py-3 border-t border-slate-200 flex items-center justify-between bg-slate-50/50 text-xs">
+                                <div id="pagination-info" class="text-slate-600 font-medium">Đang tải...</div>
+                                <div id="pagination-controls" class="flex items-center gap-1 hidden">
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </main>
     </div>
+
+    <!-- Modal Thêm/Sửa Sách -->
+    <div id="addBookModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[95vh] overflow-y-auto animate-fade-in">
+            <div class="sticky top-0 px-6 py-5 border-b border-slate-200 flex items-center justify-between bg-white rounded-t-2xl z-10">
+                <h3 id="modalTitle" class="text-xl font-bold text-slate-800">Thêm Sách Mới</h3>
+                <button id="btn-close-book-modal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"><i class="ph ph-x text-2xl"></i></button>
+            </div>
+            <form id="bookForm" class="p-6 space-y-6">
+                <input type="hidden" id="book-id">
+                <input type="hidden" id="old-category-id">
+                <input type="hidden" id="old-total-quantity">
+                <input type="hidden" id="old-available-quantity">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <div class="sm:col-span-2">
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Tên Sách <span class="text-rose-500">*</span></label>
+                        <input type="text" id="book-title" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Tác giả <span class="text-rose-500">*</span></label>
+                        <input type="text" id="book-author" placeholder="Tác giả" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Nhà xuất bản <span class="text-rose-500">*</span></label>
+                        <input type="text" id="book-publisher" placeholder="Nhà xuất bản" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Thể loại <span class="text-rose-500">*</span></label>
+                        <select id="book-category" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm bg-white"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Năm xuất bản</label>
+                        <input type="number" id="book-year" placeholder="Năm xuất bản" class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-slate-700 mb-2">Số lượng <span class="text-rose-500">*</span></label>
+                        <input type="number" id="book-quantity" placeholder="Số lượng" min="1" max="3000" required class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="border-t pt-6">
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Ảnh bìa</label>
+                    <input type="file" id="bookImage" accept="image/*" class="w-full text-sm text-slate-500">
+                    <div class="mt-3 w-28 h-40 rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                        <img id="book-cover-preview" src="../assets/images/book-cover-placeholder-gray.svg" alt="Xem trước ảnh bìa"
+                            class="w-full h-full object-cover" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'">
+                    </div>
+                </div>
+                <textarea id="book-description" rows="3" placeholder="Mô tả..." class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm"></textarea>
+            </form>
+            <div class="sticky bottom-0 px-6 py-4 border-t border-slate-200 bg-slate-50 flex items-center justify-end gap-3 rounded-b-2xl">
+                <button id="btn-cancel-book-modal" type="button" class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Huỷ</button>
+                <button type="submit" form="bookForm" class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 shadow-md">Lưu Sách</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Thêm/Sửa Thể loại -->
+    <div id="categoryModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                <h3 id="catModalTitle" class="text-lg font-bold text-slate-800">Thêm Thể Loại Mới</h3>
+                <button type="button" id="btn-close-cat-modal" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"><i class="ph ph-x text-2xl"></i></button>
+            </div>
+            <form id="categoryForm" class="p-6 space-y-5">
+                <input type="hidden" id="category-id">
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Tên Thể Loại <span class="text-rose-500">*</span></label>
+                    <input type="text" id="category-name" required placeholder="Ví dụ: Kỹ Năng Sống"
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Mô Tả</label>
+                    <textarea id="category-description" rows="3" placeholder="Mô tả thể loại này..."
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Biểu Tượng</label>
+                    <div id="icon-selector" class="grid grid-cols-6 gap-2">
+                        <button type="button" data-icon="ph-book-open" class="icon-btn p-2.5 border-2 border-primary-500 bg-primary-50 rounded-lg text-primary-600 text-xl transition-all hover:bg-primary-100"><i class="ph-fill ph-book-open"></i></button>
+                        <button type="button" data-icon="ph-books" class="icon-btn p-2.5 border-2 border-slate-200 rounded-lg text-slate-400 text-xl hover:border-primary-300 transition-all"><i class="ph-fill ph-books"></i></button>
+                        <button type="button" data-icon="ph-flask" class="icon-btn p-2.5 border-2 border-slate-200 rounded-lg text-slate-400 text-xl hover:border-primary-300 transition-all"><i class="ph-fill ph-flask"></i></button>
+                        <button type="button" data-icon="ph-heart" class="icon-btn p-2.5 border-2 border-slate-200 rounded-lg text-slate-400 text-xl hover:border-primary-300 transition-all"><i class="ph-fill ph-heart"></i></button>
+                        <button type="button" data-icon="ph-monitor" class="icon-btn p-2.5 border-2 border-slate-200 rounded-lg text-slate-400 text-xl hover:border-primary-300 transition-all"><i class="ph-fill ph-monitor"></i></button>
+                        <button type="button" data-icon="ph-globe" class="icon-btn p-2.5 border-2 border-slate-200 rounded-lg text-slate-400 text-xl hover:border-primary-300 transition-all"><i class="ph-fill ph-globe"></i></button>
+                    </div>
+                    <input type="hidden" id="category-icon" value="ph-book-open">
+                </div>
+            </form>
+            <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-end gap-3">
+                <button type="button" id="btn-cancel-cat-modal" class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50">Huỷ</button>
+                <button type="submit" form="categoryForm" class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 shadow-md">Lưu Thể Loại</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast-container" class="fixed top-5 right-5 z-[100] flex flex-col gap-3"></div>
-    <!-- Script với track reload -->
     <script type="module" src="../assets/js/books.js" data-turbo-track="reload"></script>
 </body>
 </html>

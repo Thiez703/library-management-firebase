@@ -15,7 +15,7 @@ import {
     reauthenticateWithCredential
 } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
 import { showToast } from './notify.js';
-import { getLiveReputationScore } from './identity.js';
+import { getLiveReputationScore, changePhone, getPhoneChangeCooldown, PHONE_CHANGE_COOLDOWN_DAYS } from './identity.js';
 
 const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
 const CACHE_KEY = 'lib_user';
@@ -26,7 +26,7 @@ let currentUserData = null;
 
 // ─── Hiển thị thông tin ──────────────────────────────────────────────────────
 
-const renderProfile = async (firebaseUser, userData) => {
+const renderProfile = async (firebaseUser, userData, bindPhoneForm = false) => {
     if (!firebaseUser) {
         window.location.replace('login.html');
         return;
@@ -91,13 +91,16 @@ const renderProfile = async (firebaseUser, userData) => {
     if (nameInput) nameInput.value = displayName;
     if (phoneInput) {
         phoneInput.value = phone;
-        // Khóa phone nếu đã xác minh
+        // Khóa phone nếu đã xác minh (dùng section đổi SĐT riêng thay thế)
         if (isVerified) {
             phoneInput.readOnly = true;
             phoneInput.classList.add('bg-slate-50', 'text-slate-500', 'cursor-not-allowed');
-            phoneInput.title = 'Số điện thoại đã xác minh, không thể tự thay đổi';
+            phoneInput.title = 'Dùng mục "Đổi số điện thoại" bên dưới để thay đổi';
         }
     }
+
+    // Render section đổi SĐT (async, không block)
+    renderPhoneChangeSection(firebaseUser, userData);
 };
 
 // ─── Cập nhật thông tin ───────────────────────────────────────────────────────
@@ -180,6 +183,91 @@ const handleChangePassword = async (firebaseUser) => {
     }
 };
 
+// ─── Đổi số điện thoại ───────────────────────────────────────────────────────
+
+const renderPhoneChangeSection = async (firebaseUser, userData) => {
+    const section = getElem('changePhoneSection');
+    if (!section) return;
+
+    // Chỉ hiện khi đã xác minh
+    if (!userData?.isVerified) {
+        section.classList.add('hidden');
+        return;
+    }
+    section.classList.remove('hidden');
+
+    const cooldown = await getPhoneChangeCooldown(firebaseUser.uid);
+    const cooldownInfo = getElem('phoneChangeCooldownInfo');
+    const cooldownText = getElem('phoneChangeCooldownText');
+    const submitBtn = getElem('changePhoneBtn');
+    const form = getElem('changePhoneForm');
+
+    if (!cooldown.canChange) {
+        cooldownInfo?.classList.remove('hidden');
+        if (cooldownText) {
+            cooldownText.textContent = `Có thể đổi lại vào ngày ${cooldown.nextAllowedDate.toLocaleDateString('vi-VN')} (còn ${cooldown.daysLeft} ngày).`;
+        }
+        if (submitBtn) submitBtn.disabled = true;
+        if (form) {
+            getElem('newPhoneInput').disabled = true;
+            getElem('confirmCccdInput').disabled = true;
+        }
+    } else {
+        cooldownInfo?.classList.add('hidden');
+        if (submitBtn) submitBtn.disabled = false;
+        if (form) {
+            getElem('newPhoneInput').disabled = false;
+            getElem('confirmCccdInput').disabled = false;
+        }
+    }
+};
+
+const bindChangePhoneForm = (firebaseUser) => {
+    const form = getElem('changePhoneForm');
+    if (!form || form.dataset.bound === '1') return;
+
+    form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const newPhone = (getElem('newPhoneInput')?.value || '').trim();
+        const cccd = (getElem('confirmCccdInput')?.value || '').trim();
+
+        if (!newPhone || !cccd) {
+            showToast('Vui lòng nhập đầy đủ số điện thoại mới và CCCD.', 'error');
+            return;
+        }
+
+        const btn = getElem('changePhoneBtn');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="ph ph-spinner animate-spin mr-1.5"></i> Đang xử lý...';
+        }
+
+        try {
+            await changePhone(firebaseUser.uid, newPhone, cccd);
+
+            // Cập nhật cache
+            const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}');
+            localStorage.setItem(CACHE_KEY, JSON.stringify({ ...cached, phone: newPhone }));
+
+            showToast(`Đã đổi số điện thoại thành công! Lần đổi tiếp theo sau ${PHONE_CHANGE_COOLDOWN_DAYS} ngày.`, 'success');
+            form.reset();
+
+            // Re-render cooldown state
+            await renderPhoneChangeSection(firebaseUser, { ...currentUserData, phone: newPhone, phoneChangedAt: new Date() });
+        } catch (err) {
+            showToast(err.message || 'Không thể đổi số điện thoại.', 'error');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="ph ph-arrows-clockwise mr-1.5"></i> Đổi số điện thoại';
+            }
+        }
+    });
+
+    form.dataset.bound = '1';
+};
+
 // ─── Toggle hiện/ẩn mật khẩu ─────────────────────────────────────────────────
 
 const bindPasswordToggles = () => {
@@ -241,6 +329,8 @@ const initProfilePage = () => {
                 getElem('profilePasswordForm').dataset.bound = '1';
             }
         }
+
+        bindChangePhoneForm(firebaseUser);
 
         unsubscribeProfileDoc = onSnapshot(doc(db, 'users', firebaseUser.uid), async (userSnap) => {
             currentUserData = userSnap.exists() ? userSnap.data() : null;

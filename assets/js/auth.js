@@ -1,5 +1,5 @@
 import { auth, db } from './firebase-config.js';
-import { signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
+import { signOut, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js";
 import { doc, setDoc, getDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 import { initFavoriteFeature } from './favorites.js';
 import { showToast as notifyToast, showConfirm } from './notify.js';
@@ -123,36 +123,46 @@ const navigateToTarget = (role) => {
     window.location.replace(role === 'admin' ? '../admin/admin.html' : 'index.html');
 };
 
+const handleGoogleUser = async (user) => {
+    const userRef = doc(db, "users", user.uid);
+    const userDoc = await getDoc(userRef);
+    let userData;
+    if (userDoc.exists()) {
+        userData = userDoc.data();
+    } else {
+        userData = {
+            email: user.email,
+            displayName: user.displayName,
+            photoURL: user.photoURL,
+            role: 'user',
+            status: 'active',
+            isVerified: false,
+            reputationScore: 100,
+            trustScore: 100,
+            phone: null,
+            cccdHash: null,
+            createdAt: serverTimestamp()
+        };
+        await setDoc(userRef, userData);
+    }
+    saveUserCache(user, userData);
+    showToast(`Đăng nhập Google thành công! Chào ${userData.displayName || user.email} 👋`);
+    setTimeout(() => navigateToTarget(userData.role), 800);
+};
+
 export const signInWithGoogle = async () => {
     try {
+        // Thử popup trước — nếu bị chặn tự động fallback sang redirect
         const result = await signInWithPopup(auth, googleProvider);
-        const userRef = doc(db, "users", result.user.uid);
-        const userDoc = await getDoc(userRef);
-        let userData;
-        if (userDoc.exists()) {
-            userData = userDoc.data();
+        await handleGoogleUser(result.user);
+    } catch (e) {
+        if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-cancelled-by-user') {
+            // Fallback: redirect flow (không cần popup)
+            await signInWithRedirect(auth, googleProvider);
         } else {
-            userData = {
-                email: result.user.email,
-                displayName: result.user.displayName,
-                photoURL: result.user.photoURL,
-                role: 'user',
-                status: 'active',
-                isVerified: false,
-                reputationScore: 100,
-                trustScore: 100,
-                phone: null,
-                cccdHash: null,
-                createdAt: serverTimestamp()
-            };
-            await setDoc(userRef, userData);
+            console.error("Chi tiết lỗi đăng nhập Google:", e);
+            showToast("Lỗi đăng nhập Google: " + (e.message || ''), "error");
         }
-        saveUserCache(result.user, userData);
-        showToast(`Đăng nhập Google thành công! Chào ${userData.displayName || result.user.email} 👋`);
-        setTimeout(() => navigateToTarget(userData.role), 800);
-    } catch (e) { 
-        console.error("Chi tiết lỗi đăng nhập Google:", e);
-        showToast("Lỗi đăng nhập Google: " + (e.message || ''), "error"); 
     }
 };
 
@@ -216,6 +226,21 @@ export const signOutUser = async () => {
     }, 1000);
 };
 
+// --- XỬ LÝ KẾT QUẢ REDIRECT (sau khi browser quay lại từ Google) ---
+const handleRedirectResult = async () => {
+    try {
+        const result = await getRedirectResult(auth);
+        if (result?.user) {
+            await handleGoogleUser(result.user);
+        }
+    } catch (e) {
+        if (e.code !== 'auth/no-auth-event') {
+            console.error("Lỗi xử lý redirect Google:", e);
+            showToast("Lỗi đăng nhập Google: " + (e.message || ''), "error");
+        }
+    }
+};
+
 // --- KHỞI TẠO ---
 let _authUnsubscribe = null;
 
@@ -270,6 +295,9 @@ const initAuth = () => {
         }
     });
 };
+
+// Xử lý redirect result một lần duy nhất khi trang khởi động
+handleRedirectResult();
 
 document.addEventListener('turbo:load', initAuth);
 document.addEventListener('turbo:render', initAuth);

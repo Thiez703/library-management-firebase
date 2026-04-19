@@ -34,8 +34,13 @@ export const IDENTITY_ERRORS = Object.freeze({
     USER_NOT_VERIFIED: 'USER_NOT_VERIFIED',
     REPUTATION_TOO_LOW: 'REPUTATION_TOO_LOW',
     INVALID_PHONE: 'INVALID_PHONE',
-    INVALID_CCCD: 'INVALID_CCCD'
+    INVALID_CCCD: 'INVALID_CCCD',
+    PHONE_CHANGE_TOO_SOON: 'PHONE_CHANGE_TOO_SOON',
+    CCCD_MISMATCH: 'CCCD_MISMATCH',
+    SAME_PHONE: 'SAME_PHONE'
 });
+
+export const PHONE_CHANGE_COOLDOWN_DAYS = 60;
 
 const ERROR_MESSAGES = Object.freeze({
     [IDENTITY_ERRORS.PHONE_ALREADY_USED]: 'Số điện thoại này đã được đăng ký với tài khoản khác.',
@@ -44,7 +49,9 @@ const ERROR_MESSAGES = Object.freeze({
     [IDENTITY_ERRORS.USER_NOT_VERIFIED]: 'Vui lòng xác minh danh tính trước khi mượn sách.',
     [IDENTITY_ERRORS.REPUTATION_TOO_LOW]: 'Điểm uy tín của bạn quá thấp (< 30). Không thể mượn sách.',
     [IDENTITY_ERRORS.INVALID_PHONE]: 'Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 số.',
-    [IDENTITY_ERRORS.INVALID_CCCD]: 'Số CCCD không hợp lệ. Vui lòng nhập đúng 12 số.'
+    [IDENTITY_ERRORS.INVALID_CCCD]: 'Số CCCD không hợp lệ. Vui lòng nhập đúng 12 số.',
+    [IDENTITY_ERRORS.CCCD_MISMATCH]: 'Số CCCD không khớp với tài khoản đã xác minh.',
+    [IDENTITY_ERRORS.SAME_PHONE]: 'Số điện thoại mới phải khác số hiện tại.'
 });
 
 export const REPUTATION_DEFAULT = 100;
@@ -291,16 +298,20 @@ export const checkBorrowEligibility = async (uid) => {
         };
     }
 
-    if (identity.reputationScore < REPUTATION_MIN_BORROW) {
+    // BIZ-03: Dùng live score thay vì giá trị lưu trong Firestore để tránh stale data
+    const liveScore = await getLiveReputationScore(uid, identity.reputationScore);
+    const identityWithLiveScore = { ...identity, reputationScore: liveScore, trustScore: liveScore };
+
+    if (liveScore < REPUTATION_MIN_BORROW) {
         return {
             eligible: false,
-            identity,
+            identity: identityWithLiveScore,
             reason: ERROR_MESSAGES[IDENTITY_ERRORS.REPUTATION_TOO_LOW],
             errorCode: IDENTITY_ERRORS.REPUTATION_TOO_LOW
         };
     }
 
-    return { eligible: true, identity };
+    return { eligible: true, identity: identityWithLiveScore };
 };
 
 // ── Reputation helpers ───────────────────────────────────────────────────────
@@ -313,4 +324,114 @@ export const checkBorrowEligibility = async (uid) => {
 export const calculateReputationPenalty = (daysLate) => {
     if (daysLate <= 0) return 0;
     return Math.min(daysLate * REPUTATION_PENALTY_PER_DAY, REPUTATION_DEFAULT);
+};
+
+// ── Phone change cooldown ────────────────────────────────────────────────────
+
+/**
+ * Kiểm tra trạng thái cooldown đổi SĐT của user.
+ * @param {string} uid
+ * @returns {{ canChange: boolean, nextAllowedDate: Date|null, daysLeft: number }}
+ */
+export const getPhoneChangeCooldown = async (uid) => {
+    const identity = await getUserIdentity(uid);
+    if (!identity) return { canChange: false, nextAllowedDate: null, daysLeft: 0 };
+
+    const phoneChangedAt = (await (async () => {
+        const snap = await getDoc(doc(db, 'users', uid));
+        return snap.exists() ? snap.data().phoneChangedAt : null;
+    })());
+
+    if (!phoneChangedAt) return { canChange: true, nextAllowedDate: null, daysLeft: 0 };
+
+    const lastMs = typeof phoneChangedAt.toMillis === 'function'
+        ? phoneChangedAt.toMillis()
+        : new Date(phoneChangedAt).getTime();
+
+    const cooldownMs = PHONE_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+    const nextAllowedMs = lastMs + cooldownMs;
+    const now = Date.now();
+
+    if (now >= nextAllowedMs) return { canChange: true, nextAllowedDate: null, daysLeft: 0 };
+
+    const daysLeft = Math.ceil((nextAllowedMs - now) / (24 * 60 * 60 * 1000));
+    return { canChange: false, nextAllowedDate: new Date(nextAllowedMs), daysLeft };
+};
+
+/**
+ * Đổi số điện thoại (tối đa 1 lần mỗi 60 ngày).
+ * Yêu cầu nhập lại CCCD để xác nhận danh tính trước khi đổi.
+ *
+ * @param {string} uid
+ * @param {string} rawNewPhone — SĐT mới
+ * @param {string} rawCccd    — CCCD để xác nhận danh tính
+ * @throws {Error} với message mô tả lý do thất bại
+ */
+export const changePhone = async (uid, rawNewPhone, rawCccd) => {
+    const newPhone = validatePhone(rawNewPhone);
+    const cccd = validateCCCD(rawCccd);
+    const cccdHashed = await hashCCCD(cccd);
+
+    await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', uid);
+        const newPhoneRef = doc(db, 'phones', newPhone);
+
+        const [userSnap, newPhoneSnap] = await Promise.all([
+            transaction.get(userRef),
+            transaction.get(newPhoneRef)
+        ]);
+
+        if (!userSnap.exists()) throw new Error('Tài khoản không tồn tại.');
+
+        const userData = userSnap.data();
+
+        if (!userData.isVerified) {
+            throw new Error('Tài khoản chưa xác minh danh tính.');
+        }
+
+        // Xác nhận CCCD khớp trước khi cho đổi SĐT
+        if (userData.cccdHash !== cccdHashed) {
+            throw createIdentityError(IDENTITY_ERRORS.CCCD_MISMATCH);
+        }
+
+        if (userData.phone === newPhone) {
+            throw createIdentityError(IDENTITY_ERRORS.SAME_PHONE);
+        }
+
+        // Kiểm tra cooldown 60 ngày
+        const phoneChangedAt = userData.phoneChangedAt;
+        if (phoneChangedAt) {
+            const lastMs = typeof phoneChangedAt.toMillis === 'function'
+                ? phoneChangedAt.toMillis()
+                : new Date(phoneChangedAt).getTime();
+            const cooldownMs = PHONE_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
+            if (Date.now() < lastMs + cooldownMs) {
+                const nextDate = new Date(lastMs + cooldownMs).toLocaleDateString('vi-VN');
+                const err = new Error(`Bạn chỉ được đổi số điện thoại sau ngày ${nextDate}.`);
+                err.code = IDENTITY_ERRORS.PHONE_CHANGE_TOO_SOON;
+                throw err;
+            }
+        }
+
+        // SĐT mới đã được dùng bởi account khác?
+        if (newPhoneSnap.exists() && newPhoneSnap.data().uid !== uid) {
+            throw createIdentityError(IDENTITY_ERRORS.PHONE_ALREADY_USED);
+        }
+
+        // Xóa index SĐT cũ
+        if (userData.phone) {
+            const oldPhoneRef = doc(db, 'phones', userData.phone);
+            transaction.delete(oldPhoneRef);
+        }
+
+        // Tạo index SĐT mới
+        transaction.set(newPhoneRef, { uid, createdAt: serverTimestamp() });
+
+        // Cập nhật user
+        transaction.update(userRef, {
+            phone: newPhone,
+            phoneChangedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+    });
 };

@@ -854,6 +854,8 @@ const createGuestReader = async (fullName, phone, cccd, email = '', note = '') =
     }
 
     try {
+        // BIZ-05: Guest readers được admin tạo thủ công nên đánh dấu isVerified = true
+        // để admin có thể tạo direct borrow cho họ
         const docRef = await addDoc(collection(db, 'users'), {
             displayName: fullName.trim(),
             email: email.trim() || '',
@@ -862,6 +864,9 @@ const createGuestReader = async (fullName, phone, cccd, email = '', note = '') =
             status: 'active',
             isBlocked: false,
             accountType: 'guest',
+            isVerified: true,
+            reputationScore: 100,
+            trustScore: 100,
             userDetails: {
                 fullName: fullName.trim(),
                 phone: phone.trim(),

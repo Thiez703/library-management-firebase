@@ -37,16 +37,29 @@ service cloud.firestore {
 
       // Cập nhật:
       // 1. Admin được sửa mọi thứ.
-      // 2. User không được sửa role, status, reputationScore.
-      // 3. User chỉ được sửa phone, cccdHash, isVerified, verifiedAt KHI đang thực hiện xác minh lần đầu (isVerified: false -> true).
-      allow update: if isAdmin() || (
-        isOwner(userId) 
-        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'reputationScore'])
-        && (
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone', 'cccdHash', 'isVerified', 'verifiedAt'])
-          || (resource.data.get('isVerified', false) == false && request.resource.data.isVerified == true)
-        )
-      );
+      // 2. User không được sửa role, status, reputationScore, trustScore.
+      // 3a. User chỉ được sửa phone/cccdHash/isVerified KHI xác minh lần đầu (false -> true).
+      // 3b. User được đổi phone sau 60 ngày (chỉ sửa phone + phoneChangedAt + updatedAt).
+      allow update: if isAdmin()
+        || (
+          isOwner(userId)
+          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'reputationScore', 'trustScore'])
+          && (
+            // Trường hợp thường: không đụng đến phone/cccdHash/isVerified
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone', 'cccdHash', 'isVerified', 'verifiedAt'])
+            // Xác minh lần đầu
+            || (resource.data.get('isVerified', false) == false && request.resource.data.isVerified == true)
+            // Đổi SĐT sau 60 ngày: chỉ được thay phone + phoneChangedAt + updatedAt
+            || (
+              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'phoneChangedAt', 'updatedAt'])
+              && resource.data.get('isVerified', false) == true
+              && (
+                !('phoneChangedAt' in resource.data)
+                || request.time > resource.data.phoneChangedAt + duration.value(60, 'd')
+              )
+            )
+          )
+        );
 
       // Chỉ admin được xóa user
       allow delete: if isAdmin();
@@ -119,8 +132,10 @@ service cloud.firestore {
       // User được tạo index cho chính mình (1 lần duy nhất trong transaction verifyUser)
       allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
 
-      // Chỉ admin mới được sửa/xóa (khi admin cập nhật SĐT cho user)
-      allow update, delete: if isAdmin();
+      // Admin sửa/xóa thoải mái.
+      // User được xóa index SĐT của chính mình (khi đổi SĐT).
+      allow update: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
     }
 
     // ── Collection: cccds (Unique CCCD hash index) ────────────────────────────
