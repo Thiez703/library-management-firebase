@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LibSpace Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script>
+        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { primary: { 50: '#eff6ff', 100: '#dbeafe', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 900: '#1e3a8a' } } } } }
+    </script>
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+
+        /* Sidebar transitions */
+        #admin-sidebar {
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+                        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            will-change: transform, margin-left;
+        }
+        #admin-sidebar.collapsed {
+            margin-left: -256px; /* = w-64 = 16rem = 256px */
+        }
+
+        /* Overlay for mobile */
+        #sidebar-overlay {
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #sidebar-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        /* Active nav link */
+        .nav-link.active {
+            background: #2563eb !important;
+            color: white !important;
+            box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.2);
+        }
+        .nav-link.active i {
+            color: white !important;
+        }
+
+        /* iframe seamless */
+        #content-frame {
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
+
+    <div id="app-wrapper" class="flex h-screen w-full">
+
+        <!-- OVERLAY (mobile) -->
+        <div id="sidebar-overlay" class="fixed inset-0 bg-black/40 z-30" onclick="toggleSidebar()"></div>
+
+        <!-- FIXED SIDEBAR -->
+        <aside id="admin-sidebar" class="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 z-40 h-full">
+            <!-- Logo + toggle -->
+            <div class="h-16 flex items-center justify-between px-5 border-b border-slate-800 shrink-0">
+                <div class="flex items-center">
+                    <i class="ph-fill ph-books text-primary-500 text-3xl mr-3"></i>
+                    <h1 class="text-white font-bold text-xl tracking-tight">Lib<span class="text-primary-500">Admin</span></h1>
+                </div>
+                <button onclick="toggleSidebar()" id="sidebar-close-btn"
+                    class="w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-center transition-all"
+                    title="Thu gọn menu">
+                    <i class="ph ph-caret-left text-lg"></i>
+                </button>
+            </div>
+
+            <!-- Navigation -->
+            <div class="flex-1 overflow-y-auto py-6 px-4 space-y-1">
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">Quản lý chung</p>
+
+                <a href="admin.html" data-page="admin.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-squares-four text-xl mr-3 group-hover:text-primary-400"></i> Bảng điều khiển
+                </a>
+                <a href="books.html" data-page="books.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-book-open text-xl mr-3 group-hover:text-primary-400"></i> Quản lý Sách
+                </a>
+                <a href="readers.html" data-page="readers.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-users text-xl mr-3 group-hover:text-primary-400"></i> Quản lý Độc giả
+                </a>
+                <a href="loans.html" data-page="loans.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-arrows-left-right text-xl mr-3 group-hover:text-primary-400"></i> Mượn/Trả
+                </a>
+                <a href="fines.html" data-page="fines.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-receipt text-xl mr-3 group-hover:text-primary-400"></i> Quản lý Phạt
+                </a>
+                <a href="finance.html" data-page="finance.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-currency-circle-dollar text-xl mr-3 group-hover:text-primary-400"></i> Tài chính & Biểu phí
+                </a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Hệ thống</p>
+                <a href="reports.html" data-page="reports.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-chart-bar text-xl mr-3 group-hover:text-primary-400"></i> Báo cáo
+                </a>
+                <a href="settings.html" data-page="settings.html"
+                    class="nav-link flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all cursor-pointer">
+                    <i class="ph ph-gear text-xl mr-3 group-hover:text-primary-400"></i> Cài đặt
+                </a>
+
+                <p class="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mt-8 mb-2">Thoát</p>
+                <a href="../user/index.html"
+                    class="flex items-center px-3 py-2.5 text-sm font-medium rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 group transition-all">
+                    <i class="ph ph-house text-xl mr-3 text-emerald-400 group-hover:text-emerald-300"></i> Trang Người dùng
+                </a>
+            </div>
+
+            <!-- Admin profile -->
+            <div class="p-4 border-t border-slate-800 shrink-0">
+                <div class="flex items-center gap-3">
+                    <img id="adminAvatar" src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Admin"
+                        class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover">
+                    <div class="flex-1 min-w-0">
+                        <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
+                        <p id="roleLabel" class="text-xs text-slate-400 truncate">Quản trị viên</p>
+                    </div>
+                    <button id="adminLogoutBtn" class="text-slate-400 hover:text-white p-1 transition-colors" title="Đăng xuất">
+                        <i class="ph ph-sign-out text-lg"></i>
+                    </button>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT AREA (iframe) -->
+        <div class="flex-1 h-screen overflow-hidden relative">
+            <iframe id="content-frame" src="admin.html" title="Admin Content"></iframe>
+        </div>
+    </div>
+
+    <!-- Auth Logic -->
+    <script type="module">
+        import { checkAuthState, signOutUser } from '../assets/js/auth.js';
+
+        checkAuthState((user, userData) => {
+            if (!user || !['admin', 'librarian'].includes(userData?.role)) {
+                console.warn("Truy cập trái phép trang Admin!");
+                window.location.href = '../user/login.html';
+                return;
+            }
+
+            const adminName = document.getElementById('adminName');
+            const adminAvatar = document.getElementById('adminAvatar');
+            const roleLabel = document.getElementById('roleLabel');
+            const displayName = userData.displayName || user.email;
+            const avatarUrl = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+
+            if (adminName) adminName.innerText = displayName;
+            if (adminAvatar) adminAvatar.src = avatarUrl;
+            if (roleLabel) roleLabel.textContent = userData.role === 'admin' ? 'Quản trị viên' : 'Thủ thư';
+
+            // Ẩn menu items mà librarian không có quyền truy cập
+            if (userData.role === 'librarian') {
+                const restrictedPages = ['finance.html', 'settings.html'];
+                document.querySelectorAll('.nav-link[data-page]').forEach(link => {
+                    if (restrictedPages.includes(link.dataset.page)) {
+                        link.style.display = 'none';
+                    }
+                });
+            }
+        });
+
+        document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            signOutUser();
+        });
+    </script>
+
+    <script>
+        // ============ SIDEBAR STATE ============
+        const sidebar = document.getElementById('admin-sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        let sidebarOpen = true;
+
+        // Restore state (no animation on initial load)
+        const savedState = localStorage.getItem('admin_sidebar_open');
+        if (savedState === 'false') {
+            sidebar.style.transition = 'none';
+            sidebar.classList.add('collapsed');
+            sidebarOpen = false;
+            requestAnimationFrame(() => { sidebar.style.transition = ''; });
+        }
+
+        function toggleSidebar() {
+            sidebarOpen = !sidebarOpen;
+            if (sidebarOpen) {
+                sidebar.classList.remove('collapsed');
+                if (window.innerWidth < 1024) overlay.classList.add('active');
+            } else {
+                sidebar.classList.add('collapsed');
+                overlay.classList.remove('active');
+            }
+            localStorage.setItem('admin_sidebar_open', String(sidebarOpen));
+        }
+
+        // Expose toggleSidebar globally so iframe children can call it
+        window.toggleSidebar = toggleSidebar;
+
+        // ============ NAVIGATION ============
+        const navLinks = document.querySelectorAll('.nav-link[data-page]');
+        const contentFrame = document.getElementById('content-frame');
+
+        const pageTitles = {
+            'admin.html': 'Bảng Điều Khiển',
+            'books.html': 'Quản lý Sách & Thể loại',
+            'readers.html': 'Quản lý Độc Giả',
+            'loans.html': 'Quản lý Mượn/Trả',
+            'fines.html': 'Quản lý Phạt',
+            'finance.html': 'Tài chính & Biểu phí',
+            'reports.html': 'Báo cáo & Thống kê',
+            'settings.html': 'Cài đặt Hệ thống'
+        };
+
+        function setActivePage(page) {
+            navLinks.forEach(link => {
+                if (link.dataset.page === page) {
+                    link.classList.add('active');
+                    link.classList.remove('text-slate-300', 'hover:text-white', 'hover:bg-slate-800');
+                } else {
+                    link.classList.remove('active');
+                    link.classList.add('text-slate-300', 'hover:text-white', 'hover:bg-slate-800');
+                }
+            });
+            document.title = `LibSpace Admin - ${pageTitles[page] || 'Admin'}`;
+            localStorage.setItem('admin_current_page', page);
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const page = link.dataset.page;
+                
+                // Check if already on this page
+                try {
+                    const currentSrc = contentFrame.contentWindow?.location?.pathname?.split('/').pop();
+                    if (currentSrc === page) return;
+                } catch(e) { /* cross-origin, ignore */ }
+
+                contentFrame.src = page;
+                setActivePage(page);
+
+                // On mobile, close sidebar after navigation
+                if (window.innerWidth < 1024 && sidebarOpen) {
+                    toggleSidebar();
+                }
+            });
+        });
+
+        // Restore last visited page
+        const lastPage = localStorage.getItem('admin_current_page') || 'admin.html';
+        contentFrame.src = lastPage;
+        setActivePage(lastPage);
+
+        // Handle resize - hide overlay on desktop
+        window.addEventListener('resize', () => {
+            if (window.innerWidth >= 1024) {
+                overlay.classList.remove('active');
+            }
+        });
+    </script>
+</body>
+
+</html>

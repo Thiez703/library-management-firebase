@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LibSpace Admin - Quản lý độc giả</title>
+    <script src="../assets/js/admin-shell.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <style>
+        html.in-shell body > div > aside { display: none !important; }
+    </style>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -146,39 +151,49 @@
             <div class="flex-1 overflow-x-hidden overflow-y-auto bg-slate-50/50 p-6 relative">
                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
                     <div>
-                        <h2 class="text-2xl font-bold text-slate-800">Quản
-                            lý Độc Giả</h2>
-                        <p class="text-sm text-slate-500 mt-1">Theo dõi
-                            thông tin thành viên, lịch sử và xử lý vi
-                            phạm.</p>
+                        <h2 class="text-2xl font-bold text-slate-800">Quản lý Độc Giả</h2>
+                        <p class="text-sm text-slate-500 mt-1">Theo dõi thông tin thành viên, thủ thư và xử lý vi phạm.</p>
                     </div>
-                    <button id="addGuestReaderBtn"
-                        class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95">
-                        <i class="ph-bold ph-user-plus text-lg"></i>
-                        Thêm
-                        Độc Giả Vãng Lai
-                    </button>
+                    <div class="flex items-center gap-2">
+                        <button id="exportReadersBtn"
+                            class="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                            title="Xuất danh sách ra Excel">
+                            <i class="ph ph-file-xls text-lg"></i> Xuất Excel
+                        </button>
+                        <button id="promoteLibrarianBtn"
+                            class="flex items-center gap-2 px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95"
+                            title="Nâng cấp tài khoản hiện có thành Thủ Thư">
+                            <i class="ph-bold ph-shield-star text-lg"></i> Tạo Thủ Thư
+                        </button>
+                        <button id="addGuestReaderBtn"
+                            class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium rounded-lg shadow-sm transition-all active:scale-95">
+                            <i class="ph-bold ph-user-plus text-lg"></i> Thêm Vãng Lai
+                        </button>
+                    </div>
                 </div>
-                <div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-5 mb-6">
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng
-                            độc giả</p>
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng độc giả</p>
                         <p id="stat-total-readers" class="text-3xl font-bold text-slate-800">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Đang
-                            hoạt động</p>
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Đang hoạt động</p>
                         <p id="stat-active-readers" class="text-3xl font-bold text-emerald-600">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tài
-                            khoản bị khóa</p>
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tài khoản bị khóa</p>
                         <p id="stat-blocked-readers" class="text-3xl font-bold text-rose-600">0</p>
                     </div>
                     <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
-                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng
-                            tiền chưa thu</p>
+                        <p class="text-xs font-semibold text-slate-500 uppercase mb-2">Tổng tiền chưa thu</p>
                         <p id="stat-total-unpaid-fines" class="text-3xl font-bold text-slate-800">0 ₫</p>
+                    </div>
+                    <div class="bg-white rounded-2xl p-5 border border-slate-100 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2">
+                            <p class="text-xs font-semibold text-slate-500 uppercase">Thủ thư</p>
+                            <i class="ph ph-shield-star text-violet-500 text-sm"></i>
+                        </div>
+                        <p id="stat-librarian-count" class="text-3xl font-bold text-violet-600">0</p>
                     </div>
                 </div>
 
@@ -189,10 +204,16 @@
                         </div>
                         <input id="readerSearchInput" type="text"
                             class="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-lg text-sm bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-primary-500/20"
-                            placeholder="Tìm theo tên, mã thẻ, email, số điện thoại...">
+                            placeholder="Tìm theo tên, mã độc giả, email, số điện thoại...">
                     </div>
                     <div id="readerFilterTabs" class="flex flex-wrap items-center gap-2">
                         <button type="button" data-filter="all" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Tất cả</button>
+                        <button type="button" data-filter="member" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Thành viên</button>
+                        <button type="button" data-filter="guest" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Vãng lai</button>
+                        <button type="button" data-filter="librarian" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-violet-200 text-violet-600 hover:bg-violet-50">
+                            <i class="ph ph-shield-star mr-1"></i>Thủ thư
+                        </button>
+                        <div class="w-px h-5 bg-slate-200 mx-1"></div>
                         <button type="button" data-filter="borrowing" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Đang mượn</button>
                         <button type="button" data-filter="fines" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Nợ phạt</button>
                         <button type="button" data-filter="risk" class="reader-filter-tab px-3 py-2 rounded-lg text-sm font-medium border border-slate-200 text-slate-600 hover:bg-slate-50">Rủi ro</button>
@@ -207,7 +228,7 @@
                                     class="bg-slate-50 border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider font-semibold">
                                     <th class="px-6 py-4">Độc
                                         Giả</th>
-                                    <th class="px-6 py-4 hidden lg:table-cell">Mã Thẻ</th>
+                                    <th class="px-6 py-4 hidden lg:table-cell">Mã ĐG</th>
                                     <th class="px-6 py-4 hidden lg:table-cell">Email</th>
                                     <th class="px-6 py-4 text-center">Đang
                                         Mượn</th>
@@ -314,17 +335,75 @@
                         <p><span class="text-slate-500">Email:</span> <span id="readerDetailEmail" class="font-medium text-slate-700 break-all">--</span></p>
                         <p><span class="text-slate-500">Số điện thoại:</span> <span id="readerDetailPhone" class="font-medium text-slate-700">--</span></p>
                         <p><span class="text-slate-500">Ngày tham gia:</span> <span id="readerDetailCreatedAt" class="font-medium text-slate-700">--</span></p>
-                        <p><span class="text-slate-500">Mã thẻ:</span> <span id="readerDetailMemberCode" class="font-mono text-xs text-slate-700">--</span></p>
+                        <p><span class="text-slate-500">Mã độc giả:</span> <span id="readerDetailMemberCode" class="font-mono text-xs text-slate-700">--</span></p>
                     </div>
 
-                    <div class="space-y-2 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
-                        <p class="text-xs text-slate-400 uppercase tracking-wide">Uy tín hiện tại</p>
+                    <div class="space-y-3 text-sm bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-slate-400 uppercase tracking-wide">Uy tín hiện tại</p>
+                            <button id="readerDetailEditTrustBtn" type="button"
+                                class="text-xs font-semibold text-primary-600 hover:text-primary-700 flex items-center gap-1 transition-colors">
+                                <i class="ph ph-pencil-simple"></i> Chỉnh sửa
+                            </button>
+                        </div>
                         <div class="flex items-center justify-between">
                             <p id="readerDetailTrustScore" class="text-2xl font-bold text-slate-800">0</p>
                             <span id="readerDetailTrustRank" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">--</span>
                         </div>
                         <div class="w-full h-[6px] bg-slate-200 rounded-full overflow-hidden">
                             <div id="readerDetailTrustBar" class="h-full bg-emerald-500" style="width:0%"></div>
+                        </div>
+
+                        <!-- Panel chỉnh sửa uy tín (ẩn mặc định) -->
+                        <div id="readerDetailTrustEditPanel" class="hidden border-t border-slate-200 pt-3 mt-2 space-y-3">
+                            <div class="flex items-center gap-3">
+                                <button type="button" data-trust-adjust="-10"
+                                    class="w-9 h-9 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 flex items-center justify-center font-bold text-sm transition-colors">
+                                    -10
+                                </button>
+                                <button type="button" data-trust-adjust="-5"
+                                    class="w-9 h-9 rounded-lg border border-rose-200 text-rose-500 hover:bg-rose-50 flex items-center justify-center font-bold text-sm transition-colors">
+                                    -5
+                                </button>
+                                <div class="flex-1 relative">
+                                    <input id="readerDetailTrustInput" type="number" min="0" max="100" step="1"
+                                        class="w-full text-center text-lg font-bold px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500/20"
+                                        value="0">
+                                    <span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">/100</span>
+                                </div>
+                                <button type="button" data-trust-adjust="+5"
+                                    class="w-9 h-9 rounded-lg border border-emerald-200 text-emerald-500 hover:bg-emerald-50 flex items-center justify-center font-bold text-sm transition-colors">
+                                    +5
+                                </button>
+                                <button type="button" data-trust-adjust="+10"
+                                    class="w-9 h-9 rounded-lg border border-emerald-200 text-emerald-600 hover:bg-emerald-50 flex items-center justify-center font-bold text-sm transition-colors">
+                                    +10
+                                </button>
+                            </div>
+
+                            <div class="flex flex-wrap gap-1.5">
+                                <button type="button" data-trust-preset="0" class="px-2 py-1 text-xs rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100">Khóa (0)</button>
+                                <button type="button" data-trust-preset="30" class="px-2 py-1 text-xs rounded-md border border-rose-200 text-rose-600 hover:bg-rose-50">Rủi ro (30)</button>
+                                <button type="button" data-trust-preset="50" class="px-2 py-1 text-xs rounded-md border border-amber-200 text-amber-600 hover:bg-amber-50">Cảnh báo (50)</button>
+                                <button type="button" data-trust-preset="75" class="px-2 py-1 text-xs rounded-md border border-blue-200 text-blue-600 hover:bg-blue-50">Bình thường (75)</button>
+                                <button type="button" data-trust-preset="100" class="px-2 py-1 text-xs rounded-md border border-emerald-200 text-emerald-600 hover:bg-emerald-50">Tốt nhất (100)</button>
+                            </div>
+
+                            <div>
+                                <input id="readerDetailTrustNote" type="text" placeholder="Lý do chỉnh sửa (tùy chọn)..."
+                                    class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                            </div>
+
+                            <div class="flex justify-end gap-2">
+                                <button id="readerDetailTrustCancelBtn" type="button"
+                                    class="px-3 py-1.5 text-sm font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50">
+                                    Huỷ
+                                </button>
+                                <button id="readerDetailTrustSaveBtn" type="button"
+                                    class="px-4 py-1.5 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors">
+                                    <i class="ph ph-floppy-disk"></i> Lưu điểm
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -415,6 +494,94 @@
                     <button type="submit"
                         class="px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white font-medium shadow-sm">
                         <i class="ph ph-check-circle mr-1"></i> Lưu thay đổi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Nâng cấp Thủ Thư -->
+    <div id="promoteLibrarianModal" class="hidden fixed inset-0 bg-slate-900/50 z-[120] p-4 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-fade-in">
+            <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                        <i class="ph-fill ph-shield-star text-violet-600 text-xl"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800">Nâng cấp Thủ Thư</h3>
+                        <p class="text-xs text-slate-500">Chọn tài khoản hiện có để nâng cấp quyền</p>
+                    </div>
+                </div>
+                <button id="closePromoteLibrarianModal" type="button" class="p-1.5 text-slate-400 hover:text-slate-600">
+                    <i class="ph ph-x text-2xl"></i>
+                </button>
+            </div>
+            <form id="promoteLibrarianForm" class="p-6 space-y-5">
+                <!-- Chọn user -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Chọn tài khoản <span class="text-rose-500">*</span></label>
+                    <div class="relative">
+                        <input id="promoteUserSearch" type="text" autocomplete="off"
+                            placeholder="Tìm theo tên, email hoặc SĐT..."
+                            class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20">
+                        <div id="promoteUserDropdown" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto z-10">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </div>
+                    <input type="hidden" id="promoteUserId">
+                    <div id="promoteUserSelected" class="hidden mt-2 flex items-center gap-3 p-3 bg-violet-50 border border-violet-200 rounded-lg">
+                        <div id="promoteUserAvatar" class="w-9 h-9 rounded-full bg-violet-200 text-violet-700 flex items-center justify-center font-bold text-sm shrink-0"></div>
+                        <div class="flex-1 min-w-0">
+                            <p id="promoteUserName" class="text-sm font-semibold text-slate-800 truncate"></p>
+                            <p id="promoteUserEmail" class="text-xs text-slate-500 truncate"></p>
+                        </div>
+                        <button type="button" id="promoteUserClear" class="text-slate-400 hover:text-rose-500">
+                            <i class="ph ph-x-circle text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Phân quyền -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-3">Phân quyền truy cập</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="checkbox" name="perm" value="books" checked class="w-4 h-4 rounded text-violet-600 focus:ring-violet-500">
+                            <span class="text-sm text-slate-700"><i class="ph ph-book-open mr-1 text-blue-500"></i>Quản lý Sách</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="checkbox" name="perm" value="loans" checked class="w-4 h-4 rounded text-violet-600 focus:ring-violet-500">
+                            <span class="text-sm text-slate-700"><i class="ph ph-arrows-left-right mr-1 text-amber-500"></i>Mượn/Trả</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="checkbox" name="perm" value="readers" checked class="w-4 h-4 rounded text-violet-600 focus:ring-violet-500">
+                            <span class="text-sm text-slate-700"><i class="ph ph-users mr-1 text-emerald-500"></i>Quản lý Độc giả</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="checkbox" name="perm" value="fines" checked class="w-4 h-4 rounded text-violet-600 focus:ring-violet-500">
+                            <span class="text-sm text-slate-700"><i class="ph ph-receipt mr-1 text-rose-500"></i>Quản lý Phạt</span>
+                        </label>
+                        <label class="flex items-center gap-2.5 p-3 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors">
+                            <input type="checkbox" name="perm" value="reports" class="w-4 h-4 rounded text-violet-600 focus:ring-violet-500">
+                            <span class="text-sm text-slate-700"><i class="ph ph-chart-bar mr-1 text-cyan-500"></i>Báo cáo</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Ghi chú -->
+                <div>
+                    <label class="block text-sm font-semibold text-slate-700 mb-2">Ghi chú (tùy chọn)</label>
+                    <textarea id="promoteNote" rows="2" placeholder="Lý do nâng cấp..."
+                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-violet-500/20"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" id="cancelPromoteLibrarianBtn" class="px-5 py-2.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 font-medium">
+                        Huỷ
+                    </button>
+                    <button type="submit" class="px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-700 text-white font-medium shadow-sm flex items-center gap-2">
+                        <i class="ph ph-shield-star"></i> Nâng cấp thành Thủ Thư
                     </button>
                 </div>
             </form>

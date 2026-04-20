@@ -1,7 +1,17 @@
 import { showToast } from './auth.js';
+import { getSystemSettings } from './admin-settings.js';
 
 export const CART_KEY = 'lib_borrow_cart_v2';
-export const MAX_BOOKS_PER_TICKET = 5;
+export let MAX_BOOKS_PER_TICKET = 5;
+
+// Tải settings từ Firestore (async, ghi đè MAX_BOOKS_PER_TICKET)
+const refreshCartSettings = async () => {
+    try {
+        const s = await getSystemSettings();
+        MAX_BOOKS_PER_TICKET = s?.library?.maxBooksPerTicket || 5;
+    } catch { /* fallback */ }
+};
+refreshCartSettings(); // Fire-and-forget on module load
 
 const parseCart = () => {
     try {

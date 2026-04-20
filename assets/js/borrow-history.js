@@ -55,8 +55,9 @@ const setHtml = (selector, value) => {
 const renderUserProfile = (user, userData) => {
     const displayName = formatFallback(userData?.displayName || user?.displayName || user?.email, 'Người dùng');
     const avatarUrl = userData?.photoURL || user?.photoURL || AVATAR_PLACEHOLDER;
-    const accountLabel = userData?.memberCode || userData?.studentId || userData?.email || user?.email || user?.uid || 'Chưa cập nhật';
-    const roleLabel = userData?.role === 'admin' ? 'Quản trị viên' : 'Độc giả';
+    const accountLabel = userData?.readerCode || userData?.studentId || userData?.email || user?.email || user?.uid || 'Chưa cập nhật';
+    const roleLabels = { admin: 'Quản trị viên', librarian: 'Thủ thư' };
+    const roleLabel = roleLabels[userData?.role] || 'Độc giả';
 
     const avatar = document.getElementById('borrow-history-avatar');
     if (avatar) {

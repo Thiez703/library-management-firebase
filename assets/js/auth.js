@@ -88,20 +88,23 @@ const renderAuthUI = (userLike) => {
 
     if (userLike) {
         const avatarUrl = userLike.photoURL || AVATAR_PLACEHOLDER;
+        const isStaff = ['admin', 'librarian'].includes(userLike.role);
+        const roleLabels = { admin: 'Quản trị viên', librarian: 'Thủ thư' };
+        const roleLabel = roleLabels[userLike.role] || 'Độc giả';
         slot.innerHTML = `
             <div class="flex items-center gap-3">
                 <div class="text-right hidden lg:block">
                     <p class="text-sm font-bold text-slate-800 truncate max-w-[150px]">${userLike.displayName}</p>
-                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight">${userLike.role === 'admin' ? 'Quản trị viên' : 'Độc giả'}</p>
+                    <p class="text-[10px] text-slate-500 uppercase font-bold tracking-tight">${roleLabel}</p>
                 </div>
                 <div class="relative group">
                     <button class="w-10 h-10 rounded-xl border-2 border-white shadow-sm overflow-hidden focus:ring-2 focus:ring-primary-500/20 transition-all">
                         <img src="${avatarUrl}" onerror="this.src='${AVATAR_PLACEHOLDER}'" class="w-full h-full object-cover">
                     </button>
                     <div class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-                        ${userLike.role === 'admin' ? `<a href="../admin/admin.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-layout mr-2"></i>Quản trị</a>` : ''}
-                        <a href="borrow-history.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn</a>
-                        <a href="favorites.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-heart mr-2"></i>Sách yêu thích</a>
+                        ${isStaff ? `<a href="../admin/index.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-layout mr-2"></i>Quản trị</a>` : ''}
+                        ${!isStaff ? `<a href="borrow-history.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn</a>` : ''}
+                        ${!isStaff ? `<a href="favorites.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-heart mr-2"></i>Sách yêu thích</a>` : ''}
                         <hr class="my-2 border-slate-100">
                         <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-colors">
                             <i class="ph ph-sign-out mr-2"></i>Đăng xuất
@@ -121,7 +124,7 @@ const renderAuthUI = (userLike) => {
 const navigateToTarget = (role) => {
     const isAuthPage = window.location.pathname.includes('login.html') || window.location.pathname.includes('register.html');
     if (!isAuthPage) return;
-    window.location.replace(role === 'admin' ? '../admin/admin.html' : 'index.html');
+    window.location.replace(['admin', 'librarian'].includes(role) ? '../admin/index.html' : 'index.html');
 };
 
 const handleGoogleUser = async (user) => {
@@ -181,7 +184,7 @@ export const signIn = async (email, password) => {
             saveUserCache(res.user, userData);
             showToast('Đăng nhập thành công! ✨');
             setTimeout(() => {
-                window.location.href = userData.role === 'admin' ? '../admin/admin.html' : 'index.html';
+                window.location.href = ['admin', 'librarian'].includes(userData.role) ? '../admin/index.html' : 'index.html';
             }, 1000);
         }
     } catch (e) { 
@@ -250,7 +253,20 @@ const handleRedirectResult = async () => {
 // --- KHỞI TẠO ---
 let _authUnsubscribe = null;
 
+const redirectLibrarianToAdmin = () => {
+    const cached = getCachedUser();
+    if (!cached || cached.role !== 'librarian') return;
+    // Thủ thư chỉ được vào trang admin, không được vào trang user
+    const path = window.location.pathname;
+    const isAuthPage = path.includes('login.html') || path.includes('register.html');
+    const isAdminPage = path.includes('/admin/');
+    if (!isAuthPage && !isAdminPage) {
+        window.location.replace('../admin/index.html');
+    }
+};
+
 const initAuth = () => {
+    redirectLibrarianToAdmin();
     applyMainNavActiveState();
     renderAuthUI(getCachedUser());
     initFavoriteFeature();

@@ -5,6 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LibSpace Admin - Cài đặt</title>
+    <script src="../assets/js/admin-shell.js"></script>
+    <style>
+        html.in-shell body > div > aside { display: none !important; }
+    </style>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
@@ -177,12 +181,14 @@
                 </div>
 
                 <!-- Settings Tabs -->
-                <div class="flex gap-2 mb-6 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit">
+                <div class="flex gap-2 mb-6 bg-white p-1.5 rounded-xl border border-slate-200 shadow-sm w-fit flex-wrap">
                     <button
                         class="px-5 py-2 rounded-lg bg-primary-600 text-white font-semibold text-sm shadow-md tab-btn"
                         data-tab="general">Chung</button>
                     <button class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm tab-btn"
                         data-tab="library">Thư Viện</button>
+                    <button class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm tab-btn"
+                        data-tab="reputation">Uy Tín</button>
                     <button class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm tab-btn"
                         data-tab="notifications">Thông Báo</button>
                     <button class="px-5 py-2 rounded-lg text-slate-600 hover:bg-slate-50 font-medium text-sm tab-btn"
@@ -277,46 +283,126 @@
                 <div id="library-tab" class="tab-content space-y-6" style="display: none;">
                     <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                         <div class="px-6 py-5 border-b border-slate-200">
-                            <h3 class="font-bold text-slate-800">Cài Đặt
-                                Mượn Sách</h3>
+                            <h3 class="font-bold text-slate-800">Cài Đặt Mượn Sách</h3>
+                            <p class="text-xs text-slate-500 mt-1">Các thông số ảnh hưởng trực tiếp đến quy trình mượn/trả sách.</p>
                         </div>
                         <form id="libraryForm" class="p-6 space-y-6">
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Thời
-                                    Hạn Mượn Mặc Định (ngày)</label>
-                                <input id="borrowDurationInput" type="number" value="14" min="1"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Thời Hạn Mượn (ngày)</label>
+                                    <input id="borrowDurationInput" type="number" value="14" min="1" max="365"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Số ngày mặc định cho mỗi phiếu mượn</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Tối Đa Sách/Phiếu</label>
+                                    <input id="maxBooksInput" type="number" value="5" min="1" max="20"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Số sách tối đa trong một phiếu mượn</p>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Số
-                                    Sách Mượn Tối Đa</label>
-                                <input id="maxBooksInput" type="number" value="5" min="1"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Tối Đa Lần Gia Hạn</label>
+                                    <input id="maxExtensionsInput" type="number" value="3" min="0" max="10"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Số lần gia hạn tối đa mỗi phiếu</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Số Ngày Mỗi Lần Gia Hạn</label>
+                                    <input id="extensionDaysInput" type="number" value="7" min="1" max="30"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Mỗi lần gia hạn thêm bao nhiêu ngày</p>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-sm font-semibold text-slate-700 mb-2">Phí
-                                    Phạt Quá Hạn (VNĐ/ngày)</label>
-                                <input id="finePerDayInput" type="number" value="5000" min="0"
-                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Thời Hạn Giữ Chỗ (giờ)</label>
+                                    <input id="reserveExpiryHoursInput" type="number" value="24" min="1" max="168"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Phiếu pending tự hủy sau bao nhiêu giờ</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Phí Phạt Quá Hạn (₫/ngày)</label>
+                                    <input id="finePerDayInput" type="number" value="5000" min="0" step="1000"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Phí phạt mặc định mỗi ngày quá hạn</p>
+                                </div>
                             </div>
                             <div class="flex items-center justify-between pt-4 border-t border-slate-200">
                                 <div>
-                                    <p class="text-sm font-semibold text-slate-700">Cho
-                                        Phép Gia Hạn</p>
-                                    <p class="text-xs text-slate-500 mt-1">Cho
-                                        phép độc giả gia hạn sách</p>
+                                    <p class="text-sm font-semibold text-slate-700">Cho Phép Gia Hạn</p>
+                                    <p class="text-xs text-slate-500 mt-1">Cho phép độc giả gia hạn sách qua hệ thống</p>
                                 </div>
                                 <input id="allowRenewToggle" type="checkbox" checked aria-label="Cho phép gia hạn"
+                                    class="toggle-checkbox w-12 h-6 bg-slate-300 rounded-full cursor-pointer appearance-none transition">
+                            </div>
+                            <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+                                <div>
+                                    <p class="text-sm font-semibold text-slate-700">Chỉ Cho 1 Phiếu Hoạt Động</p>
+                                    <p class="text-xs text-slate-500 mt-1">Mỗi độc giả chỉ được có 1 phiếu đang mượn/chờ duyệt</p>
+                                </div>
+                                <input id="oneActiveTicketToggle" type="checkbox" checked aria-label="Chỉ cho 1 phiếu hoạt động"
                                     class="toggle-checkbox w-12 h-6 bg-slate-300 rounded-full cursor-pointer appearance-none transition">
                             </div>
                         </form>
                         <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
                             <button id="libraryResetBtn" type="button"
-                                class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Huỷ
-                                bỏ</button>
+                                class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Huỷ bỏ</button>
                             <button id="librarySaveBtn" type="button"
-                                class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors shadow-md">Lưu
-                                Thay Đổi</button>
+                                class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors shadow-md">Lưu Thay Đổi</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: UY TÍN -->
+                <div id="reputation-tab" class="tab-content space-y-6" style="display: none;">
+                    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div class="px-6 py-5 border-b border-slate-200">
+                            <h3 class="font-bold text-slate-800">Hệ Thống Uy Tín</h3>
+                            <p class="text-xs text-slate-500 mt-1">Cấu hình điểm uy tín, ngưỡng mượn sách và chính sách thưởng/phạt.</p>
+                        </div>
+                        <form id="reputationForm" class="p-6 space-y-6">
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Điểm Mặc Định</label>
+                                    <input id="reputationDefaultInput" type="number" value="100" min="0" max="100"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Điểm uy tín ban đầu cho độc giả mới</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Ngưỡng Tối Thiểu Để Mượn</label>
+                                    <input id="reputationMinBorrowInput" type="number" value="40" min="0" max="100"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Dưới mức này độc giả bị khóa mượn sách</p>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-semibold text-slate-700 mb-2">Trừ Điểm Mỗi Ngày Trễ</label>
+                                <input id="reputationPenaltyPerDayInput" type="number" value="5" min="0" max="50"
+                                    class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                <p class="text-xs text-slate-400 mt-1">Số điểm uy tín bị trừ cho mỗi ngày trả trễ (ảnh hưởng live score)</p>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-4 border-t border-slate-200">
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Bonus Không Vi Phạm (điểm)</label>
+                                    <input id="reputationBonusInput" type="number" value="20" min="0" max="50"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Cộng điểm khi trả sách đúng hạn sau thời gian dài</p>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-slate-700 mb-2">Sau Bao Nhiêu Ngày</label>
+                                    <input id="reputationBonusPeriodInput" type="number" value="180" min="30" max="365"
+                                        class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                    <p class="text-xs text-slate-400 mt-1">Sau bao nhiêu ngày không vi phạm thì được cộng bonus</p>
+                                </div>
+                            </div>
+                        </form>
+                        <div class="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex justify-end gap-3">
+                            <button id="reputationResetBtn" type="button"
+                                class="px-5 py-2.5 text-sm font-semibold bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors">Huỷ bỏ</button>
+                            <button id="reputationSaveBtn" type="button"
+                                class="px-5 py-2.5 text-sm font-semibold text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors shadow-md">Lưu Thay Đổi</button>
                         </div>
                     </div>
                 </div>
@@ -398,16 +484,40 @@
                                     class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
                             </div>
                             <div class="pt-4 border-t border-slate-200">
-                                <h4 class="text-sm font-semibold text-slate-700 mb-4">Xác
-                                    Thực 2 Lớp</h4>
+                                <h4 class="text-sm font-semibold text-slate-700 mb-4">Xác Thực 2 Lớp</h4>
                                 <div class="flex items-center justify-between">
                                     <div>
-                                        <p class="text-sm text-slate-600">Bảo
-                                            vệ tài khoản bằng xác thực 2
-                                            lớp</p>
+                                        <p class="text-sm text-slate-600">Bảo vệ tài khoản bằng xác thực 2 lớp</p>
                                     </div>
                                     <input id="twoFactorToggle" type="checkbox" aria-label="Xác thực 2 lớp"
                                         class="toggle-checkbox w-12 h-6 bg-slate-300 rounded-full cursor-pointer appearance-none transition">
+                                </div>
+                            </div>
+                            <div class="pt-4 border-t border-slate-200">
+                                <h4 class="text-sm font-semibold text-slate-700 mb-4">Chính Sách Tài Khoản</h4>
+                                <div class="space-y-4">
+                                    <div>
+                                        <label class="block text-sm font-semibold text-slate-700 mb-2">Cooldown Đổi SĐT (ngày)</label>
+                                        <input id="phoneChangeCooldownInput" type="number" value="60" min="0" max="365"
+                                            class="w-full px-4 py-2.5 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-500/20">
+                                        <p class="text-xs text-slate-400 mt-1">Số ngày tối thiểu giữa 2 lần đổi số điện thoại</p>
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-semibold text-slate-700">Bắt Buộc Xác Minh Danh Tính</p>
+                                            <p class="text-xs text-slate-500 mt-1">Yêu cầu xác minh CCCD + SĐT trước khi mượn sách</p>
+                                        </div>
+                                        <input id="requireVerificationToggle" type="checkbox" checked aria-label="Bắt buộc xác minh"
+                                            class="toggle-checkbox w-12 h-6 bg-slate-300 rounded-full cursor-pointer appearance-none transition">
+                                    </div>
+                                    <div class="flex items-center justify-between">
+                                        <div>
+                                            <p class="text-sm font-semibold text-slate-700">Tự Động Khóa Khi Quá Hạn</p>
+                                            <p class="text-xs text-slate-500 mt-1">Tự động khóa tài khoản khi trả sách quá hạn trên 7 ngày</p>
+                                        </div>
+                                        <input id="autoLockOnOverdueToggle" type="checkbox" checked aria-label="Tự động khóa khi quá hạn"
+                                            class="toggle-checkbox w-12 h-6 bg-slate-300 rounded-full cursor-pointer appearance-none transition">
+                                    </div>
                                 </div>
                             </div>
                         </form>

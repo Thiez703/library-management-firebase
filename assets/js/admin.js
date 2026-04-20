@@ -31,7 +31,7 @@ const initDashboard = () => {
     });
 
     // 3. Độc giả thẻ
-    const readersQuery = query(collection(db, 'users'), where('role', '==', 'reader'));
+    const readersQuery = query(collection(db, 'users'), where('role', '==', 'user'));
     onSnapshot(readersQuery, (snap) => {
         const totalReaders = snap.size;
         const statElem = getElem('stat-total-readers');
@@ -46,7 +46,7 @@ const initDashboard = () => {
     });
 
     // 5. Hoạt động gần đây (Lấy 10 bản ghi mới nhất từ borrowRecords)
-    const recentActivityQuery = query(collection(db, 'borrowRecords'), orderBy('borrowDate', 'desc'), limit(10));
+    const recentActivityQuery = query(collection(db, 'borrowRecords'), orderBy('requestDate', 'desc'), limit(10));
     onSnapshot(recentActivityQuery, (snap) => {
         renderRecentActivities(snap.docs);
     });
@@ -80,8 +80,14 @@ const renderRecentActivities = (docs) => {
             actionText = `đã trả cuốn`;
         }
 
-        const date = data.borrowDate?.toDate() || new Date();
+        const dateTs = data.borrowDate || data.requestDate;
+        const date = dateTs?.toDate ? dateTs.toDate() : new Date();
         const timeStr = date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+        const readerName = data.userDetails?.fullName || data.userDetails?.name || 'Độc giả';
+        const bookTitle = data.books?.[0]?.title || 'sách';
+        const bookCount = Array.isArray(data.books) ? data.books.length : 1;
+        const bookDisplay = bookCount > 1 ? `"${bookTitle}" (+${bookCount - 1} cuốn)` : `"${bookTitle}"`;
 
         return `
             <div class="px-6 py-4 hover:bg-slate-50/50 transition-colors">
@@ -91,8 +97,8 @@ const renderRecentActivities = (docs) => {
                     </div>
                     <div class="flex-1 min-w-0">
                         <p class="text-sm font-medium text-slate-800">
-                            <span class="font-bold">${data.readerName || 'Độc giả'}</span> ${actionText} 
-                            <span class="font-bold">"${data.bookTitle}"</span>
+                            <span class="font-bold">${readerName}</span> ${actionText}
+                            <span class="font-bold">${bookDisplay}</span>
                         </p>
                         <p class="text-xs text-slate-500 mt-1">${timeStr}</p>
                     </div>

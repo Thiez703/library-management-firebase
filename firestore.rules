@@ -1,315 +1,97 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Helper Functions ──────────────────────────────────────────────────────
-
-    /** Kiểm tra user đã đăng nhập */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Lấy dữ liệu user từ Firestore (dùng để kiểm tra role) */
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    /** Kiểm tra user hiện tại có role admin không */
     function isAdmin() {
-      return isSignedIn() && getUserData().role == 'admin';
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    /** Kiểm tra đây có phải chính tài khoản đó không */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isStaff() {
+      return isSignedIn() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'librarian'];
     }
 
-    /** Admin xoá nợ phạt legacy trên phiếu mượn (trang Quản lý Tài chính) */
-    function isFinanceLegacyDebtClear() {
-      return isAdmin()
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['fineOverdue', 'fineDamage', 'adminNote', 'updatedAt'])
-        && request.resource.data.fineOverdue == 0
-        && request.resource.data.fineDamage == 0
-        && request.resource.data.fineOverdue is int
-        && request.resource.data.fineDamage is int
-        && request.resource.data.adminNote is string
-        && request.resource.data.adminNote.size() <= 5000
-        && request.resource.data.updatedAt == request.time
-        && (
-          (resource.data.fineOverdue is int && resource.data.fineOverdue > 0)
-          || (resource.data.fineDamage is int && resource.data.fineDamage > 0)
-        );
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
-    // ── Collection: users ─────────────────────────────────────────────────────
-
-    match /users/{userId} {
-      // User đọc được thông tin của chính mình; admin đọc được tất cả
-      allow read: if isOwner(userId) || isAdmin();
-
-      // Tạo tài khoản mới: chỉ cho phép nếu đang đăng nhập bằng uid tương ứng
-      // hoặc admin (tạo độc giả vãng lai)
-      allow create: if isOwner(userId) || isAdmin();
-
-      // Cập nhật:
-      // 1. Admin được sửa mọi thứ.
-      // 2. User không được sửa role, status, reputationScore, trustScore.
-      // 3a. User chỉ được sửa phone/cccdHash/isVerified KHI xác minh lần đầu (false -> true).
-      // 3b. User được đổi phone sau 60 ngày (chỉ sửa phone + phoneChangedAt + updatedAt).
-      allow update: if isAdmin()
-        || (
-          isOwner(userId)
-          && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'reputationScore', 'trustScore'])
-          && (
-            // Trường hợp thường: không đụng đến phone/cccdHash/isVerified
-            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone', 'cccdHash', 'isVerified', 'verifiedAt'])
-            // Xác minh lần đầu
-            || (resource.data.get('isVerified', false) == false && request.resource.data.isVerified == true)
-            // Đổi SĐT sau 60 ngày: chỉ được thay phone + phoneChangedAt + updatedAt
-            || (
-              request.resource.data.diff(resource.data).affectedKeys().hasOnly(['phone', 'phoneChangedAt', 'updatedAt'])
-              && resource.data.get('isVerified', false) == true
-              && (
-                !('phoneChangedAt' in resource.data)
-                || request.time > resource.data.phoneChangedAt + duration.value(60, 'd')
-              )
-            )
-          )
-        );
-
-      // Chỉ admin được xóa user
-      allow delete: if isAdmin();
-
-      // Subcollection: favorites
-      match /favorites/{favoriteId} {
-        allow read, write: if isOwner(userId) || isAdmin();
-      }
-    }
-
-    // ── Collection: books ─────────────────────────────────────────────────────
-
+    // Books & Categories — public read, staff write
     match /books/{bookId} {
-      // Ai cũng được đọc danh sách sách (kể cả chưa đăng nhập — catalog công khai)
       allow read: if true;
-
-      // Chỉ admin được thêm/xóa sách
-      allow create, delete: if isAdmin();
-      
-      // Admin được sửa tất cả.
-      // User được update sách nếu chỉ giảm/tăng quantity (khi mượn/trả sách)
-      allow update: if isAdmin() || (
-        isSignedIn() 
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['availableQuantity', 'status'])
-        && request.resource.data.availableQuantity >= 0
-      );
+      allow write: if isStaff();
     }
 
-    // ── Collection: categories ────────────────────────────────────────────────
-
-    match /categories/{categoryId} {
-      // Catalog công khai — ai cũng đọc được
+    match /categories/{catId} {
       allow read: if true;
-
-      // Chỉ admin được quản lý thể loại
-      allow create, update, delete: if isAdmin();
+      allow write: if isStaff();
     }
 
-    // ── Collection: borrowRecords ─────────────────────────────────────────────
-
-    match /borrowRecords/{recordId} {
-      // User đọc được phiếu mượn của chính mình; admin đọc tất cả
-      allow read: if isSignedIn() &&
-                    (resource.data.userId == request.auth.uid || isAdmin());
-
-      // User được tạo phiếu mượn cho chính mình (handleCheckout)
-      allow create: if isSignedIn() &&
-                      request.resource.data.userId == request.auth.uid
+    // Users — can read/write own data; staff can read all; admin can write all
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isStaff();
+      allow create: if isOwner(userId);
+      allow update: if (isOwner(userId) &&
+                       !request.resource.data.diff(resource.data).affectedKeys()
+                         .hasAny(['role', 'reputationScore', 'isVerified', 'cccdHash']))
                     || isAdmin();
-
-      // Chỉ admin được cập nhật phiếu mượn (duyệt, trả sách, hủy)
-      // Ngoại lệ: user được huỷ/chỉnh sửa phiếu của chính mình khi còn pending
-      allow update: if isFinanceLegacyDebtClear() ||
-                    isAdmin() ||
-                    // Cho phép user tự cancel phiếu của mình khi còn 'pending'
-                    (isSignedIn() &&
-                      resource.data.userId == request.auth.uid &&
-                      resource.data.status == 'pending' &&
-                      (
-                        // 1) User tự huỷ phiếu
-                        request.resource.data.status == 'cancelled'
-                        ||
-                        // 2) User chỉnh sửa phiếu trước khi duyệt
-                        (
-                          request.resource.data.status == 'pending' &&
-                          request.resource.data.userId == resource.data.userId
-                        )
-                      ));
-
-      // Chỉ admin được xóa phiếu mượn (cleanup legacy records)
       allow delete: if isAdmin();
     }
 
-    // ── Collection: phones (Unique phone index) ───────────────────────────────
-
-    match /phones/{phoneNumber} {
-      // User đã đăng nhập được đọc (để check trùng trước khi xác minh)
-      allow read: if isSignedIn();
-
-      // User được tạo index cho chính mình (1 lần duy nhất trong transaction verifyUser)
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
-
-      // Admin sửa/xóa thoải mái.
-      // User được xóa index SĐT của chính mình (khi đổi SĐT).
-      allow update: if isAdmin();
-      allow delete: if isAdmin() || (isSignedIn() && resource.data.uid == request.auth.uid);
+    // Borrow Records — user can read/create own; staff can read/write all
+    match /borrowRecords/{recordId} {
+      allow read: if isOwner(resource.data.userId) || isStaff();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isStaff();
     }
 
-    // ── Collection: cccds (Unique CCCD hash index) ────────────────────────────
+    // Fines — user can read own; staff can read/write all
+    match /fines/{fineId} {
+      allow read: if isOwner(resource.data.userId) || isStaff();
+      allow write: if isStaff();
+    }
 
-    match /cccds/{cccdHash} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.uid == request.auth.uid;
+    // Identity collections — write once on register, read by staff or owner
+    match /phones/{phone} {
+      allow read: if isStaff();
+      allow create: if isSignedIn();
       allow update, delete: if isAdmin();
     }
 
-    // ── Collection: identityAuditLog (Admin audit trail) ─────────────────────
+    match /cccds/{cccdHash} {
+      allow read: if isStaff();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
 
     match /identityAuditLog/{logId} {
-      // Chỉ admin đọc và tạo log
-      allow read, create: if isAdmin();
-      // Không ai được sửa hoặc xóa audit log
-      allow update, delete: if false;
-    }
-
-    // ── Collection: system (cài đặt thư viện) ────────────────────────────────
-
-    match /system/{docId} {
-      // Chỉ admin được đọc và ghi cài đặt hệ thống
-      allow read, write: if isAdmin();
-    }
-
-    // ── Collection: mail (Firebase Trigger Email Extension) ───────────────────
-
-    match /mail/{docId} {
-      // Chỉ server-side (admin SDK) hoặc user đã đăng nhập được tạo email
-      allow create: if isSignedIn();
-      // Không cho phép đọc hay xóa từ client
-      allow read, update, delete: if isAdmin();
-    }
-
-    // ── Collection: reservations (đặt trước sách — P2) ────────────────────────
-
-    match /reservations/{reservationId} {
-      allow read: if isSignedIn() &&
-                    (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() &&
-                      request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin() ||
-                              (isSignedIn() && resource.data.userId == request.auth.uid);
-    }
-
-    // ── Collection: fines (Quản lý Phạt) ──────────────────────────────────────
-    match /fines/{fineId} {
-      allow read: if isSignedIn() &&
-                    (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAdmin(); // Chỉ server/admin (trong transaction returnTicket) mới tạo phạt
-      allow update: if isAdmin(); // Thủ thư/Admin thanh toán hoặc miễn phạt
-      allow delete: if false;     // BIZ-12: Không được phép xóa phiếu phạt
-    }
-
-    // ── Collection: financePayments (Biên lai thu tiền — immutable) ─────────
-    match /financePayments/{paymentId} {
       allow read: if isAdmin();
-
-      allow create: if isAdmin() && (
-        (
-          request.resource.data.keys().hasOnly([
-            'type',
-            'sourceType',
-            'sourceFineDocId',
-            'sourceFineId',
-            'sourceRecordId',
-            'userId',
-            'userName',
-            'amount',
-            'currency',
-            'reason',
-            'paymentMethod',
-            'note',
-            'paidAt',
-            'createdAt',
-            'createdBy'
-          ])
-          && request.resource.data.type == 'fine_payment'
-          && request.resource.data.sourceType == 'fine'
-          && request.resource.data.sourceFineDocId is string
-          && request.resource.data.sourceFineDocId.size() > 0
-          && (!request.resource.data.keys().hasAny(['sourceFineId'])
-              || (request.resource.data.sourceFineId is string && request.resource.data.sourceFineId.size() > 0))
-          && (!request.resource.data.keys().hasAny(['sourceRecordId'])
-              || (request.resource.data.sourceRecordId is string && request.resource.data.sourceRecordId.size() > 0))
-          && request.resource.data.userId is string
-          && request.resource.data.userName is string
-          && request.resource.data.amount is int
-          && request.resource.data.amount > 0
-          && request.resource.data.currency == 'VND'
-          && request.resource.data.reason is string
-          && request.resource.data.reason.size() <= 2000
-          && request.resource.data.paymentMethod in ['cash', 'bank_transfer']
-          && request.resource.data.note is string
-          && request.resource.data.note.size() <= 2000
-          && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.paidAt == request.time
-          && request.resource.data.createdAt == request.time
-        )
-        ||
-        (
-          request.resource.data.keys().hasOnly([
-            'type',
-            'sourceType',
-            'sourceBorrowDocId',
-            'sourceRecordId',
-            'userId',
-            'userName',
-            'amount',
-            'currency',
-            'reason',
-            'paymentMethod',
-            'note',
-            'paidAt',
-            'createdAt',
-            'createdBy'
-          ])
-          && request.resource.data.type == 'legacy_borrow_debt_payment'
-          && request.resource.data.sourceType == 'borrowRecord'
-          && request.resource.data.sourceBorrowDocId is string
-          && request.resource.data.sourceBorrowDocId.size() > 0
-          && (!request.resource.data.keys().hasAny(['sourceRecordId'])
-              || (request.resource.data.sourceRecordId is string && request.resource.data.sourceRecordId.size() > 0))
-          && request.resource.data.userId is string
-          && request.resource.data.userName is string
-          && request.resource.data.amount is int
-          && request.resource.data.amount > 0
-          && request.resource.data.currency == 'VND'
-          && request.resource.data.reason is string
-          && request.resource.data.reason.size() <= 2000
-          && request.resource.data.paymentMethod in ['cash', 'bank_transfer']
-          && request.resource.data.note is string
-          && request.resource.data.note.size() <= 2000
-          && request.resource.data.createdBy == request.auth.uid
-          && request.resource.data.paidAt == request.time
-          && request.resource.data.createdAt == request.time
-        )
-      );
-
+      allow create: if isSignedIn();
       allow update, delete: if false;
     }
 
-    // ── Default: từ chối tất cả truy cập không khớp rule nào ─────────────────
-    match /{document=**} {
-      allow read, write: if false;
+    // System settings — admin only
+    match /system/{docId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Mail queue — written by functions/triggers; read by admin
+    match /mail/{mailId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if false;
+    }
+
+    // Reservations — user can read/write own; staff can read all
+    match /reservations/{resId} {
+      allow read: if isOwner(resource.data.userId) || isStaff();
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isOwner(resource.data.userId) || isStaff();
     }
   }
 }

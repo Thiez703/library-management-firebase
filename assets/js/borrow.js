@@ -8,6 +8,7 @@ import {
     calculateReputationDeltaForReturn,
     getMaxBorrowBooksByScore
 } from './identity.js';
+import { getSystemSettings } from './admin-settings.js';
 import {
     collection,
     doc,
@@ -25,11 +26,20 @@ import {
     where
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
 
+// Fallback defaults — sẽ bị ghi đè bởi getSystemSettings()
 export const MAX_BOOKS_PER_TICKET = 5;
 export const ONE_ACTIVE_TICKET_ONLY = true;
 export const RESERVE_EXPIRY_HOURS = 24;
 export const BORROW_DURATION_DAYS = 14;
 export const MAX_EXTENSIONS = 3; // BIZ-07: Tối đa 3 lần gia hạn mỗi phiếu
+
+// Helper: lấy settings từ Firestore (cached 5 phút)
+const getLibSettings = async () => {
+    try {
+        const s = await getSystemSettings();
+        return s?.library || {};
+    } catch { return {}; }
+};
 
 export const calculateFineAmount = (daysLate, schedule) => {
     if (daysLate <= 0) return 0;
@@ -142,19 +152,21 @@ const ensureCartItems = (cartItems) => {
         };
     });
 
+    const libSettings = await getLibSettings();
+    const maxBooks = libSettings.maxBooksPerTicket || MAX_BOOKS_PER_TICKET;
     const totalQty = cleaned.reduce((sum, item) => sum + item.quantity, 0);
-    if (totalQty > MAX_BOOKS_PER_TICKET) {
-        throw new Error(`Mỗi phiếu chỉ được tối đa ${MAX_BOOKS_PER_TICKET} cuốn.`);
+    if (totalQty > maxBooks) {
+        throw new Error(`Mỗi phiếu chỉ được tối đa ${maxBooks} cuốn.`);
     }
 
     return cleaned;
 };
 
-const hasExpiredPending = (recordData, nowMs) => {
+const hasExpiredPending = (recordData, nowMs, expiryHours = RESERVE_EXPIRY_HOURS) => {
     if (recordData.status !== 'pending') return false;
     const reqMs = toMillis(recordData.requestDate);
     if (!reqMs) return false;
-    return nowMs - reqMs >= RESERVE_EXPIRY_HOURS * 60 * 60 * 1000;
+    return nowMs - reqMs >= expiryHours * 60 * 60 * 1000;
 };
 
 const markCancelledAndRestore = async (recordDoc, reason) => {
@@ -266,6 +278,13 @@ export const handleCheckout = async (userData, cartItems) => {
     const userId = (userData?.uid || '').trim();
     if (!userId) {
         showToast('Vui lòng đăng nhập để đăng ký mượn sách.', 'error');
+        return null;
+    }
+
+    // Thủ thư không được mượn sách — chỉ quản lý
+    const cachedUser = JSON.parse(localStorage.getItem('lib_user') || '{}');
+    if (cachedUser?.role === 'librarian') {
+        showToast('Tài khoản Thủ thư không có quyền mượn sách. Vui lòng sử dụng tài khoản Độc giả.', 'error');
         return null;
     }
 
@@ -724,10 +743,12 @@ export const extendTicket = async (recordDocId, extraDays = 7, note = '') => {
             throw new Error('Chỉ có thể gia hạn phiếu đang ở trạng thái đang mượn.');
         }
 
-        // BIZ-07: Kiểm tra giới hạn số lần gia hạn
+        // BIZ-07: Kiểm tra giới hạn số lần gia hạn (đọc từ settings)
+        const libSettings = await getLibSettings();
+        const maxExt = libSettings.maxExtensions ?? MAX_EXTENSIONS;
         const currentExtensions = Number(record.extensionCount || 0);
-        if (currentExtensions >= MAX_EXTENSIONS) {
-            throw new Error(`Phiếu này đã gia hạn ${MAX_EXTENSIONS} lần, không thể gia hạn thêm.`);
+        if (currentExtensions >= maxExt) {
+            throw new Error(`Phiếu này đã gia hạn ${maxExt} lần, không thể gia hạn thêm.`);
         }
 
         // BIZ-04: Luôn tính từ dueDate gốc để đúng nghiệp vụ gia hạn
@@ -739,7 +760,7 @@ export const extendTicket = async (recordDocId, extraDays = 7, note = '') => {
         transaction.update(recordRef, {
             dueDate: Timestamp.fromDate(newDueDate),
             extensionCount: currentExtensions + 1,
-            adminNote: (note || '').trim() || `Gia hạn thêm ${days} ngày (lần ${currentExtensions + 1}/${MAX_EXTENSIONS}).`,
+            adminNote: (note || '').trim() || `Gia hạn thêm ${days} ngày (lần ${currentExtensions + 1}/${maxExt}).`,
             updatedAt: serverTimestamp()
         });
     });

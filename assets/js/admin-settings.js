@@ -29,8 +29,19 @@ const DEFAULT_SETTINGS = {
     library: {
         borrowDurationDays: 14,
         maxBooksPerTicket: 5,
+        maxExtensions: 3,
+        extensionDays: 7,
+        reserveExpiryHours: 24,
         finePerDay: 5000,
-        allowRenew: true
+        allowRenew: true,
+        oneActiveTicketOnly: true
+    },
+    reputation: {
+        defaultScore: 100,
+        minBorrowScore: 40,
+        penaltyPerDay: 5,
+        noViolationBonus: 20,
+        noViolationPeriodDays: 180
     },
     notifications: {
         borrowEmail: true,
@@ -38,7 +49,10 @@ const DEFAULT_SETTINGS = {
         newReader: false
     },
     security: {
-        twoFactorEnabled: false
+        twoFactorEnabled: false,
+        phoneChangeCooldownDays: 60,
+        requireVerification: true,
+        autoLockOnOverdue: true
     }
 };
 
@@ -53,12 +67,44 @@ const state = {
     settings: structuredClone(DEFAULT_SETTINGS)
 };
 
+// ============ SHARED: getSystemSettings — cho các module khác đọc ============
+
+let _settingsCache = null;
+let _settingsCacheMs = 0;
+const SETTINGS_CACHE_TTL = 5 * 60 * 1000; // 5 phút
+
+/**
+ * Lấy system settings từ Firestore (có cache 5 phút).
+ * Dùng bởi borrow.js, identity.js, cart.js, v.v.
+ * @param {boolean} forceRefresh — bỏ cache, đọc trực tiếp từ Firestore
+ * @returns {Promise<Object>} settings đã merge với defaults
+ */
+export const getSystemSettings = async (forceRefresh = false) => {
+    const now = Date.now();
+    if (!forceRefresh && _settingsCache && now - _settingsCacheMs < SETTINGS_CACHE_TTL) {
+        return _settingsCache;
+    }
+    try {
+        const snap = await getDoc(SETTINGS_REF);
+        _settingsCache = mergeSettings(snap.exists() ? snap.data() : {});
+        _settingsCacheMs = now;
+    } catch (e) {
+        console.warn('getSystemSettings: fallback to defaults', e);
+        _settingsCache = structuredClone(DEFAULT_SETTINGS);
+        _settingsCacheMs = now;
+    }
+    return _settingsCache;
+};
+
+// ============ INTERNAL HELPERS ============
+
 const getElem = (id) => document.getElementById(id);
 
 const mergeSettings = (incoming = {}) => ({
     general: { ...DEFAULT_SETTINGS.general, ...(incoming.general || {}) },
     ui: { ...DEFAULT_SETTINGS.ui, ...(incoming.ui || {}) },
     library: { ...DEFAULT_SETTINGS.library, ...(incoming.library || {}) },
+    reputation: { ...DEFAULT_SETTINGS.reputation, ...(incoming.reputation || {}) },
     notifications: { ...DEFAULT_SETTINGS.notifications, ...(incoming.notifications || {}) },
     security: { ...DEFAULT_SETTINGS.security, ...(incoming.security || {}) }
 });
@@ -86,7 +132,7 @@ const getNumber = (id, fallback = 0) => {
 
 const applyTheme = (themeKey) => {
     const theme = THEME_MAP[themeKey] || THEME_MAP.blue;
-    const activeButtons = document.querySelectorAll('.tab-btn.bg-primary-600, #generalSaveBtn, #librarySaveBtn, #notificationsSaveBtn, #securitySaveBtn');
+    const activeButtons = document.querySelectorAll('.tab-btn.bg-primary-600, #generalSaveBtn, #librarySaveBtn, #reputationSaveBtn, #notificationsSaveBtn, #securitySaveBtn');
 
     activeButtons.forEach((btn) => {
         btn.style.backgroundColor = theme.primary;
@@ -124,31 +170,54 @@ const applyDarkMode = (enabled) => {
     });
 };
 
+// ============ FILL FORM FROM STATE ============
+
 const fillFormFromSettings = () => {
     const s = state.settings;
 
+    // General
     setInputValue('libraryNameInput', s.general.libraryName);
     setInputValue('libraryAddressInput', s.general.address);
     setInputValue('libraryPhoneInput', s.general.phone);
     setInputValue('libraryEmailInput', s.general.email);
 
+    // UI
     setChecked('darkModeToggle', s.ui.darkMode);
     setInputValue('themeColorSelect', s.ui.theme);
 
+    // Library
     setInputValue('borrowDurationInput', s.library.borrowDurationDays);
     setInputValue('maxBooksInput', s.library.maxBooksPerTicket);
+    setInputValue('maxExtensionsInput', s.library.maxExtensions);
+    setInputValue('extensionDaysInput', s.library.extensionDays);
+    setInputValue('reserveExpiryHoursInput', s.library.reserveExpiryHours);
     setInputValue('finePerDayInput', s.library.finePerDay);
     setChecked('allowRenewToggle', s.library.allowRenew);
+    setChecked('oneActiveTicketToggle', s.library.oneActiveTicketOnly);
 
+    // Reputation
+    setInputValue('reputationDefaultInput', s.reputation.defaultScore);
+    setInputValue('reputationMinBorrowInput', s.reputation.minBorrowScore);
+    setInputValue('reputationPenaltyPerDayInput', s.reputation.penaltyPerDay);
+    setInputValue('reputationBonusInput', s.reputation.noViolationBonus);
+    setInputValue('reputationBonusPeriodInput', s.reputation.noViolationPeriodDays);
+
+    // Notifications
     setChecked('notifyBorrowEmailToggle', s.notifications.borrowEmail);
     setChecked('notifyOverdueToggle', s.notifications.overdueAlert);
     setChecked('notifyNewReaderToggle', s.notifications.newReader);
 
+    // Security
     setChecked('twoFactorToggle', s.security.twoFactorEnabled);
+    setInputValue('phoneChangeCooldownInput', s.security.phoneChangeCooldownDays);
+    setChecked('requireVerificationToggle', s.security.requireVerification);
+    setChecked('autoLockOnOverdueToggle', s.security.autoLockOnOverdue);
 
     applyDarkMode(!!s.ui.darkMode);
     applyTheme(s.ui.theme);
 };
+
+// ============ COLLECT FROM FORM ============
 
 const collectGeneralAndUi = () => ({
     general: {
@@ -167,8 +236,22 @@ const collectLibrary = () => ({
     library: {
         borrowDurationDays: Math.max(1, getNumber('borrowDurationInput', 14)),
         maxBooksPerTicket: Math.max(1, getNumber('maxBooksInput', 5)),
+        maxExtensions: Math.max(0, getNumber('maxExtensionsInput', 3)),
+        extensionDays: Math.max(1, getNumber('extensionDaysInput', 7)),
+        reserveExpiryHours: Math.max(1, getNumber('reserveExpiryHoursInput', 24)),
         finePerDay: Math.max(0, getNumber('finePerDayInput', 5000)),
-        allowRenew: getChecked('allowRenewToggle')
+        allowRenew: getChecked('allowRenewToggle'),
+        oneActiveTicketOnly: getChecked('oneActiveTicketToggle')
+    }
+});
+
+const collectReputation = () => ({
+    reputation: {
+        defaultScore: Math.max(0, Math.min(100, getNumber('reputationDefaultInput', 100))),
+        minBorrowScore: Math.max(0, Math.min(100, getNumber('reputationMinBorrowInput', 40))),
+        penaltyPerDay: Math.max(0, Math.min(50, getNumber('reputationPenaltyPerDayInput', 5))),
+        noViolationBonus: Math.max(0, Math.min(50, getNumber('reputationBonusInput', 20))),
+        noViolationPeriodDays: Math.max(30, Math.min(365, getNumber('reputationBonusPeriodInput', 180)))
     }
 });
 
@@ -182,9 +265,14 @@ const collectNotifications = () => ({
 
 const collectSecurity = () => ({
     security: {
-        twoFactorEnabled: getChecked('twoFactorToggle')
+        twoFactorEnabled: getChecked('twoFactorToggle'),
+        phoneChangeCooldownDays: Math.max(0, Math.min(365, getNumber('phoneChangeCooldownInput', 60))),
+        requireVerification: getChecked('requireVerificationToggle'),
+        autoLockOnOverdue: getChecked('autoLockOnOverdueToggle')
     }
 });
+
+// ============ SAVE ============
 
 const saveSettingsPatch = async (patch, successText) => {
     await setDoc(SETTINGS_REF, {
@@ -193,6 +281,9 @@ const saveSettingsPatch = async (patch, successText) => {
     }, { merge: true });
 
     state.settings = mergeSettings({ ...state.settings, ...patch });
+    // Invalidate cache so other modules read fresh data
+    _settingsCache = null;
+    _settingsCacheMs = 0;
     fillFormFromSettings();
     showToast(successText, 'success');
 };
@@ -215,6 +306,11 @@ const saveGeneral = async () => {
 const saveLibrary = async () => {
     const payload = collectLibrary();
     await saveSettingsPatch(payload, 'Đã lưu cài đặt thư viện.');
+};
+
+const saveReputation = async () => {
+    const payload = collectReputation();
+    await saveSettingsPatch(payload, 'Đã lưu cài đặt uy tín.');
 };
 
 const saveNotifications = async () => {
@@ -264,6 +360,8 @@ const saveSecurity = async () => {
     setInputValue('confirmPasswordInput', '');
 };
 
+// ============ TABS & ACTIONS ============
+
 const bindTabs = () => {
     document.querySelectorAll('.tab-btn').forEach((btn) => {
         btn.addEventListener('click', function () {
@@ -304,6 +402,14 @@ const bindActions = () => {
         }
     });
 
+    getElem('reputationSaveBtn')?.addEventListener('click', async () => {
+        try {
+            await saveReputation();
+        } catch (err) {
+            showToast(err.message || 'Không thể lưu cài đặt uy tín.', 'error');
+        }
+    });
+
     getElem('notificationsSaveBtn')?.addEventListener('click', async () => {
         try {
             await saveNotifications();
@@ -322,6 +428,7 @@ const bindActions = () => {
 
     getElem('generalResetBtn')?.addEventListener('click', fillFormFromSettings);
     getElem('libraryResetBtn')?.addEventListener('click', fillFormFromSettings);
+    getElem('reputationResetBtn')?.addEventListener('click', fillFormFromSettings);
     getElem('notificationsResetBtn')?.addEventListener('click', fillFormFromSettings);
     getElem('securityResetBtn')?.addEventListener('click', () => {
         fillFormFromSettings();
@@ -338,6 +445,8 @@ const bindActions = () => {
         applyTheme(e.target.value);
     });
 };
+
+// ============ INIT ============
 
 const loadSettings = async () => {
     const snap = await getDoc(SETTINGS_REF);

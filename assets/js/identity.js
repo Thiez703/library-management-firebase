@@ -24,6 +24,7 @@ import {
     serverTimestamp,
     where
 } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
+import { getSystemSettings } from './admin-settings.js';
 
 // ── Error codes ──────────────────────────────────────────────────────────────
 
@@ -43,14 +44,14 @@ export const IDENTITY_ERRORS = Object.freeze({
     UNPAID_FINE: 'UNPAID_FINE'
 });
 
-export const PHONE_CHANGE_COOLDOWN_DAYS = 60;
+export let PHONE_CHANGE_COOLDOWN_DAYS = 60;
 
 const ERROR_MESSAGES = Object.freeze({
     [IDENTITY_ERRORS.PHONE_ALREADY_USED]: 'Số điện thoại này đã được đăng ký với tài khoản khác.',
     [IDENTITY_ERRORS.CCCD_ALREADY_USED]: 'Số CCCD này đã được đăng ký với tài khoản khác.',
     [IDENTITY_ERRORS.ALREADY_VERIFIED]: 'Tài khoản đã được xác minh trước đó.',
     [IDENTITY_ERRORS.USER_NOT_VERIFIED]: 'Vui lòng xác minh danh tính trước khi mượn sách.',
-    [IDENTITY_ERRORS.REPUTATION_TOO_LOW]: 'Điểm uy tín dưới 40 (hạng Kém). Tài khoản bị khóa mượn sách.',
+    [IDENTITY_ERRORS.REPUTATION_TOO_LOW]: 'Điểm uy tín dưới ngưỡng cho phép. Tài khoản bị khóa mượn sách.',
     [IDENTITY_ERRORS.INVALID_PHONE]: 'Số điện thoại không hợp lệ. Vui lòng nhập đúng 10 số.',
     [IDENTITY_ERRORS.INVALID_CCCD]: 'Số CCCD không hợp lệ. Vui lòng nhập đúng 12 số.',
     [IDENTITY_ERRORS.CCCD_MISMATCH]: 'Số CCCD không khớp với tài khoản đã xác minh.',
@@ -60,10 +61,28 @@ const ERROR_MESSAGES = Object.freeze({
     [IDENTITY_ERRORS.UNPAID_FINE]: 'Không thể mượn do bạn còn khoản nợ chưa thanh toán. Vui lòng thanh toán để tiếp tục.'
 });
 
-export const REPUTATION_DEFAULT = 100;
-export const REPUTATION_MIN_BORROW = 40;
-export const REPUTATION_PENALTY_PER_DAY = 5;
-const SIX_MONTHS_MS = 180 * 24 * 60 * 60 * 1000;
+export let REPUTATION_DEFAULT = 100;
+export let REPUTATION_MIN_BORROW = 40;
+export let REPUTATION_PENALTY_PER_DAY = 5;
+let NO_VIOLATION_BONUS_AMOUNT = 20;
+let NO_VIOLATION_PERIOD_MS = 180 * 24 * 60 * 60 * 1000; // 6 tháng
+
+// Tải settings từ Firestore để ghi đè defaults
+const refreshSettingsForIdentity = async () => {
+    try {
+        const s = await getSystemSettings();
+        if (s?.reputation) {
+            REPUTATION_DEFAULT = s.reputation.defaultScore ?? 100;
+            REPUTATION_MIN_BORROW = s.reputation.minBorrowScore ?? 40;
+            REPUTATION_PENALTY_PER_DAY = s.reputation.penaltyPerDay ?? 5;
+            NO_VIOLATION_BONUS_AMOUNT = s.reputation.noViolationBonus ?? 20;
+            NO_VIOLATION_PERIOD_MS = (s.reputation.noViolationPeriodDays ?? 180) * 24 * 60 * 60 * 1000;
+        }
+        if (s?.security) {
+            PHONE_CHANGE_COOLDOWN_DAYS = s.security.phoneChangeCooldownDays ?? 60;
+        }
+    } catch { /* fallback to defaults */ }
+};
 
 const BORROW_TIERS = [
     { min: 80, maxBooks: 5, label: 'Tốt' },
@@ -307,6 +326,9 @@ export const verifyUser = async (uid, rawPhone, rawCccd) => {
  * @returns {Promise<{ eligible: boolean, identity: Object, reason?: string }>}
  */
 export const checkBorrowEligibility = async (uid) => {
+    // Lấy settings mới nhất
+    await refreshSettingsForIdentity();
+
     const identity = await getUserIdentity(uid);
 
     if (!identity) {
@@ -428,7 +450,7 @@ export const calculateReputationDeltaForReturn = ({ daysLate = 0, note = '' } = 
 export const calculateNoViolationBonus = ({ lastPenaltyAt, nowMs = Date.now() } = {}) => {
     const lastPenaltyMs = toMillis(lastPenaltyAt);
     if (!lastPenaltyMs) return 0;
-    return nowMs - lastPenaltyMs >= SIX_MONTHS_MS ? 20 : 0;
+    return nowMs - lastPenaltyMs >= NO_VIOLATION_PERIOD_MS ? NO_VIOLATION_BONUS_AMOUNT : 0;
 };
 
 // ── Phone change cooldown ────────────────────────────────────────────────────

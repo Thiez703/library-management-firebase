@@ -1,12 +1,12 @@
 /**
  * admin-guard.js
- * Module bảo vệ các trang Admin.
- * Import và gọi `requireAdmin()` ở đầu mỗi file JS dành cho admin.
+ * Module bảo vệ các trang Admin & Librarian.
+ * Import và gọi `requireAdmin()` ở đầu mỗi file JS dành cho staff.
  *
  * Luồng hoạt động:
  *  1. Đọc cache từ localStorage (hiển thị nhanh, không chờ mạng).
  *  2. Đồng thời lắng nghe Firebase Auth để xác minh thực sự.
- *  3. Nếu không phải admin → redirect ngay sang trang login.
+ *  3. Nếu không phải admin/librarian → redirect ngay sang trang login.
  */
 
 import { auth, db } from './firebase-config.js';
@@ -15,6 +15,7 @@ import { doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-
 
 const LOGIN_URL = '../user/login.html';
 const CACHE_KEY = 'lib_user';
+const STAFF_ROLES = ['admin', 'librarian'];
 
 /**
  * Lấy role từ localStorage cache (fast path).
@@ -68,9 +69,9 @@ const removeOverlay = () => {
  *                               Nếu không truyền, các module tự init như bình thường.
  */
 export const requireAdmin = (onReady) => {
-    // Fast path: nếu cache cho thấy không phải admin → redirect ngay
+    // Fast path: nếu cache cho thấy không phải staff → redirect ngay
     const cachedRole = getCachedRole();
-    if (cachedRole !== null && cachedRole !== 'admin') {
+    if (cachedRole !== null && !STAFF_ROLES.includes(cachedRole)) {
         window.location.replace(LOGIN_URL);
         return;
     }
@@ -91,8 +92,8 @@ export const requireAdmin = (onReady) => {
             const userData = userSnap.exists() ? userSnap.data() : null;
             const role = userData?.role ?? 'user';
 
-            if (role !== 'admin') {
-                // User thật nhưng không có quyền admin
+            if (!STAFF_ROLES.includes(role)) {
+                // User thật nhưng không có quyền staff
                 localStorage.removeItem(CACHE_KEY);
                 window.location.replace(LOGIN_URL);
                 return;
@@ -104,7 +105,7 @@ export const requireAdmin = (onReady) => {
                 email: firebaseUser.email,
                 displayName: userData?.displayName || firebaseUser.displayName || firebaseUser.email,
                 photoURL: userData?.photoURL || firebaseUser.photoURL,
-                role: 'admin'
+                role: role
             };
             localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
 
@@ -114,7 +115,7 @@ export const requireAdmin = (onReady) => {
         } catch (err) {
             console.error('[admin-guard] Lỗi xác thực:', err);
             // Lỗi mạng → nếu cache hợp lệ thì cho qua, ngược lại redirect
-            if (cachedRole === 'admin') {
+            if (STAFF_ROLES.includes(cachedRole)) {
                 removeOverlay();
                 if (typeof onReady === 'function') onReady(firebaseUser, null);
             } else {

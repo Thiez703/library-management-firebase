@@ -36,10 +36,11 @@ const renderProfile = async (firebaseUser, userData, bindPhoneForm = false) => {
     const email = userData?.email || firebaseUser.email || '--';
     const phone = userData?.phone || userData?.phoneNumber || '';
     const photoURL = userData?.photoURL || firebaseUser.photoURL || AVATAR_PLACEHOLDER;
-    const role = userData?.role === 'admin' ? 'Quản trị viên' : 'Độc giả';
+    const roleLabels = { admin: 'Quản trị viên', librarian: 'Thủ thư' };
+    const role = roleLabels[userData?.role] || 'Độc giả';
     const status = (userData?.status || 'active') === 'active' ? 'Đang hoạt động' : 'Tạm khóa';
     const createdAt = userData?.createdAt?.toDate?.()?.toLocaleDateString('vi-VN') || '--';
-    const memberCode = `US-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
+    const readerCode = `US-${firebaseUser.uid.slice(0, 6).toUpperCase()}`;
     const isVerified = userData?.isVerified === true;
     const baseReputationScore = typeof userData?.reputationScore === 'number'
         ? userData.reputationScore
@@ -60,7 +61,7 @@ const renderProfile = async (firebaseUser, userData, bindPhoneForm = false) => {
     setText('profileRole', role);
     setText('profileStatus', status);
     setText('profileCreatedAt', createdAt);
-    setText('profileMemberCode', memberCode);
+    setText('profileMemberCode', readerCode);
 
     // Hiển thị trạng thái xác minh
     const verifyStatusEl = getElem('profileVerifyStatus');
