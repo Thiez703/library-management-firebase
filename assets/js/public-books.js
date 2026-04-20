@@ -4,6 +4,8 @@ import { loadBooksPage, searchAndFilterClientSide } from './books.js';
 import { addToCart, ensureFloatingCartButton, showCartActionToast } from './cart.js';
 import { initFavoriteFeature, refreshFavoriteButtons } from './favorites.js';
 
+const escapeHtml = (str) => String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
 let addToCartClickBound = false;
 
 const initPublicBooks = () => {
@@ -81,7 +83,7 @@ const initCatalog = async (catalogGrid) => {
                 if (!catName) return; // Bỏ qua nếu dữ liệu lỗi
                 html += `<li>
                     <a href="#" data-id="${doc.id}" class="cat-link flex items-center justify-between px-3 py-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl font-medium text-sm transition-colors group">
-                        <span class="flex items-center gap-2.5"><i class="ph ph-bookmark text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i> ${catName}</span>
+                        <span class="flex items-center gap-2.5"><i class="ph ph-bookmark text-lg text-slate-400 group-hover:text-primary-500 transition-colors"></i> ${escapeHtml(catName)}</span>
                     </a>
                 </li>`;
             });
@@ -292,7 +294,7 @@ function createBookCardHTML(book, badgeText, badgeValue) {
     const coverUrl = book.coverUrl || fallbackCover;
     const categoryName = book.categoryName || 'Sách';
     const author = book.author || 'Tác giả ẩn danh';
-    const rating = (Math.random() * (0.3) + 4.7).toFixed(1);
+    const borrowCount = Number(book.borrowCount || 0);
 
     let badgeHtml = '';
     if (badgeText === 'Top') {
@@ -312,18 +314,18 @@ function createBookCardHTML(book, badgeText, badgeValue) {
     <div class="group flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl hover:border-primary-200 transition-all duration-300 h-full">
         <a href="book-detail.html?id=${book.id}" class="block relative aspect-[2/3] overflow-hidden bg-slate-100 p-4 flex items-center justify-center shrink-0">
             ${badgeHtml}
-            <img src="${coverUrl}" alt="${book.title}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
+            <img src="${coverUrl}" alt="${escapeHtml(book.title)}" onerror="this.src='../assets/images/book-cover-placeholder-gray.svg'" class="w-full h-full object-cover rounded-md book-shadow transform group-hover:scale-105 transition-all duration-500">
             <div class="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-[2px]">
                 <span class="px-5 py-2.5 bg-white text-slate-900 font-bold text-sm rounded-xl shadow-lg transform translate-y-4 group-hover:translate-y-0 transition-all">Xem Chi Tiết</span>
             </div>
         </a>
         <div class="p-3 md:p-4 flex flex-col flex-1">
-            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2 line-clamp-1">${categoryName}</div>
-            <a href="book-detail.html?id=${book.id}" class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">${book.title}</a>
-            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">${author}</p>
+            <div class="text-[10px] font-bold text-primary-600 uppercase tracking-wider mb-2 line-clamp-1">${escapeHtml(categoryName)}</div>
+            <a href="book-detail.html?id=${book.id}" class="font-bold text-slate-800 text-sm md:text-base leading-snug mb-1 hover:text-primary-600 transition-colors line-clamp-2">${escapeHtml(book.title)}</a>
+            <p class="text-xs md:text-sm font-medium text-slate-500 mb-3">${escapeHtml(author)}</p>
             <div class="mt-auto pt-3 flex items-center justify-between border-t border-slate-100">
-                <div class="flex items-center text-amber-400 text-xs md:text-sm">
-                    <i class="ph-fill ph-star"></i><span class="text-slate-600 font-medium ml-1">${rating}</span>
+                <div class="flex items-center text-slate-400 text-xs md:text-sm">
+                    <i class="ph ph-books"></i><span class="text-slate-500 font-medium ml-1">${borrowCount > 0 ? borrowCount + ' lượt' : 'Chưa có'}</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <button

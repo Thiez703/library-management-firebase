@@ -21,7 +21,6 @@ import {
     runTransaction,
     serverTimestamp,
     Timestamp,
-    increment,
     writeBatch,
     where
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
@@ -80,14 +79,15 @@ export const getActiveFeeSchedule = async () => {
 const BORROW_COLLECTION = 'borrowRecords';
 
 const isLegacyRecord = (record) => {
+    // Phiếu do admin tạo trực tiếp — không phải legacy
+    if (record?.createdBy === 'admin') return false;
     const recordId = (record?.recordId || '').toString().trim().toUpperCase();
     const userDetails = record?.userDetails || {};
     const hasValidUserDetails = !!(userDetails.fullName && userDetails.phone && userDetails.cccd);
-
     return recordId.startsWith('REQ-') || !hasValidUserDetails;
 };
 
-const generateRecordId = () => {
+export const generateRecordId = () => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     let code = '';
     for (let i = 0; i < 6; i++) {
@@ -215,33 +215,51 @@ export const cleanupLegacyBorrowRecords = async () => {
         batchOps = 0;
     };
 
+    // Thu thập tất cả legacy records và lượng sách cần hoàn
+    const legacyDocs = [];
+    const bookRestoreMap = new Map(); // bookId → totalRestoreQty
+
     for (const docSnap of snapshot.docs) {
         const record = docSnap.data() || {};
         if (!isLegacyRecord(record)) continue;
+        legacyDocs.push(docSnap);
 
-        const books = Array.isArray(record.books) ? record.books : [];
         const isActiveLike = ['pending', 'borrowing'].includes((record.status || '').toString());
-
-        if (isActiveLike) {
-            for (const item of books) {
+        if (isActiveLike && Array.isArray(record.books)) {
+            for (const item of record.books) {
                 if (!item?.bookId) continue;
-                const bookRef = doc(db, 'books', item.bookId);
-                const restoreQty = Math.max(1, Number(item?.quantity || 1));
-                batch.update(bookRef, {
-                    availableQuantity: increment(restoreQty),
-                    status: 'available'
-                });
-                batchOps += 1;
+                const qty = Math.max(1, Number(item?.quantity || 1));
+                bookRestoreMap.set(item.bookId, (bookRestoreMap.get(item.bookId) || 0) + qty);
             }
         }
+    }
 
+    // Đọc current stock của tất cả các sách cần hoàn (để tính đúng status)
+    const bookIds = [...bookRestoreMap.keys()];
+    const bookSnapMap = new Map();
+    if (bookIds.length > 0) {
+        const bookSnaps = await Promise.all(bookIds.map(id => getDoc(doc(db, 'books', id))));
+        bookSnaps.forEach((snap, i) => { if (snap.exists()) bookSnapMap.set(bookIds[i], snap); });
+    }
+
+    // Batch update books với status đúng
+    for (const [bookId, restoreQty] of bookRestoreMap.entries()) {
+        const bookSnap = bookSnapMap.get(bookId);
+        if (!bookSnap) continue;
+        const nextQty = (Number(bookSnap.data().availableQuantity) || 0) + restoreQty;
+        batch.update(doc(db, 'books', bookId), {
+            availableQuantity: nextQty,
+            status: nextQty > 0 ? 'available' : 'out_of_stock'
+        });
+        batchOps += 1;
+    }
+
+    // Batch delete legacy records
+    for (const docSnap of legacyDocs) {
         batch.delete(docSnap.ref);
         batchOps += 1;
         removedCount += 1;
-
-        if (batchOps >= 450) {
-            await flushBatch();
-        }
+        if (batchOps >= 450) await flushBatch();
     }
 
     await flushBatch();
@@ -302,7 +320,8 @@ export const handleCheckout = async (userData, cartItems) => {
     const userDetails = {
         fullName: identity.fullName || identity.displayName || '',
         phone: identity.phone || '',
-        cccd: identity.cccdHash || '' // Lưu hash, không lưu plain text
+        cccd: identity.cccdHash || '', // Lưu hash, không lưu plain text
+        email: identity.email || userData.email || ''
     };
 
     let books;
@@ -707,7 +726,7 @@ export const returnTicket = async (recordDocId, damageFee = 0, finalNote = '') =
             const evalResult = calculateReputationDeltaForReturn({ daysLate, note: finalNote });
             // noViolationBonus chỉ áp dụng khi trả đúng hạn và không có phạt hỏng
             const noViolationBonus = (daysLate <= 0 && normalizeMoney(damageFee) <= 0)
-                ? calculateNoViolationBonus({ lastPenaltyAt: userData.lastPenaltyAt })
+                ? calculateNoViolationBonus({ lastPenaltyAt: userData.lastPenaltyAt, createdAt: userData.createdAt })
                 : 0;
             const delta = Number(evalResult.delta || 0) + Number(noViolationBonus || 0);
             const newScore = Math.max(0, Math.min(100, currentScore + delta));
@@ -751,11 +770,14 @@ export const extendTicket = async (recordDocId, extraDays = 7, note = '') => {
             throw new Error(`Phiếu này đã gia hạn ${maxExt} lần, không thể gia hạn thêm.`);
         }
 
-        // BIZ-04: Luôn tính từ dueDate gốc để đúng nghiệp vụ gia hạn
-        // (gia hạn 7 ngày từ hạn trả, không phải từ hôm nay)
+        // BIZ-04: Tính từ dueDate gốc, nhưng nếu kết quả vẫn trong quá khứ
+        // (sách đã quá hạn) thì tính từ hôm nay để gia hạn thực sự có ý nghĩa
         const baseDateMs = toMillis(record.dueDate) || Date.now();
-        const newDueDate = new Date(baseDateMs);
-        newDueDate.setDate(newDueDate.getDate() + days);
+        const fromDue = new Date(baseDateMs);
+        fromDue.setDate(fromDue.getDate() + days);
+        const fromToday = new Date();
+        fromToday.setDate(fromToday.getDate() + days);
+        const newDueDate = fromDue > new Date() ? fromDue : fromToday;
 
         transaction.update(recordRef, {
             dueDate: Timestamp.fromDate(newDueDate),

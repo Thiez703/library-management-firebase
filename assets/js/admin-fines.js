@@ -143,11 +143,17 @@ const handlePayFine = async (docId) => {
         const fineRef = doc(db, 'fines', docId);
         await updateDoc(fineRef, { status: 'paid', paidAt: serverTimestamp() });
 
-        // If user was locked due to this fine, restore to active if no other unpaid fines
+        // Nếu user đang bị khóa do phạt, kiểm tra live từ Firestore để tránh stale cache
         const fine = allFines.find(f => f.id === docId);
         if (fine?.userId) {
-            const otherUnpaid = allFines.filter(f => f.id !== docId && f.userId === fine.userId && f.status === 'unpaid');
-            if (otherUnpaid.length === 0) {
+            const otherUnpaidSnap = await getDocs(query(
+                collection(db, 'fines'),
+                where('userId', '==', fine.userId),
+                where('status', '==', 'unpaid')
+            ));
+            // Lọc bỏ chính fine vừa thanh toán (có thể snapshot chưa cập nhật ngay)
+            const stillUnpaid = otherUnpaidSnap.docs.filter(d => d.id !== docId);
+            if (stillUnpaid.length === 0) {
                 const userRef = doc(db, 'users', fine.userId);
                 const userSnap = await getDoc(userRef);
                 if (userSnap.exists() && userSnap.data().status === 'locked') {
@@ -191,7 +197,7 @@ const bindEvents = () => {
     const closeBtn = document.getElementById('closeWaiveModalBtn');
     const waiveForm = document.getElementById('waiveForm');
 
-    closeBtn.addEventListener('click', () => waiveModal.classList.add('hidden'));
+    closeBtn?.addEventListener('click', () => waiveModal?.classList.add('hidden'));
 
     waiveForm.addEventListener('submit', async (e) => {
         e.preventDefault();

@@ -62,7 +62,7 @@
             </div>
             <div class="p-4 border-t border-slate-800">
                 <div class="flex items-center gap-3">
-                    <img id="adminAvatar" src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Admin"
+                    <img id="adminAvatar" src="../assets/images/avatar-placeholder.svg" alt="Admin"
                         class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover">
                     <div class="flex-1 min-w-0">
                         <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
@@ -85,7 +85,8 @@
                 const adminName = document.getElementById('adminName');
                 const adminAvatar = document.getElementById('adminAvatar');
                 if (adminName) adminName.innerText = userData.displayName || user.email;
-                if (adminAvatar) adminAvatar.src = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(userData.displayName || user.email)}&background=random`;
+                if (adminAvatar) adminAvatar.src = userData.photoURL || '../assets/images/avatar-placeholder.svg';
+                if (adminAvatar) adminAvatar.onerror = () => { adminAvatar.src = '../assets/images/avatar-placeholder.svg'; };
             });
             document.getElementById('adminLogoutBtn')?.addEventListener('click', (e) => {
                 e.preventDefault();
@@ -101,7 +102,7 @@
                     <h2 class="text-base font-bold text-slate-800">Quản lý Sách & Thể loại</h2>
                 </div>
                 <div class="flex items-center gap-3">
-                    <img src="../assets/images/admin_avatar.png" alt="Avatar" class="w-8 h-8 rounded-full border border-slate-200" onerror="this.src='https://i.pravatar.cc/150?img=11'">
+                    <img src="../assets/images/avatar-placeholder.svg" alt="Avatar" class="w-8 h-8 rounded-full border border-slate-200" onerror="this.onerror=null;this.src='../assets/images/avatar-placeholder.svg'">
                 </div>
             </header>
 

@@ -239,7 +239,10 @@ export const getUserIdentity = async (uid) => {
         displayName: data.displayName || '',
         fullName: data.displayName || data.fullName || '',
         email: data.email || '',
-        status: data.status || 'active'
+        status: data.status || 'active',
+        phoneChangedAt: data.phoneChangedAt || null,
+        createdAt: data.createdAt || null,
+        lastPenaltyAt: data.lastPenaltyAt || null
     };
 };
 
@@ -447,10 +450,12 @@ export const calculateReputationDeltaForReturn = ({ daysLate = 0, note = '' } = 
     return { delta, shouldLockAccount, reasons };
 };
 
-export const calculateNoViolationBonus = ({ lastPenaltyAt, nowMs = Date.now() } = {}) => {
+export const calculateNoViolationBonus = ({ lastPenaltyAt, createdAt, nowMs = Date.now() } = {}) => {
     const lastPenaltyMs = toMillis(lastPenaltyAt);
-    if (!lastPenaltyMs) return 0;
-    return nowMs - lastPenaltyMs >= NO_VIOLATION_PERIOD_MS ? NO_VIOLATION_BONUS_AMOUNT : 0;
+    // Nếu chưa bao giờ bị phạt, dùng createdAt làm mốc (user trung thành từ ngày tạo TK)
+    const baseMs = lastPenaltyMs || toMillis(createdAt);
+    if (!baseMs) return 0;
+    return nowMs - baseMs >= NO_VIOLATION_PERIOD_MS ? NO_VIOLATION_BONUS_AMOUNT : 0;
 };
 
 // ── Phone change cooldown ────────────────────────────────────────────────────
@@ -464,11 +469,7 @@ export const getPhoneChangeCooldown = async (uid) => {
     const identity = await getUserIdentity(uid);
     if (!identity) return { canChange: false, nextAllowedDate: null, daysLeft: 0 };
 
-    const phoneChangedAt = (await (async () => {
-        const snap = await getDoc(doc(db, 'users', uid));
-        return snap.exists() ? snap.data().phoneChangedAt : null;
-    })());
-
+    const phoneChangedAt = identity.phoneChangedAt;
     if (!phoneChangedAt) return { canChange: true, nextAllowedDate: null, daysLeft: 0 };
 
     const lastMs = typeof phoneChangedAt.toMillis === 'function'

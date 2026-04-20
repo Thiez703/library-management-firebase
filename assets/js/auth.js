@@ -7,6 +7,7 @@ import { showToast as notifyToast, showConfirm } from './notify.js';
 const googleProvider = new GoogleAuthProvider();
 const getAuthSlot = () => document.querySelector('[data-auth-slot]');
 const AVATAR_PLACEHOLDER = '../assets/images/avatar-placeholder.svg';
+const PROFILE_PAGE_URL = 'profile.html';
 const isAccountLoginBlocked = (status) => ['banned', 'permanent_ban', 'permanently_banned'].includes((status || '').toString().toLowerCase());
 
 // --- LOGIC THANH ĐIỀU HƯỚNG (NAVBAR) ---
@@ -103,7 +104,8 @@ const renderAuthUI = (userLike) => {
                     </button>
                     <div class="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-slate-100 py-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
                         ${isStaff ? `<a href="../admin/index.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-layout mr-2"></i>Quản trị</a>` : ''}
-                        ${!isStaff ? `<a href="borrow-history.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn</a>` : ''}
+                        <a href="${PROFILE_PAGE_URL}" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-user-circle mr-2"></i>Thông tin cá nhân</a>
+                        <a href="borrow-history.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-clock-counter-clockwise mr-2"></i>Lịch sử mượn</a>
                         ${!isStaff ? `<a href="favorites.html" class="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium"><i class="ph ph-heart mr-2"></i>Sách yêu thích</a>` : ''}
                         <hr class="my-2 border-slate-100">
                         <button id="logoutBtn" class="w-full text-left px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 font-bold transition-colors">
@@ -187,8 +189,16 @@ export const signIn = async (email, password) => {
                 window.location.href = ['admin', 'librarian'].includes(userData.role) ? '../admin/index.html' : 'index.html';
             }, 1000);
         }
-    } catch (e) { 
-        showToast("Email hoặc mật khẩu không đúng!", "error"); 
+    } catch (e) {
+        const msgs = {
+            'auth/invalid-credential': 'Email hoặc mật khẩu không đúng.',
+            'auth/user-not-found': 'Email hoặc mật khẩu không đúng.',
+            'auth/wrong-password': 'Email hoặc mật khẩu không đúng.',
+            'auth/user-disabled': 'Tài khoản đã bị vô hiệu hóa.',
+            'auth/too-many-requests': 'Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau.',
+            'auth/network-request-failed': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.'
+        };
+        showToast(msgs[e.code] || 'Email hoặc mật khẩu không đúng.', 'error');
     }
 };
 
@@ -213,8 +223,14 @@ export const signUp = async (email, password, displayName) => {
         setTimeout(() => {
             window.location.href = 'index.html';
         }, 1500);
-    } catch (e) { 
-        showToast("Lỗi đăng ký tài khoản!", "error"); 
+    } catch (e) {
+        const msgs = {
+            'auth/email-already-in-use': 'Email này đã được đăng ký. Vui lòng đăng nhập.',
+            'auth/weak-password': 'Mật khẩu quá yếu. Tối thiểu 6 ký tự.',
+            'auth/invalid-email': 'Địa chỉ email không hợp lệ.',
+            'auth/network-request-failed': 'Lỗi kết nối mạng. Vui lòng kiểm tra internet.'
+        };
+        showToast(msgs[e.code] || 'Lỗi đăng ký tài khoản. Vui lòng thử lại.', 'error');
     }
 };
 

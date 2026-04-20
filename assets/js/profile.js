@@ -122,8 +122,12 @@ const handleUpdateProfile = async (firebaseUser, userData) => {
             updatedAt: serverTimestamp()
         };
 
-        // Chỉ cho phép update phone nếu chưa xác minh
+        // Chỉ cho phép update phone nếu chưa xác minh, và phải đúng định dạng VN
         if (!isVerified && phone) {
+            if (!/^0\d{9}$/.test(phone)) {
+                showToast('Số điện thoại không hợp lệ. Vui lòng nhập 10 chữ số bắt đầu bằng 0.', 'error');
+                return;
+            }
             updateData.phone = phone;
         }
 

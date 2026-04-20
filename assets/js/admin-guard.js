@@ -76,7 +76,7 @@ export const requireAdmin = (onReady) => {
         return;
     }
 
-    const overlay = showLoadingOverlay();
+    showLoadingOverlay();
 
     onAuthStateChanged(auth, async (firebaseUser) => {
         if (!firebaseUser) {
@@ -114,13 +114,10 @@ export const requireAdmin = (onReady) => {
 
         } catch (err) {
             console.error('[admin-guard] Lỗi xác thực:', err);
-            // Lỗi mạng → nếu cache hợp lệ thì cho qua, ngược lại redirect
-            if (STAFF_ROLES.includes(cachedRole)) {
-                removeOverlay();
-                if (typeof onReady === 'function') onReady(firebaseUser, null);
-            } else {
-                window.location.replace(LOGIN_URL);
-            }
+            // Lỗi mạng → không cho qua dựa trên cache vì cache có thể bị giả mạo.
+            // Redirect về login để user đăng nhập lại khi có mạng.
+            localStorage.removeItem(CACHE_KEY);
+            window.location.replace(LOGIN_URL);
         }
     });
 };

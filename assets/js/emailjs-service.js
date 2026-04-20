@@ -24,6 +24,7 @@ export const EmailJSService = {
                 console.error("EmailJS chưa được nạp. Hãy kiểm tra script tag trong file HTML.");
                 return;
             }
+            emailjs.init({ publicKey: EmailJSService.CONFIG.PUBLIC_KEY });
             const response = await emailjs.send(
                 EmailJSService.CONFIG.SERVICE_ID,
                 templateId,

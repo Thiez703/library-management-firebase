@@ -8,8 +8,9 @@ import {
     collection, doc, getDoc, getDocs, setDoc, updateDoc,
     query, orderBy, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js';
-import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
+import { signOut } from 'https://www.gstatic.com/firebasejs/10.0.0/firebase-auth.js';
 import { showToast } from './notify.js';
+import { requireAdmin } from './admin-guard.js';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -719,20 +720,7 @@ const exportCSV = () => {
 const initFinancePage = () => {
     if (!getElem('tab-dashboard')) return;
 
-    onAuthStateChanged(auth, async (user) => {
-        if (!user) { window.location.replace('login.html'); return; }
-
-        try {
-            const snap = await getDoc(doc(db, 'users', user.uid));
-            if (snap.data()?.role !== 'admin') {
-                window.location.replace('../user/index.html');
-                return;
-            }
-        } catch {
-            window.location.replace('login.html');
-            return;
-        }
-
+    requireAdmin(() => {
         // Tab buttons
         document.querySelectorAll('.finance-tab-btn').forEach(btn => {
             btn.addEventListener('click', () => switchTab(btn.dataset.tab));

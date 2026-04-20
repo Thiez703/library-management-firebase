@@ -1,4 +1,4 @@
-import { approveTicket, calculateFineAmount, getActiveFeeSchedule, cleanupLegacyBorrowRecords, extendTicket, getTicketStatusView, returnTicket, subscribeAllTickets, BORROW_DURATION_DAYS } from './borrow.js';
+import { approveTicket, calculateFineAmount, getActiveFeeSchedule, cleanupLegacyBorrowRecords, extendTicket, generateRecordId, getTicketStatusView, returnTicket, subscribeAllTickets, BORROW_DURATION_DAYS } from './borrow.js';
 import { showToast } from './auth.js';
 import { requireAdmin } from './admin-guard.js';
 import { db } from './firebase-config.js';
@@ -10,6 +10,9 @@ import {
     runTransaction,
     doc,
     getDoc,
+    getDocs,
+    query,
+    where,
     increment,
     serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore.js";
@@ -377,10 +380,6 @@ const renderRows = () => {
     renderPagination(totalPages);
 };
 
-const bindRowActions = (container) => {
-    // Đã chuyển sang event delegation bên trong renderRows
-};
-
 // ============================================================
 // Pagination
 // ============================================================
@@ -661,7 +660,25 @@ const createDirectBorrow = async (readerId, selectedBooks, durationDays = 14, ad
         const dueDateObj = new Date();
         dueDateObj.setDate(dueDateObj.getDate() + daysNum);
 
-        const recordId = `LIB-${String(Date.now()).slice(-6).toUpperCase()}`;
+        // C5: dùng generateRecordId() — cryptographic random, tránh collision
+        const recordId = generateRecordId();
+
+        // C4: fetch reader doc để lấy cccdHash và kiểm tra fines chưa thanh toán
+        const readerSnap = await getDoc(doc(db, 'users', readerId));
+        if (!readerSnap.exists()) {
+            showToast('Không tìm thấy độc giả.', 'error');
+            return;
+        }
+        const readerData = readerSnap.data();
+        const cccdHash = readerData.cccdHash || '';
+
+        // Cảnh báo admin nếu độc giả có fines chưa thanh toán (không chặn — admin override)
+        try {
+            const unpaidSnap = await getDocs(query(collection(db, 'fines'), where('userId', '==', readerId), where('status', '==', 'unpaid')));
+            if (!unpaidSnap.empty) {
+                showToast(`Cảnh báo: Độc giả có ${unpaidSnap.size} khoản phạt chưa thanh toán. Vẫn tạo phiếu.`, 'warning');
+            }
+        } catch { /* bỏ qua lỗi check fines */ }
 
         const ticketDocRef = doc(collection(db, 'borrowRecords'));
 
@@ -707,9 +724,9 @@ const createDirectBorrow = async (readerId, selectedBooks, durationDays = 14, ad
                 recordId,
                 userId: readerId,
                 userDetails: {
-                    fullName: getElem('borrowReaderName').value,
-                    phone: getElem('borrowReaderPhone').value,
-                    cccd: ''
+                    fullName: readerData.displayName || getElem('borrowReaderName')?.value || '',
+                    phone: readerData.phone || getElem('borrowReaderPhone')?.value || '',
+                    cccd: cccdHash
                 },
                 books: bookDetails,
                 status: 'pending',

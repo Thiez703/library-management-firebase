@@ -127,7 +127,7 @@
             <!-- Admin profile -->
             <div class="p-4 border-t border-slate-800 shrink-0">
                 <div class="flex items-center gap-3">
-                    <img id="adminAvatar" src="https://ui-avatars.com/api/?name=Admin&background=random" alt="Admin"
+                    <img id="adminAvatar" src="../assets/images/avatar-placeholder.svg" alt="Admin"
                         class="w-10 h-10 rounded-full border-2 border-slate-700 object-cover">
                     <div class="flex-1 min-w-0">
                         <p id="adminName" class="text-sm font-medium text-white truncate">Admin</p>
@@ -161,10 +161,11 @@
             const adminAvatar = document.getElementById('adminAvatar');
             const roleLabel = document.getElementById('roleLabel');
             const displayName = userData.displayName || user.email;
-            const avatarUrl = userData.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(displayName)}&background=random`;
+            const avatarUrl = userData.photoURL || '../assets/images/avatar-placeholder.svg';
 
             if (adminName) adminName.innerText = displayName;
             if (adminAvatar) adminAvatar.src = avatarUrl;
+            if (adminAvatar) adminAvatar.onerror = () => { adminAvatar.src = '../assets/images/avatar-placeholder.svg'; };
             if (roleLabel) roleLabel.textContent = userData.role === 'admin' ? 'Quản trị viên' : 'Thủ thư';
 
             // Ẩn menu items mà librarian không có quyền truy cập

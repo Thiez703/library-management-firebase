@@ -76,9 +76,10 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // System settings — admin only
+    // System settings — authenticated users can read (needed for borrow limits, fee schedule);
+    // only admins can write
     match /system/{docId} {
-      allow read: if isStaff();
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 

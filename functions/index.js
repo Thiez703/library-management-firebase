@@ -3,8 +3,26 @@ const admin = require('firebase-admin');
 admin.initializeApp();
 const db = admin.firestore();
 
-const calculateFineAmount = (daysLate) => {
+// M7: Đọc feeSchedule từ Firestore, fallback về hardcode nếu chưa cấu hình
+const getFeeSchedule = async () => {
+    try {
+        const snap = await db.collection('system').doc('feeSchedule').get();
+        if (snap.exists) return snap.data();
+    } catch { /* fallback */ }
+    return null;
+};
+
+const calculateFineAmount = (daysLate, feeSchedule) => {
     if (daysLate <= 0) return 0;
+    const tiers = feeSchedule?.lateFees;
+    if (Array.isArray(tiers) && tiers.length > 0) {
+        for (const tier of tiers) {
+            if (tier.maxDays === null || daysLate <= tier.maxDays) {
+                return daysLate * (Number(tier.ratePerDay) || 0);
+            }
+        }
+    }
+    // Fallback hardcode nếu Firestore chưa cấu hình
     if (daysLate <= 7) return daysLate * 1000;
     if (daysLate <= 30) return daysLate * 2000;
     return daysLate * 5000;
@@ -14,6 +32,9 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
     const nowMs = Date.now();
     const ticketsRef = db.collection('borrowRecords');
     const snapshot = await ticketsRef.where('status', 'in', ['pending', 'borrowing']).get();
+
+    // M7: Load feeSchedule một lần cho toàn bộ job
+    const feeSchedule = await getFeeSchedule();
 
     let cleanedCount = 0;
 
@@ -28,34 +49,40 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
             if (data.status === 'pending') {
                 const reqMs = data.requestDate?.toMillis ? data.requestDate.toMillis() : new Date(data.requestDate).getTime();
                 if (reqMs && (nowMs - reqMs > 24 * 60 * 60 * 1000)) {
-                    // Hoàn lại số lượng sách trước
+                    // M8: Dùng một batch duy nhất để hoàn sách + hủy phiếu (nguyên tử)
+                    const batch = db.batch();
+
                     if (Array.isArray(data.books)) {
-                        for (const b of data.books) {
-                            const bookId = b.bookId || b.id;
-                            if (!bookId) continue;
-                            const bookRef = db.collection('books').doc(bookId);
-                            await db.runTransaction(async (t) => {
-                                const bSnap = await t.get(bookRef);
-                                if (bSnap.exists) {
-                                    const current = bSnap.data().availableQuantity || 0;
-                                    const next = current + (Number(b.quantity) || 1);
-                                    t.update(bookRef, {
-                                        availableQuantity: next,
-                                        status: next > 0 ? 'available' : 'out_of_stock'
-                                    });
-                                }
+                        // Đọc tất cả book documents trước khi batch
+                        const bookRefs = data.books
+                            .map(b => b.bookId || b.id)
+                            .filter(Boolean)
+                            .map(id => db.collection('books').doc(id));
+
+                        const bookSnaps = await Promise.all(bookRefs.map(ref => ref.get()));
+
+                        for (let i = 0; i < bookSnaps.length; i++) {
+                            const bSnap = bookSnaps[i];
+                            if (!bSnap.exists) continue;
+                            const bookItem = data.books.find(b => (b.bookId || b.id) === bSnap.id);
+                            const restoreQty = Number(bookItem?.quantity) || 1;
+                            const next = (bSnap.data().availableQuantity || 0) + restoreQty;
+                            batch.update(bookRefs[i], {
+                                availableQuantity: next,
+                                status: next > 0 ? 'available' : 'out_of_stock'
                             });
                         }
                     }
 
-                    // Hủy phiếu
-                    await docSnap.ref.update({
+                    batch.update(docSnap.ref, {
                         status: 'cancelled',
                         adminNote: 'Hệ thống tự huỷ sau 24 giờ chưa nhận sách.',
                         updatedAt: admin.firestore.FieldValue.serverTimestamp()
                     });
 
-                    // BIZ-08: Gửi email SAU khi đã update trạng thái thành công
+                    await batch.commit();
+
+                    // Gửi email SAU khi batch commit thành công
                     if (readerEmail) {
                         await db.collection('mail').add({
                             to: readerEmail,
@@ -77,11 +104,10 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
                 if (dueMs) {
                     const daysLate = Math.ceil((nowMs - dueMs) / (1000 * 60 * 60 * 24));
 
-                    // Đã quá hạn
+                    // Đã quá hạn (> 0 ngày)
                     if (daysLate > 0) {
                         const lastWarningMs = data.lastWarningDate?.toMillis ? data.lastWarningDate.toMillis() : 0;
                         if (nowMs - lastWarningMs > 24 * 60 * 60 * 1000) {
-                            // BIZ-08: Gửi email TRƯỚC, chỉ set flag nếu thành công
                             if (readerEmail) {
                                 await db.collection('mail').add({
                                     to: readerEmail,
@@ -89,12 +115,11 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
                                         subject: 'LibSpace - CẢNH BÁO Sách đã quá hạn trả!',
                                         html: `<p>Xin chào ${readerName},</p>
                                                <p>Phiếu mượn <b>${data.recordId || docSnap.id}</b> của bạn đã <strong>quá hạn ${daysLate} ngày</strong>.</p>
-                                               <p>Phí phạt dự kiến: ${calculateFineAmount(daysLate).toLocaleString('vi-VN')} VNĐ.</p>
+                                               <p>Phí phạt dự kiến: ${calculateFineAmount(daysLate, feeSchedule).toLocaleString('vi-VN')} VNĐ.</p>
                                                <p>Vui lòng mang sách đến trả tại thư viện ngay để tránh phát sinh thêm phí phạt.</p>`
                                     }
                                 });
                             }
-                            // Set flag SAU khi mail đã được thêm thành công
                             await docSnap.ref.update({
                                 lastWarningDate: admin.firestore.FieldValue.serverTimestamp(),
                                 isOverdue: true
@@ -103,18 +128,19 @@ exports.autoCleanup = functions.pubsub.schedule('0 8 * * *').timeZone('Asia/Ho_C
                             await docSnap.ref.update({ isOverdue: true });
                         }
                     }
-                    // Sắp đến hạn (còn <= 2 ngày)
-                    else if (daysLate >= -2 && daysLate < 0) {
+                    // LOW-09: Sắp đến hạn (còn <= 2 ngày, bao gồm đúng hôm nay daysLate === 0)
+                    else if (daysLate >= -2 && daysLate <= 0) {
                         const lastReminderMs = data.lastReminderDate?.toMillis ? data.lastReminderDate.toMillis() : 0;
                         if (nowMs - lastReminderMs > 24 * 60 * 60 * 1000) {
-                            // BIZ-08: Gửi email TRƯỚC, set flag SAU
+                            const daysLeft = Math.abs(daysLate);
+                            const dueMsg = daysLeft === 0 ? 'hôm nay' : `trong ${daysLeft} ngày nữa`;
                             if (readerEmail) {
                                 await db.collection('mail').add({
                                     to: readerEmail,
                                     message: {
                                         subject: 'LibSpace - Nhắc nhở sắp đến hạn trả sách',
                                         html: `<p>Xin chào ${readerName},</p>
-                                               <p>Phiếu mượn <b>${data.recordId || docSnap.id}</b> của bạn sẽ đến hạn trả trong <strong>${Math.abs(daysLate)} ngày nữa</strong>.</p>
+                                               <p>Phiếu mượn <b>${data.recordId || docSnap.id}</b> của bạn sẽ đến hạn trả <strong>${dueMsg}</strong>.</p>
                                                <p>Bạn có thể theo dõi tình trạng mượn hoặc yêu cầu gia hạn tại website.</p>`
                                     }
                                 });
