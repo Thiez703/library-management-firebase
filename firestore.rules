@@ -6,14 +6,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    function isStaff() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'librarian'];
     }
 
-    function isStaff() {
-      return isSignedIn() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'librarian'];
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
     function isOwner(uid) {
@@ -34,18 +36,18 @@ service cloud.firestore {
     // Users — can read/write own data; staff can read all; admin can write all
     match /users/{userId} {
       allow read: if isOwner(userId) || isStaff();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId) || isStaff();
       allow update: if (isOwner(userId) &&
                        !request.resource.data.diff(resource.data).affectedKeys()
                          .hasAny(['role', 'reputationScore', 'isVerified', 'cccdHash']))
-                    || isAdmin();
+                    || isStaff();
       allow delete: if isAdmin();
     }
 
     // Borrow Records — user can read/create own; staff can read/write all
     match /borrowRecords/{recordId} {
       allow read: if isOwner(resource.data.userId) || isStaff();
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow create: if (isSignedIn() && request.resource.data.userId == request.auth.uid) || isStaff();
       allow update, delete: if isStaff();
     }
 
@@ -59,13 +61,13 @@ service cloud.firestore {
     match /phones/{phone} {
       allow read: if isStaff();
       allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isStaff();
     }
 
     match /cccds/{cccdHash} {
       allow read: if isStaff();
       allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isStaff();
     }
 
     match /identityAuditLog/{logId} {

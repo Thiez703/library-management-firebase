@@ -19,19 +19,49 @@
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
-    <nav id="site-navbar" class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <!-- Top Navigation -->
+    <nav id="site-navbar" data-turbo-permanent
+        class="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16 items-center">
-                <a href="index.html" class="text-xl font-bold text-slate-800">Lib<span class="text-primary-600">Space</span></a>
-                <div class="flex items-center gap-4">
-                    <button data-favorite-trigger type="button" class="relative text-slate-500 hover:text-rose-500 p-2" title="Sách yêu thích">
-                        <i class="ph ph-heart text-2xl"></i>
-                        <span data-favorite-count class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
-                    </button>
-                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2" title="Giỏ mượn">
-                        <i class="ph ph-books text-2xl"></i>
-                        <span data-cart-count class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                <!-- Logo -->
+                <div class="flex items-center gap-2">
+                    <a href="index.html" class="flex items-center gap-2">
+                        <div
+                            class="w-10 h-10 bg-primary-600 rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/30">
+                            <i class="ph-fill ph-books text-white text-2xl"></i>
+                        </div>
+                        <span
+                            class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 tracking-tight">Lib<span
+                                class="text-primary-600">Space</span></span>
                     </a>
+                </div>
+
+                <!-- Main Menu (Centered) -->
+                <div class="hidden md:flex items-center gap-8">
+                    <a href="index.html" class="text-sm font-bold transition-colors hover:text-primary-600">Trang chủ</a>
+                    <a href="catalog.html" class="text-sm font-bold transition-colors hover:text-primary-600">Kho sách</a>
+                    <a href="rules.html" class="text-sm font-bold transition-colors hover:text-primary-600">Quy định</a>
+                    <a href="about.html" class="text-sm font-bold transition-colors hover:text-primary-600">Giới thiệu</a>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-4">
+                    <button data-favorite-trigger type="button"
+                        class="relative text-slate-500 hover:text-rose-500 p-2 transition-colors"
+                        title="Sách yêu thích">
+                        <i class="ph ph-heart text-2xl"></i>
+                        <span data-favorite-count
+                            class="absolute top-0 right-0 w-4 h-4 bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </button>
+                    <a href="cart.html" class="relative text-slate-500 hover:text-primary-600 p-2 transition-colors"
+                        title="Giỏ mượn">
+                        <i class="ph ph-books text-2xl"></i>
+                        <span data-cart-count
+                            class="absolute top-0 right-0 min-w-[16px] h-4 px-1 bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-white">0</span>
+                    </a>
+                    <div class="w-px h-6 bg-slate-200 hidden sm:block"></div>
+                    <!-- Auth Logic will populate this -->
                     <div class="hidden sm:flex items-center gap-3" data-auth-slot></div>
                 </div>
             </div>

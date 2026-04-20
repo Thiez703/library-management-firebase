@@ -232,6 +232,10 @@ const DUMMY_FINES = [
 
 export const runSeeder = async () => {
     try {
+        const currentUser = db._auth?.currentUser || {}; // Truy cập nhanh user hiện tại
+        const cachedUser = JSON.parse(localStorage.getItem('lib_user') || '{}');
+        log(`Đang chạy với UID: ${cachedUser.uid || 'N/A'}, Quyền: ${cachedUser.role || 'N/A'}`);
+
         log('Bắt đầu quy trình Seed dữ liệu mẫu (100 records)...');
 
         // 1. Users + Identity

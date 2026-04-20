@@ -260,7 +260,7 @@ const renderRows = () => {
         const tab = state.activeTab;
 
         if (tab === 'pending') {
-            return `<tr class="hover:bg-slate-50 transition-colors">
+            return `<tr class="hover:bg-slate-50 transition-colors" data-uid="${ticket.id}">
                 <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700">${escapeHtml(ticket.recordId || ticket.id)}</td>
                 <td class="px-4 py-3 font-semibold text-slate-800 truncate max-w-[180px]">${escapeHtml(ticket.userDetails?.fullName || '--')}</td>
                 <td class="px-4 py-3 text-slate-600">${escapeHtml(ticket.userDetails?.phone || '--')}</td>
@@ -268,8 +268,8 @@ const renderRows = () => {
                 <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">${formatWaitTime(ticket.requestDate)}</span></td>
                 <td class="px-4 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <button data-view="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
-                        <button data-approve="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100">Duyệt</button>
+                        <button data-action="view" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
+                        <button data-action="approve" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100">Duyệt</button>
                     </div>
                 </td>
             </tr>`;
@@ -278,7 +278,7 @@ const renderRows = () => {
         if (tab === 'borrowing') {
             const remaining = formatDaysRemaining(ticket.dueDate);
             const badgeCls = remaining.isOverdue ? 'bg-rose-50 text-rose-700' : 'bg-blue-50 text-blue-700';
-            return `<tr class="hover:bg-slate-50 transition-colors">
+            return `<tr class="hover:bg-slate-50 transition-colors" data-uid="${ticket.id}">
                 <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700">${escapeHtml(ticket.recordId || ticket.id)}</td>
                 <td class="px-4 py-3 font-semibold text-slate-800 truncate max-w-[180px]">${escapeHtml(ticket.userDetails?.fullName || '--')}</td>
                 <td class="px-4 py-3 text-slate-600">${escapeHtml(ticket.userDetails?.phone || '--')}</td>
@@ -287,9 +287,9 @@ const renderRows = () => {
                 <td class="px-4 py-3"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeCls}">${remaining.text}</span></td>
                 <td class="px-4 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <button data-view="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
-                        <button data-extend="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100">Gia hạn</button>
-                        <button data-return="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả</button>
+                        <button data-action="view" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
+                        <button data-action="extend" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100">Gia hạn</button>
+                        <button data-action="return" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-primary-50 text-primary-700 rounded-lg hover:bg-primary-100">Trả</button>
                     </div>
                 </td>
             </tr>`;
@@ -298,7 +298,7 @@ const renderRows = () => {
         if (tab === 'overdue') {
             const overdueDays = getOverdueDays(ticket.dueDate);
             const finePreview = calculateFineAmount(overdueDays, state.feeSchedule);
-            return `<tr class="hover:bg-slate-50 transition-colors">
+            return `<tr class="hover:bg-slate-50 transition-colors" data-uid="${ticket.id}">
                 <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700">${escapeHtml(ticket.recordId || ticket.id)}</td>
                 <td class="px-4 py-3 font-semibold text-slate-800 truncate max-w-[180px]">${escapeHtml(ticket.userDetails?.fullName || '--')}</td>
                 <td class="px-4 py-3 text-slate-600">${escapeHtml(ticket.userDetails?.phone || '--')}</td>
@@ -306,8 +306,8 @@ const renderRows = () => {
                 <td class="px-4 py-3 font-semibold text-rose-600">${formatMoney(finePreview)}</td>
                 <td class="px-4 py-3 text-right">
                     <div class="flex items-center justify-end gap-1.5">
-                        <button data-view="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
-                        <button data-return="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100">Trả ngay</button>
+                        <button data-action="view" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
+                        <button data-action="return" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-700 rounded-lg hover:bg-rose-100">Trả ngay</button>
                     </div>
                 </td>
             </tr>`;
@@ -315,14 +315,14 @@ const renderRows = () => {
 
         if (tab === 'returned') {
             const totalFine = Number(ticket.fineOverdue || 0) + Number(ticket.fineDamage || 0);
-            return `<tr class="hover:bg-slate-50 transition-colors">
+            return `<tr class="hover:bg-slate-50 transition-colors" data-uid="${ticket.id}">
                 <td class="px-4 py-3 font-mono text-sm font-semibold text-slate-700">${escapeHtml(ticket.recordId || ticket.id)}</td>
                 <td class="px-4 py-3 font-semibold text-slate-800 truncate max-w-[180px]">${escapeHtml(ticket.userDetails?.fullName || '--')}</td>
                 <td class="px-4 py-3 text-slate-600">${formatDate(ticket.borrowDate)}</td>
                 <td class="px-4 py-3 text-slate-600">${formatDate(ticket.returnDate)}</td>
                 <td class="px-4 py-3 font-semibold ${totalFine > 0 ? 'text-rose-600' : 'text-emerald-600'}">${totalFine > 0 ? formatMoney(totalFine) : 'Không phạt'}</td>
                 <td class="px-4 py-3 text-right">
-                    <button data-view="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
+                    <button data-action="view" data-uid="${ticket.id}" class="px-3 py-1.5 text-xs font-semibold bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200">Xem</button>
                 </td>
             </tr>`;
         }
@@ -330,67 +330,55 @@ const renderRows = () => {
         return '';
     }).join('');
 
-    // Bind action buttons
-    const tbody2 = getElem('loans-table-body');
-    bindRowActions(tbody2);
+    // SỬ DỤNG EVENT DELEGATION: Gắn 1 lần duy nhất vào body
+    if (!tbody.dataset.clickBound) {
+        tbody.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+            
+            const action = btn.getAttribute('data-action');
+            const id = btn.getAttribute('data-uid');
+            const ticket = state.tickets.find(t => t.id === id);
+            
+            if (!ticket) return;
+
+            if (action === 'view') {
+                state.selectedDetailId = id;
+                renderDetailModal(ticket);
+                getElem('loanDetailModal')?.classList.remove('hidden');
+            } else if (action === 'approve') {
+                state.selectedApproveId = id;
+                const noteInput = getElem('handoverNote');
+                if (noteInput) noteInput.value = '';
+                getElem('handoverModal')?.classList.remove('hidden');
+            } else if (action === 'extend') {
+                state.selectedExtendId = id;
+                const daysInput = getElem('extendDays');
+                const noteInput = getElem('extendNote');
+                if (daysInput) daysInput.value = '7';
+                if (noteInput) noteInput.value = '';
+                getElem('extendModal')?.classList.remove('hidden');
+            } else if (action === 'return') {
+                state.selectedReturnId = id;
+                const dueMs = toMs(ticket.dueDate);
+                const lateDays = dueMs && Date.now() > dueMs
+                    ? Math.ceil((Date.now() - dueMs) / (1000 * 60 * 60 * 24))
+                    : 0;
+                const overdueFee = calculateFineAmount(lateDays, state.feeSchedule);
+                getElem('returnOverdueFee').textContent = formatMoney(overdueFee);
+                getElem('returnDamageFee').value = '0';
+                getElem('returnNote').value = '';
+                getElem('returnModal')?.classList.remove('hidden');
+            }
+        });
+        tbody.dataset.clickBound = 'true';
+    }
+
     renderPagination(totalPages);
 };
 
 const bindRowActions = (container) => {
-    if (!container) return;
-
-    container.querySelectorAll('[data-view]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-view');
-            const ticket = state.tickets.find(t => t.id === id);
-            if (!ticket) return;
-            state.selectedDetailId = id;
-            renderDetailModal(ticket);
-            getElem('loanDetailModal')?.classList.remove('hidden');
-        });
-    });
-
-    container.querySelectorAll('[data-approve]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-approve');
-            if (!id) return;
-            state.selectedApproveId = id;
-            const noteInput = getElem('handoverNote');
-            if (noteInput) noteInput.value = '';
-            getElem('handoverModal')?.classList.remove('hidden');
-        });
-    });
-
-    container.querySelectorAll('[data-extend]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-extend');
-            if (!id) return;
-            state.selectedExtendId = id;
-            const daysInput = getElem('extendDays');
-            const noteInput = getElem('extendNote');
-            if (daysInput) daysInput.value = '7';
-            if (noteInput) noteInput.value = '';
-            getElem('extendModal')?.classList.remove('hidden');
-        });
-    });
-
-    container.querySelectorAll('[data-return]').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const id = btn.getAttribute('data-return');
-            const ticket = state.tickets.find(t => t.id === id);
-            if (!ticket) return;
-            state.selectedReturnId = id;
-            const dueMs = toMs(ticket.dueDate);
-            const lateDays = dueMs && Date.now() > dueMs
-                ? Math.ceil((Date.now() - dueMs) / (1000 * 60 * 60 * 24))
-                : 0;
-            const overdueFee = calculateFineAmount(lateDays, state.feeSchedule);
-            getElem('returnOverdueFee').textContent = formatMoney(overdueFee);
-            getElem('returnDamageFee').value = '0';
-            getElem('returnNote').value = '';
-            getElem('returnModal')?.classList.remove('hidden');
-        });
-    });
+    // Đã chuyển sang event delegation bên trong renderRows
 };
 
 // ============================================================

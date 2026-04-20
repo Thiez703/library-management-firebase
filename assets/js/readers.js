@@ -96,7 +96,7 @@ const getTrustRankMeta = (score) => {
     const tier = getBorrowTierByScore(trust);
     if (trust >= 80) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-emerald-500', badgeClass: 'bg-emerald-50 text-emerald-700' };
     if (trust >= 70) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-blue-500', badgeClass: 'bg-blue-50 text-blue-700' };
-    if (trust >= 60) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-cyan-500', badgeClass: 'bg-cyan-50 text-cyan-700' };
+    if (trust >= 60) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-cyan-500', badgeClass: 'bg-cyan-700/10 text-cyan-700' };
     if (trust >= 50) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-amber-500', badgeClass: 'bg-amber-50 text-amber-700' };
     if (trust >= 40) return { label: `${tier.label} (${tier.maxBooks} cuốn)`, barClass: 'bg-orange-500', badgeClass: 'bg-orange-50 text-orange-700' };
     return { label: tier.label, barClass: 'bg-rose-500', badgeClass: 'bg-rose-50 text-rose-700' };
@@ -112,227 +112,96 @@ const calcTrustScore = (user, metric) => {
 
 const syncReaderReputationScore = async (uid, userData, metric) => {
     if (!uid || !metric) return;
-
     const storedScore = Number.isFinite(Number(userData?.reputationScore))
         ? Number(userData.reputationScore)
         : (Number.isFinite(Number(userData?.trustScore)) ? Number(userData.trustScore) : 100);
     const nextScore = Number(metric.trustScore);
-
     if (!Number.isFinite(nextScore) || nextScore === storedScore) return;
-
     try {
-        await updateDoc(doc(db, 'users', uid), {
-            reputationScore: nextScore,
-            trustScore: nextScore,
-            updatedAt: serverTimestamp()
-        });
-    } catch (error) {
-        console.error('syncReaderReputationScore error:', error);
-    }
+        await updateDoc(doc(db, 'users', uid), { reputationScore: nextScore, trustScore: nextScore, updatedAt: serverTimestamp() });
+    } catch (error) { console.error('syncReaderReputationScore error:', error); }
 };
 
 const getReaderStatusMeta = (metric) => {
-    if (metric.isBlocked) {
-        return {
-            label: 'Bị khóa',
-            badgeClass: 'bg-rose-50 text-rose-700',
-            dotClass: 'bg-rose-500'
-        };
-    }
-
-    if (metric.unpaidFine > 0) {
-        return {
-            label: 'Nợ phạt',
-            badgeClass: 'bg-orange-50 text-orange-700',
-            dotClass: 'bg-orange-500'
-        };
-    }
-
-    if (metric.overdueItems > 0) {
-        return {
-            label: 'Quá hạn',
-            badgeClass: 'bg-amber-50 text-amber-700',
-            dotClass: 'bg-amber-500'
-        };
-    }
-
-    return {
-        label: 'Hoạt động',
-        badgeClass: 'bg-emerald-50 text-emerald-700',
-        dotClass: 'bg-emerald-500'
-    };
+    if (metric.isBlocked) return { label: 'Bị khóa', badgeClass: 'bg-rose-50 text-rose-700', dotClass: 'bg-rose-500' };
+    if (metric.unpaidFine > 0) return { label: 'Nợ phạt', badgeClass: 'bg-orange-50 text-orange-700', dotClass: 'bg-orange-500' };
+    if (metric.overdueItems > 0) return { label: 'Quá hạn', badgeClass: 'bg-amber-50 text-amber-700', dotClass: 'bg-amber-500' };
+    return { label: 'Hoạt động', badgeClass: 'bg-emerald-50 text-emerald-700', dotClass: 'bg-emerald-500' };
 };
 
 const getRiskRowClass = (metric) => {
-    if (metric.isBlocked || metric.trustScore < 40) {
-        return 'bg-[#fff5f5] hover:bg-[#ffecec]';
-    }
-    if (metric.unpaidFine > 0) {
-        return 'bg-[#fffbeb] hover:bg-[#fff5dc]';
-    }
+    if (metric.isBlocked || metric.trustScore < 40) return 'bg-[#fff5f5] hover:bg-[#ffecec]';
+    if (metric.unpaidFine > 0) return 'bg-[#fffbeb] hover:bg-[#fff5dc]';
     return 'bg-white hover:bg-slate-50/80';
 };
 
 const buildTrustTimeline = (user, metric) => {
     const customHistory = Array.isArray(user?.trustHistory) ? user.trustHistory : [];
-    const customRows = customHistory
-        .map((event) => ({
-            dateMs: toMillis(event?.createdAt || event?.date || event?.timestamp),
-            dateLabel: formatDate(event?.createdAt || event?.date || event?.timestamp),
-            message: event?.reason || event?.message || 'Cập nhật điểm uy tín',
-            delta: Number(event?.delta || event?.pointChange || 0)
-        }))
-        .sort((a, b) => (b.dateMs || 0) - (a.dateMs || 0));
-
+    const customRows = customHistory.map((event) => ({
+        dateMs: toMillis(event?.createdAt || event?.date || event?.timestamp),
+        dateLabel: formatDate(event?.createdAt || event?.date || event?.timestamp),
+        message: event?.reason || event?.message || 'Cập nhật điểm uy tín',
+        delta: Number(event?.delta || event?.pointChange || 0)
+    })).sort((a, b) => (b.dateMs || 0) - (a.dateMs || 0));
     if (customRows.length) return customRows;
-
     const events = [];
-    if (metric.unpaidFine > 0) {
-        events.push({
-            dateMs: Date.now(),
-            dateLabel: 'Hiện tại',
-            message: 'Có phiếu phạt chưa thanh toán',
-            delta: -20
-        });
-    }
-    if (metric.overdueItems > 0) {
-        events.push({
-            dateMs: Date.now() - 1,
-            dateLabel: 'Hiện tại',
-            message: `${metric.overdueItems} đầu sách đang quá hạn`,
-            delta: -12
-        });
-    }
-    if (metric.isBlocked) {
-        events.push({
-            dateMs: Date.now() - 2,
-            dateLabel: 'Hiện tại',
-            message: 'Tài khoản đang ở trạng thái bị khóa',
-            delta: -25
-        });
-    }
-
-    if (!events.length) {
-        events.push({
-            dateMs: Date.now(),
-            dateLabel: 'Hiện tại',
-            message: 'Không có vi phạm đáng chú ý',
-            delta: 0
-        });
-    }
-
+    if (metric.unpaidFine > 0) events.push({ dateMs: Date.now(), dateLabel: 'Hiện tại', message: 'Có phiếu phạt chưa thanh toán', delta: -20 });
+    if (metric.overdueItems > 0) events.push({ dateMs: Date.now() - 1, dateLabel: 'Hiện tại', message: `${metric.overdueItems} đầu sách đang quá hạn`, delta: -12 });
+    if (metric.isBlocked) events.push({ dateMs: Date.now() - 2, dateLabel: 'Hiện tại', message: 'Tài khoản đang ở trạng thái bị khóa', delta: -25 });
+    if (!events.length) events.push({ dateMs: Date.now(), dateLabel: 'Hiện tại', message: 'Không có vi phạm đáng chú ý', delta: 0 });
     return events;
 };
 
 const computeReaderMetrics = () => {
     const map = new Map();
     const fineRecordIds = new Set();
-
     state.readers.forEach((reader) => {
         map.set(reader.id, {
-            borrowCount: 0,
-            overdueItems: 0,
-            unpaidFine: 0,
-            violationCount: 0,
-            activeBorrowItems: [],
-            finesHistory: [],
-            trustScore: 100,
-            isBlocked: isBlockedUser(reader.data),
+            borrowCount: 0, overdueItems: 0, unpaidFine: 0, violationCount: 0,
+            activeBorrowItems: [], finesHistory: [], trustScore: 100, isBlocked: isBlockedUser(reader.data),
             statusMeta: getReaderStatusMeta({ isBlocked: isBlockedUser(reader.data), unpaidFine: 0, overdueItems: 0 }),
-            trustMeta: getTrustRankMeta(100),
-            trustTimeline: []
+            trustMeta: getTrustRankMeta(100), trustTimeline: []
         });
     });
-
-    // Keep defaults available even if any later record has unexpected shape.
     state.readerMetricsByUser = map;
-
     const now = Date.now();
-
     state.fines.forEach((fine) => {
-        if (!fine || typeof fine !== 'object') return;
         const userId = fine?.userId;
         if (!userId || !map.has(userId)) return;
-
         const metric = map.get(userId);
         const amount = Number(fine?.amount || fine?.fineAmount || 0);
         const recordId = (fine?.recordId || '').toString().trim();
-        const status = (fine?.status || '').toString().toLowerCase();
-
-        if (recordId) {
-            fineRecordIds.add(recordId);
-        }
-
-        if (status === 'unpaid') {
-            metric.unpaidFine += amount;
-        }
-
+        if (recordId) fineRecordIds.add(recordId);
+        if (fine?.status === 'unpaid') metric.unpaidFine += amount;
         metric.violationCount += 1;
-        metric.finesHistory.push({
-            fineId: fine?.fineId || '--',
-            amount,
-            status: fine?.status || '--',
-            daysLate: Number(fine?.daysLate || 0),
-            createdAt: fine?.createdAt,
-            paidAt: fine?.paidAt,
-            waivedAt: fine?.waivedAt,
-            waivedReason: fine?.waivedReason || '',
-            bookTitles: Array.isArray(fine?.bookTitles) ? fine.bookTitles : []
-        });
+        metric.finesHistory.push({ fineId: fine?.fineId || '--', amount, status: fine?.status || '--', daysLate: Number(fine?.daysLate || 0), createdAt: fine?.createdAt });
     });
-
     state.borrowRecords.forEach((record) => {
-        if (!record || typeof record !== 'object') return;
         const userId = record?.userId;
         if (!userId || !map.has(userId)) return;
-
         const metric = map.get(userId);
         const books = Array.isArray(record?.books) && record.books.length ? record.books : [{ title: record?.bookTitle || 'Sách chưa rõ tên' }];
-
         if (record?.status === 'borrowing') {
             metric.borrowCount += books.length;
-
             books.forEach((book) => {
                 const dueMs = toMillis(record?.dueDate);
                 const remainDays = dueMs ? Math.ceil((dueMs - now) / 86400000) : null;
                 const isOverdue = remainDays !== null && remainDays < 0;
-
                 if (isOverdue) metric.overdueItems += 1;
-
-                metric.activeBorrowItems.push({
-                    title: (book?.title || record?.bookTitle || 'Sách chưa rõ tên').toString(),
-                    borrowDate: record?.borrowDate || record?.requestDate,
-                    dueDate: record?.dueDate,
-                    remainDays,
-                    isOverdue
-                });
+                metric.activeBorrowItems.push({ title: book?.title || record?.bookTitle || 'Sách chưa rõ tên', borrowDate: record?.borrowDate || record?.requestDate, dueDate: record?.dueDate, remainDays, isOverdue });
             });
         }
-
         const recordPenalty = Number(record?.fineOverdue || 0) + Number(record?.fineDamage || 0);
         const recordKey = (record?.recordId || '').toString().trim();
         if (recordPenalty > 0 && (!recordKey || !fineRecordIds.has(recordKey))) {
             metric.unpaidFine += recordPenalty;
             metric.violationCount += 1;
-            metric.finesHistory.push({
-                fineId: recordKey || `legacy-${record.id}`,
-                amount: recordPenalty,
-                status: 'unpaid',
-                daysLate: Number(record?.daysLate || 0),
-                createdAt: record?.returnDate || record?.updatedAt || record?.requestDate,
-                paidAt: null,
-                waivedAt: null,
-                waivedReason: '',
-                bookTitles: Array.isArray(record?.books) ? record.books.map((book) => book?.title || 'Sách không tên') : []
-            });
+            metric.finesHistory.push({ fineId: recordKey || `legacy-${record.id}`, amount: recordPenalty, status: 'unpaid', daysLate: Number(record?.daysLate || 0), createdAt: record?.returnDate || record?.updatedAt });
         }
     });
-
     state.readers.forEach((reader) => {
         const metric = map.get(reader.id);
         if (!metric) return;
-        metric.activeBorrowItems.sort((a, b) => (toMillis(a?.dueDate) || 0) - (toMillis(b?.dueDate) || 0));
-        metric.finesHistory.sort((a, b) => (toMillis(b?.createdAt || b?.paidAt || b?.waivedAt) || 0) - (toMillis(a?.createdAt || a?.paidAt || a?.waivedAt) || 0));
         metric.trustScore = calcTrustScore(reader.data, metric);
         metric.trustMeta = getTrustRankMeta(metric.trustScore);
         metric.statusMeta = getReaderStatusMeta(metric);
@@ -344,1210 +213,239 @@ const computeReaderMetrics = () => {
 const renderStats = () => {
     const total = state.readers.length;
     const blocked = state.readers.filter((item) => state.readerMetricsByUser.get(item.id)?.isBlocked).length;
-    const active = Math.max(0, total - blocked);
     const librarianCount = state.allUsers.filter(u => (u.data?.role || '').toLowerCase() === 'librarian').length;
-
     let totalUnpaid = 0;
-    state.readerMetricsByUser.forEach((metric) => {
-        totalUnpaid += Number(metric.unpaidFine || 0);
-    });
-
+    state.readerMetricsByUser.forEach((m) => totalUnpaid += m.unpaidFine);
     getElem('stat-total-readers').textContent = total.toLocaleString('vi-VN');
-    getElem('stat-active-readers').textContent = active.toLocaleString('vi-VN');
+    getElem('stat-active-readers').textContent = Math.max(0, total - blocked).toLocaleString('vi-VN');
     getElem('stat-blocked-readers').textContent = blocked.toLocaleString('vi-VN');
-
-    const librarianElem = getElem('stat-librarian-count');
-    if (librarianElem) librarianElem.textContent = librarianCount.toLocaleString('vi-VN');
-
-    const unpaidElem = getElem('stat-total-unpaid-fines');
-    if (unpaidElem) {
-        unpaidElem.textContent = formatCurrency(totalUnpaid);
-        unpaidElem.classList.remove('text-slate-800', 'text-rose-600');
-        unpaidElem.classList.add(totalUnpaid > 0 ? 'text-rose-600' : 'text-slate-800');
-    }
+    if (getElem('stat-librarian-count')) getElem('stat-librarian-count').textContent = librarianCount.toLocaleString('vi-VN');
+    if (getElem('stat-total-unpaid-fines')) getElem('stat-total-unpaid-fines').textContent = formatCurrency(totalUnpaid);
 };
 
 const passesFilter = (reader, metric) => {
     if (!metric) return false;
     const user = reader?.data || {};
     const role = (user.role || 'user').toLowerCase();
-    const accountType = (user.accountType || '').toLowerCase();
-
+    const type = (user.accountType || '').toLowerCase();
     switch (state.activeFilter) {
-        case 'member':
-            return role === 'user' && accountType !== 'guest';
-        case 'guest':
-            return accountType === 'guest';
-        case 'librarian':
-            return role === 'librarian';
-        case 'borrowing':
-            return metric.borrowCount > 0;
-        case 'fines':
-            return metric.unpaidFine > 0;
-        case 'risk':
-            return metric.trustScore < 50 || metric.isBlocked;
-        default:
-            return true;
+        case 'member': return role === 'user' && type !== 'guest';
+        case 'guest': return type === 'guest';
+        case 'librarian': return role === 'librarian';
+        case 'borrowing': return metric.borrowCount > 0;
+        case 'fines': return metric.unpaidFine > 0;
+        case 'risk': return metric.trustScore < 50 || metric.isBlocked;
+        default: return true;
     }
 };
 
 const renderPagination = (totalPages) => {
-    if (!paginationControls) return;
-    paginationControls.innerHTML = '';
-
-    if (totalPages <= 1) return;
-
-    const prevBtn = document.createElement('button');
-    prevBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
-        state.currentPage === 1
-            ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
-            : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-    }`;
-    prevBtn.innerHTML = '<i class="ph ph-caret-left"></i>';
-    prevBtn.disabled = state.currentPage === 1;
-    if (!prevBtn.disabled) {
-        prevBtn.addEventListener('click', () => {
-            state.currentPage -= 1;
-            renderTable();
-        });
-    }
-    paginationControls.appendChild(prevBtn);
-
+    if (!paginationControls || totalPages <= 1) { paginationControls.innerHTML = ''; return; }
+    let html = `<button id="prevPage" class="p-2 rounded-lg border ${state.currentPage === 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}"><i class="ph ph-caret-left"></i></button>`;
     for (let i = 1; i <= totalPages; i++) {
-        if (totalPages > 5) {
-            if (i !== 1 && i !== totalPages && Math.abs(i - state.currentPage) > 1) {
-                if (i === 2 || i === totalPages - 1) {
-                    const dots = document.createElement('span');
-                    dots.className = 'p-2 text-slate-400';
-                    dots.textContent = '...';
-                    paginationControls.appendChild(dots);
-                }
-                continue;
-            }
+        if (totalPages > 5 && i !== 1 && i !== totalPages && Math.abs(i - state.currentPage) > 1) {
+            if (i === 2 || i === totalPages - 1) html += '<span class="p-2 text-slate-400">...</span>';
+            continue;
         }
-
-        const pageBtn = document.createElement('button');
-        const isActive = i === state.currentPage;
-        pageBtn.className = `min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium transition-all ${
-            isActive
-                ? 'bg-primary-600 text-white shadow-md shadow-primary-500/20'
-                : 'text-slate-600 hover:bg-slate-100'
-        }`;
-        pageBtn.textContent = i;
-        pageBtn.addEventListener('click', () => {
-            state.currentPage = i;
-            renderTable();
-        });
-        paginationControls.appendChild(pageBtn);
+        html += `<button data-page="${i}" class="min-w-[36px] h-9 px-2 rounded-lg text-sm font-medium ${i === state.currentPage ? 'bg-primary-600 text-white' : 'text-slate-600 hover:bg-slate-100'}">${i}</button>`;
     }
+    html += `<button id="nextPage" class="p-2 rounded-lg border ${state.currentPage === totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-50'}"><i class="ph ph-caret-right"></i></button>`;
+    paginationControls.innerHTML = html;
 
-    const nextBtn = document.createElement('button');
-    nextBtn.className = `p-2 rounded-lg border flex items-center justify-center transition-colors ${
-        state.currentPage === totalPages
-            ? 'border-slate-200 text-slate-300 cursor-not-allowed bg-slate-50'
-            : 'border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300'
-    }`;
-    nextBtn.innerHTML = '<i class="ph ph-caret-right"></i>';
-    nextBtn.disabled = state.currentPage === totalPages;
-    if (!nextBtn.disabled) {
-        nextBtn.addEventListener('click', () => {
-            state.currentPage += 1;
-            renderTable();
-        });
-    }
-    paginationControls.appendChild(nextBtn);
+    paginationControls.querySelector('#prevPage').onclick = () => { if (state.currentPage > 1) { state.currentPage--; renderTable(); } };
+    paginationControls.querySelector('#nextPage').onclick = () => { if (state.currentPage < totalPages) { state.currentPage++; renderTable(); } };
+    paginationControls.querySelectorAll('[data-page]').forEach(btn => {
+        btn.onclick = () => { state.currentPage = parseInt(btn.dataset.page); renderTable(); };
+    });
 };
+
+// SỬ DỤNG GLOBAL EVENT DELEGATION: Lắng nghe trên toàn bộ document
+// Điều này giúp giải quyết triệt để vấn đề nút bị "liệt" sau khi re-render
+document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    
+    // Kiểm tra xem nút này có thuộc bảng readers không
+    if (!btn.closest('#readersTableBody') && !btn.closest('#readerDetailModal')) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const action = btn.dataset.action;
+    const uid = btn.dataset.uid;
+    
+    console.log('Readers Action Clicked:', action, 'UID:', uid);
+    
+    const reader = state.readers.find(r => r.id === uid);
+    // Lưu ý: Nếu là nút trong Detail Modal, state.readers có thể không chứa nó nếu nó là Admin
+    // Nhưng ở đây chúng ta chỉ quản lý Độc giả (User/Librarian)
+
+    if (action === 'view') {
+        const userData = reader ? reader.data : state.allUsers.find(u => u.id === uid)?.data;
+        if (userData) openReaderDetail(uid, userData);
+    } else if (action === 'edit') {
+        if (reader) openReaderEdit(uid, reader.data);
+    } else if (action === 'lock') {
+        toggleLockReader(uid);
+    } else if (action === 'settle-debt') {
+        settleReaderDebt(uid);
+    }
+});
 
 const renderTable = () => {
     const body = getElem('readersTableBody');
     if (!body) return;
-
     const term = normalizeText(state.searchTerm);
-    const filtered = state.readers.filter((item) => {
-        const user = item.data || {};
-        const uid = item.id;
-        const metric = state.readerMetricsByUser.get(uid);
-        if (!passesFilter(item, metric)) return false;
-
+    const filtered = state.readers.filter(item => {
+        const m = state.readerMetricsByUser.get(item.id);
+        if (!passesFilter(item, m)) return false;
         if (!term) return true;
-
-        const displayName = normalizeText(user.displayName || user.fullName || '');
-        const email = normalizeText(user.email || '');
-        const phone = normalizeText(user.phone || user.phoneNumber || '');
-        const code = normalizeText(makeReaderCode(uid, user));
-
-        return displayName.includes(term) || email.includes(term) || phone.includes(term) || code.includes(term);
+        const u = item.data || {};
+        return normalizeText(u.displayName || u.fullName || '').includes(term) || normalizeText(u.email || '').includes(term) || normalizeText(u.phone || '').includes(term);
     });
 
     if (!filtered.length) {
-        body.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500">Không có độc giả phù hợp.</td></tr>';
-        if (pageStartInfo) pageStartInfo.textContent = '0';
-        if (pageEndInfo) pageEndInfo.textContent = '0';
-        if (totalItemsInfo) totalItemsInfo.textContent = '0';
-        if (paginationControls) paginationControls.innerHTML = '';
+        body.innerHTML = '<tr><td colspan="8" class="px-6 py-10 text-center text-slate-500 italic">Không có độc giả phù hợp.</td></tr>';
         return;
     }
 
-    const totalItems = filtered.length;
-    const totalPages = Math.ceil(totalItems / state.itemsPerPage) || 1;
-    if (state.currentPage > totalPages) state.currentPage = totalPages;
-    if (state.currentPage < 1) state.currentPage = 1;
+    const totalPages = Math.ceil(filtered.length / state.itemsPerPage);
+    const start = (state.currentPage - 1) * state.itemsPerPage;
+    const rows = filtered.slice(start, start + state.itemsPerPage);
 
-    const startIndex = (state.currentPage - 1) * state.itemsPerPage;
-    const endIndex = Math.min(startIndex + state.itemsPerPage, totalItems);
+    if (pageStartInfo) pageStartInfo.textContent = start + 1;
+    if (pageEndInfo) pageEndInfo.textContent = start + rows.length;
+    if (totalItemsInfo) totalItemsInfo.textContent = filtered.length;
 
-    if (pageStartInfo) pageStartInfo.textContent = totalItems === 0 ? '0' : String(startIndex + 1);
-    if (pageEndInfo) pageEndInfo.textContent = String(endIndex);
-    if (totalItemsInfo) totalItemsInfo.textContent = String(totalItems);
-
-    const currentRows = filtered.slice(startIndex, endIndex);
-
-    body.innerHTML = currentRows.map((item) => {
+    body.innerHTML = rows.map(item => {
         const uid = item.id;
-        const user = item.data || {};
-        const metric = state.readerMetricsByUser.get(uid) || {
-            borrowCount: 0,
-            unpaidFine: 0,
-            trustScore: 100,
-            trustMeta: getTrustRankMeta(100),
-            statusMeta: getReaderStatusMeta({ isBlocked: false, unpaidFine: 0, overdueItems: 0 }),
-            isBlocked: false
-        };
-        const trustMeta = metric.trustMeta || getTrustRankMeta(metric.trustScore || 100);
-        const statusMeta = metric.statusMeta || getReaderStatusMeta(metric);
-
-        const displayName = (user.displayName || user.fullName || user.email || 'Độc giả').toString();
-        const phone = (user.phone || user.phoneNumber || '---').toString();
-        const email = (user.email || '---').toString();
-        const readerCode = makeReaderCode(uid, user);
-        const initials = makeInitials(displayName, email);
-        const riskClass = getRiskRowClass(metric);
-        const isLibrarian = (user.role || '').toLowerCase() === 'librarian';
-        const roleTag = isLibrarian
-            ? '<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700 uppercase">Thủ thư</span>'
-            : '';
-
-        const debtCell = metric.unpaidFine > 0
-            ? `<span class="font-bold text-rose-700">${formatCurrency(metric.unpaidFine)}</span>`
-            : '<span class="text-slate-400">—</span>';
+        const u = item.data || {};
+        const m = state.readerMetricsByUser.get(uid) || { borrowCount: 0, unpaidFine: 0, trustScore: 100, isBlocked: false };
+        const tm = getTrustRankMeta(m.trustScore);
+        const sm = getReaderStatusMeta(m);
+        const isLib = (u.role || '').toLowerCase() === 'librarian';
 
         return `
-            <tr class="${riskClass} transition-colors group" data-uid="${uid}">
+            <tr class="${getRiskRowClass(m)} transition-all duration-200 group" data-uid="${uid}">
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-3">
-                        <div class="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm">${escapeHtml(initials)}</div>
-                        <div>
-                            <button data-action="view" data-uid="${uid}" class="font-semibold text-slate-800 hover:text-primary-600 text-left">${escapeHtml(displayName)}${roleTag}</button>
-                            <p class="text-xs text-slate-500">${escapeHtml(phone)}</p>
+                        <div class="w-9 h-9 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-bold text-sm shrink-0">${makeInitials(u.displayName || u.fullName, u.email)}</div>
+                        <div class="min-w-0">
+                            <button type="button" data-action="view" data-uid="${uid}" class="font-semibold text-slate-800 hover:text-primary-600 text-left truncate block w-full">
+                                ${escapeHtml(u.displayName || u.fullName || 'DG')}${isLib ? '<span class="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700 uppercase">Thủ thư</span>' : ''}
+                            </button>
+                            <p class="text-xs text-slate-500 truncate">${escapeHtml(u.phone || '---')}</p>
                         </div>
                     </div>
                 </td>
-                <td class="px-6 py-4 font-mono text-xs text-slate-600 hidden lg:table-cell">${escapeHtml(readerCode)}</td>
-                <td class="px-6 py-4 text-slate-600 hidden lg:table-cell">${escapeHtml(email)}</td>
-                <td class="px-6 py-4 text-center font-semibold text-blue-700">${metric.borrowCount.toLocaleString('vi-VN')}</td>
-                <td class="px-6 py-4 text-right">${debtCell}</td>
+                <td class="px-6 py-4 font-mono text-xs text-slate-600 hidden lg:table-cell">${makeReaderCode(uid, u)}</td>
+                <td class="px-6 py-4 text-slate-600 hidden lg:table-cell truncate max-w-[150px]">${escapeHtml(u.email || '---')}</td>
+                <td class="px-6 py-4 text-center font-semibold text-blue-700">${m.borrowCount}</td>
+                <td class="px-6 py-4 text-right font-bold ${m.unpaidFine > 0 ? 'text-rose-700' : 'text-slate-400'}">${m.unpaidFine > 0 ? formatCurrency(m.unpaidFine) : '—'}</td>
                 <td class="px-6 py-4">
                     <div class="flex items-center gap-2">
-                        <div class="w-12 h-[5px] bg-slate-200 rounded-full overflow-hidden">
-                            <div class="h-full ${trustMeta.barClass}" style="width:${metric.trustScore}%"></div>
-                        </div>
-                        <span class="px-2 py-0.5 rounded-full text-[11px] font-semibold ${trustMeta.badgeClass}">${trustMeta.label}</span>
+                        <div class="w-12 h-[5px] bg-slate-200 rounded-full overflow-hidden shrink-0"><div class="h-full ${tm.barClass}" style="width:${m.trustScore}%"></div></div>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${tm.badgeClass}">${tm.label}</span>
                     </div>
                 </td>
                 <td class="px-6 py-4">
-                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${statusMeta.badgeClass}">
-                        <span class="w-1.5 h-1.5 rounded-full ${statusMeta.dotClass}"></span>${statusMeta.label}
+                    <span class="inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[11px] font-medium whitespace-nowrap ${sm.badgeClass}">
+                        <span class="w-1.5 h-1.5 rounded-full ${sm.dotClass}"></span>${sm.label}
                     </span>
                 </td>
                 <td class="px-6 py-4 text-right">
-                    <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button title="Chi tiết" data-action="view" data-uid="${uid}" class="px-2.5 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-md">Chi tiết</button>
-                        ${metric.unpaidFine > 0 ? `<button title="Xác nhận thanh toán nợ" data-action="settle-debt" data-uid="${uid}" class="px-2.5 py-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-md">Thu nợ</button>` : ''}
-                        <button title="Chỉnh sửa" data-action="edit" data-uid="${uid}" class="p-1.5 text-slate-600 hover:bg-slate-100 rounded-md"><i class="ph ph-pencil-simple text-lg"></i></button>
-                        <button title="${metric.isBlocked ? 'Mở khóa' : 'Khóa'} tài khoản" data-action="lock" data-uid="${uid}" class="p-1.5 ${metric.isBlocked ? 'text-emerald-600 hover:bg-emerald-50' : 'text-rose-600 hover:bg-rose-50'} rounded-md"><i class="ph ph-${metric.isBlocked ? 'lock-open' : 'lock'} text-lg"></i></button>
+                    <div class="flex items-center justify-end gap-1">
+                        <button type="button" title="Xem" data-action="view" data-uid="${uid}" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><i class="ph ph-eye text-lg pointer-events-none"></i></button>
+                        ${m.unpaidFine > 0 ? `<button type="button" title="Thu nợ" data-action="settle-debt" data-uid="${uid}" class="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"><i class="ph ph-hand-coins text-lg pointer-events-none"></i></button>` : ''}
+                        <button type="button" title="Sửa" data-action="edit" data-uid="${uid}" class="p-2 text-slate-600 hover:bg-slate-50 rounded-lg"><i class="ph ph-pencil-simple text-lg pointer-events-none"></i></button>
+                        <button type="button" title="${m.isBlocked ? 'Mở khóa' : 'Khóa'}" data-action="lock" data-uid="${uid}" class="p-2 ${m.isBlocked ? 'text-emerald-600 hover:bg-emerald-50' : 'text-rose-600 hover:bg-rose-50'} rounded-lg"><i class="ph ph-${m.isBlocked ? 'lock-open' : 'lock'} text-lg pointer-events-none"></i></button>
                     </div>
                 </td>
             </tr>
         `;
     }).join('');
 
-    body.querySelectorAll('[data-action]').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const action = btn.getAttribute('data-action');
-            const uid = btn.getAttribute('data-uid');
-            const readerItem = state.readers.find((r) => r.id === uid);
-            if (!readerItem) return;
-
-            if (action === 'view') openReaderDetail(uid, readerItem.data);
-            if (action === 'edit') openReaderEdit(uid, readerItem.data);
-            if (action === 'lock') toggleLockReader(uid);
-            if (action === 'settle-debt') settleReaderDebt(uid);
-        });
-    });
-
     renderPagination(totalPages);
-};
-
-const setFilterTabUI = () => {
-    const tabs = document.querySelectorAll('.reader-filter-tab');
-    tabs.forEach((tab) => {
-        const value = tab.getAttribute('data-filter') || 'all';
-        const isActive = value === state.activeFilter;
-        tab.classList.remove('bg-primary-600', 'text-white', 'shadow-md', 'border-primary-600', 'text-slate-600', 'border-slate-200');
-        if (isActive) {
-            tab.classList.add('bg-primary-600', 'text-white', 'shadow-md', 'border-primary-600');
-        } else {
-            tab.classList.add('text-slate-600', 'border-slate-200');
-        }
-    });
-};
-
-const renderTrustTimeline = (timeline = []) => {
-    const host = getElem('readerDetailTrustTimeline');
-    if (!host) return;
-
-    if (!timeline.length) {
-        host.innerHTML = '<p class="text-sm text-slate-400">Chưa có sự kiện điểm uy tín.</p>';
-        return;
-    }
-
-    host.innerHTML = timeline.slice(0, 10).map((event) => {
-        const delta = Number(event.delta || 0);
-        const deltaClass = delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-600' : 'text-slate-500';
-        const deltaLabel = delta > 0 ? `+${delta}` : `${delta}`;
-
-        return `
-            <div class="flex items-start justify-between gap-2 border border-slate-200 rounded-lg px-3 py-2 bg-white">
-                <div>
-                    <p class="text-sm font-medium text-slate-700">${escapeHtml(event.message || 'Cập nhật điểm uy tín')}</p>
-                    <p class="text-xs text-slate-400 mt-0.5">${escapeHtml(event.dateLabel || '--')}</p>
-                </div>
-                <span class="text-xs font-semibold ${deltaClass}">${deltaLabel}</span>
-            </div>
-        `;
-    }).join('');
-};
-
-const renderBorrowingList = (items = []) => {
-    const host = getElem('readerDetailBorrowingList');
-    if (!host) return;
-
-    if (!items.length) {
-        host.innerHTML = '<p class="text-sm text-slate-400">Hiện không có sách đang mượn.</p>';
-        return;
-    }
-
-    host.innerHTML = items.map((item) => {
-        let remainLabel = '--';
-        let remainClass = 'text-slate-500';
-
-        if (Number.isFinite(item.remainDays)) {
-            if (item.remainDays < 0) {
-                remainLabel = `Quá hạn ${Math.abs(item.remainDays)} ngày`;
-                remainClass = 'text-rose-600';
-            } else {
-                remainLabel = `Còn ${item.remainDays} ngày`;
-                remainClass = 'text-emerald-600';
-            }
-        }
-
-        return `
-            <div class="border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/60">
-                <div class="flex items-start justify-between gap-3">
-                    <div class="min-w-0">
-                        <p class="text-sm font-semibold text-slate-800 truncate">${escapeHtml(item.title || 'Sách chưa rõ tên')}</p>
-                        <p class="text-xs text-slate-500 mt-1">Mượn: ${formatDate(item.borrowDate)} · Hạn trả: ${formatDate(item.dueDate)}</p>
-                    </div>
-                    <p class="text-xs font-semibold ${remainClass}">${remainLabel}</p>
-                </div>
-            </div>
-        `;
-    }).join('');
-};
-
-const renderFineHistory = (rows = []) => {
-    const host = getElem('readerDetailFinesList');
-    if (!host) return;
-
-    if (!rows.length) {
-        host.innerHTML = '<p class="text-sm text-slate-400">Chưa có lịch sử phạt.</p>';
-        return;
-    }
-
-    host.innerHTML = rows.slice(0, 10).map((fine) => {
-        let statusClass = 'bg-slate-100 text-slate-600';
-        let statusLabel = 'Không rõ';
-
-        if (fine.status === 'unpaid') {
-            statusClass = 'bg-rose-50 text-rose-700';
-            statusLabel = 'Chưa thanh toán';
-        } else if (fine.status === 'paid') {
-            statusClass = 'bg-emerald-50 text-emerald-700';
-            statusLabel = 'Đã thanh toán';
-        } else if (fine.status === 'waived') {
-            statusClass = 'bg-slate-100 text-slate-700';
-            statusLabel = 'Đã miễn phạt';
-        }
-
-        return `
-            <div class="border border-slate-200 rounded-lg px-3 py-2 bg-slate-50/60">
-                <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm font-semibold text-slate-800">${escapeHtml(fine.fineId || '--')}</p>
-                    <span class="px-2 py-0.5 rounded-full text-xs font-medium ${statusClass}">${statusLabel}</span>
-                </div>
-                <div class="flex items-center justify-between mt-1">
-                    <p class="text-xs text-slate-500">${fine.daysLate || 0} ngày trễ · ${formatDate(fine.createdAt || fine.paidAt || fine.waivedAt)}</p>
-                    <p class="text-sm font-bold ${fine.status === 'unpaid' ? 'text-rose-700' : 'text-slate-700'}">${formatCurrency(fine.amount)}</p>
-                </div>
-            </div>
-        `;
-    }).join('');
 };
 
 const openReaderDetail = (uid, userData) => {
     state.selectedReaderId = uid;
+    const m = state.readerMetricsByUser.get(uid) || { borrowCount: 0, unpaidFine: 0, violationCount: 0, trustScore: 100, statusMeta: { label: 'Hoạt động' }, trustMeta: { label: 'Đồng' }, activeBorrowItems: [], finesHistory: [], trustTimeline: [] };
+    const setText = (id, val) => { const el = getElem(id); if (el) el.textContent = val ?? '--'; };
 
-    const displayName = userData?.displayName || userData?.fullName || userData?.email || 'Độc giả';
-    const email = userData?.email || '--';
-    const phone = userData?.phone || userData?.phoneNumber || '--';
-    const initials = makeInitials(displayName, email);
-    const readerCode = makeReaderCode(uid, userData);
-
-    const metric = state.readerMetricsByUser.get(uid) || {
-        borrowCount: 0,
-        unpaidFine: 0,
-        violationCount: 0,
-        trustScore: 100,
-        trustMeta: getTrustRankMeta(100),
-        statusMeta: getReaderStatusMeta({ isBlocked: false, unpaidFine: 0, overdueItems: 0 }),
-        trustTimeline: [],
-        activeBorrowItems: [],
-        finesHistory: []
-    };
-
-    const setText = (id, value) => {
-        const el = getElem(id);
-        if (el) el.textContent = value ?? '--';
-    };
-
-    setText('readerDetailAvatar', initials);
-    setText('readerDetailName', displayName);
-    setText('readerDetailCode', readerCode);
-    setText('readerDetailEmail', email);
-    setText('readerDetailPhone', phone);
-    setText('readerDetailCreatedAt', formatDate(userData?.createdAt));
-    setText('readerDetailMemberCode', readerCode);
-    setText('readerDetailStatus', metric.statusMeta.label);
-    setText('readerDetailBorrowing', `${metric.borrowCount.toLocaleString('vi-VN')} cuốn`);
-    setText('readerDetailTotalDebt', formatCurrency(metric.unpaidFine));
-    setText('readerDetailViolationCount', `${metric.violationCount.toLocaleString('vi-VN')}`);
-    setText('readerDetailTrustScore', `${metric.trustScore}`);
-    setText('readerDetailTrustRank', metric.trustMeta.label);
-
-    const trustBar = getElem('readerDetailTrustBar');
-    if (trustBar) {
-        trustBar.style.width = `${metric.trustScore}%`;
-        trustBar.className = `h-full ${metric.trustMeta.barClass}`;
-    }
-
-    const trustBadge = getElem('readerDetailTrustRank');
-    if (trustBadge) {
-        trustBadge.className = `px-2.5 py-1 rounded-full text-xs font-semibold ${metric.trustMeta.badgeClass}`;
-    }
-
-    renderBorrowingList(metric.activeBorrowItems);
-    renderFineHistory(metric.finesHistory);
-    renderTrustTimeline(metric.trustTimeline);
+    setText('readerDetailName', userData?.displayName || userData?.fullName || 'DG');
+    setText('readerDetailEmail', userData?.email);
+    setText('readerDetailPhone', userData?.phone || userData?.phoneNumber);
+    setText('readerDetailStatus', m.statusMeta.label);
+    setText('readerDetailTrustScore', m.trustScore);
+    getElem('readerDetailModal')?.classList.remove('hidden');
 
     const lockBtn = getElem('readerDetailLockBtn');
     if (lockBtn) {
-        lockBtn.innerHTML = metric.isBlocked
-            ? '<i class="ph ph-lock-open mr-1"></i> Mở khóa tài khoản'
-            : '<i class="ph ph-lock mr-1"></i> Khóa tài khoản';
-        lockBtn.className = `flex-1 px-4 py-2.5 rounded-xl border font-semibold text-sm transition-colors ${
-            metric.isBlocked
-                ? 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
-                : 'border-rose-200 text-rose-600 hover:bg-rose-50'
-        }`;
+        lockBtn.innerHTML = m.isBlocked ? '<i class="ph ph-lock-open mr-1"></i> Mở khóa' : '<i class="ph ph-lock mr-1"></i> Khóa';
         lockBtn.onclick = () => toggleLockReader(uid);
-    }
-
-    const editBtn = getElem('readerDetailEditBtn');
-    if (editBtn) {
-        editBtn.onclick = () => openReaderEdit(uid, userData);
-    }
-
-    // Nút hạ cấp thủ thư (chỉ hiện với librarian)
-    const isLibrarianUser = (userData?.role || '').toLowerCase() === 'librarian';
-    let demoteBtn = getElem('readerDetailDemoteBtn');
-    if (!demoteBtn) {
-        // Tạo nút demote nếu chưa có
-        const footerDiv = getElem('readerDetailLockBtn')?.closest('.flex');
-        if (footerDiv) {
-            demoteBtn = document.createElement('button');
-            demoteBtn.id = 'readerDetailDemoteBtn';
-            demoteBtn.type = 'button';
-            footerDiv.insertBefore(demoteBtn, footerDiv.firstChild);
-        }
-    }
-    if (demoteBtn) {
-        if (isLibrarianUser) {
-            demoteBtn.style.display = '';
-            demoteBtn.innerHTML = '<i class="ph ph-shield-slash mr-1"></i> Hạ cấp về Độc giả';
-            demoteBtn.className = 'flex-1 px-4 py-2.5 rounded-xl border border-amber-200 text-amber-600 hover:bg-amber-50 font-semibold text-sm transition-colors';
-            demoteBtn.onclick = () => demoteLibrarian(uid);
-        } else {
-            demoteBtn.style.display = 'none';
-        }
-    }
-
-    getElem('readerDetailModal')?.classList.remove('hidden');
-
-    // Bind trust score edit panel cho reader này
-    bindTrustEditPanel(uid, metric.trustScore);
-};
-
-// ============ CHỈNH SỬA ĐIỂM UY TÍN ============
-
-let _trustEditCurrentScore = 0;
-let _trustEditOriginalScore = 0;
-let _trustEditUid = '';
-
-const updateTrustInputDisplay = () => {
-    const input = getElem('readerDetailTrustInput');
-    if (input) input.value = _trustEditCurrentScore;
-};
-
-const bindTrustEditPanel = (uid, currentScore) => {
-    _trustEditUid = uid;
-    _trustEditOriginalScore = typeof currentScore === 'number' ? currentScore : 100;
-    _trustEditCurrentScore = _trustEditOriginalScore;
-
-    const panel = getElem('readerDetailTrustEditPanel');
-    const editBtn = getElem('readerDetailEditTrustBtn');
-    const cancelBtn = getElem('readerDetailTrustCancelBtn');
-    const saveBtn = getElem('readerDetailTrustSaveBtn');
-    const input = getElem('readerDetailTrustInput');
-    const noteInput = getElem('readerDetailTrustNote');
-
-    // Reset panel
-    if (panel) panel.classList.add('hidden');
-    if (noteInput) noteInput.value = '';
-    updateTrustInputDisplay();
-
-    // Remove old listeners by cloning
-    if (editBtn) {
-        const newEditBtn = editBtn.cloneNode(true);
-        editBtn.parentNode.replaceChild(newEditBtn, editBtn);
-        newEditBtn.addEventListener('click', () => {
-            _trustEditCurrentScore = _trustEditOriginalScore;
-            updateTrustInputDisplay();
-            panel?.classList.toggle('hidden');
-        });
-    }
-
-    if (cancelBtn) {
-        const newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-        newCancelBtn.addEventListener('click', () => {
-            _trustEditCurrentScore = _trustEditOriginalScore;
-            updateTrustInputDisplay();
-            panel?.classList.add('hidden');
-        });
-    }
-
-    // Adjust buttons (+5, -5, +10, -10)
-    const panelEl = getElem('readerDetailTrustEditPanel');
-    if (panelEl) {
-        panelEl.querySelectorAll('[data-trust-adjust]').forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', () => {
-                const delta = parseInt(newBtn.dataset.trustAdjust || '0', 10);
-                _trustEditCurrentScore = Math.max(0, Math.min(100, _trustEditCurrentScore + delta));
-                updateTrustInputDisplay();
-            });
-        });
-
-        // Preset buttons
-        panelEl.querySelectorAll('[data-trust-preset]').forEach(btn => {
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-            newBtn.addEventListener('click', () => {
-                _trustEditCurrentScore = parseInt(newBtn.dataset.trustPreset || '100', 10);
-                updateTrustInputDisplay();
-            });
-        });
-    }
-
-    // Direct input
-    if (input) {
-        const newInput = input.cloneNode(true);
-        input.parentNode.replaceChild(newInput, input);
-        newInput.value = _trustEditCurrentScore;
-        newInput.addEventListener('input', () => {
-            let val = parseInt(newInput.value || '0', 10);
-            if (isNaN(val)) val = 0;
-            _trustEditCurrentScore = Math.max(0, Math.min(100, val));
-        });
-    }
-
-    // Save button
-    if (saveBtn) {
-        const newSaveBtn = saveBtn.cloneNode(true);
-        saveBtn.parentNode.replaceChild(newSaveBtn, saveBtn);
-        newSaveBtn.addEventListener('click', () => saveTrustScore());
-    }
-};
-
-const saveTrustScore = async () => {
-    if (!_trustEditUid) return;
-
-    const newScore = Math.max(0, Math.min(100, _trustEditCurrentScore));
-    const note = (getElem('readerDetailTrustNote')?.value || '').trim();
-    const cachedUser = JSON.parse(localStorage.getItem('lib_user') || '{}');
-    const editorName = cachedUser?.displayName || cachedUser?.email || 'Staff';
-    const editorUid = cachedUser?.uid || '';
-
-    try {
-        await updateDoc(doc(db, 'users', _trustEditUid), {
-            reputationScore: newScore,
-            trustScore: newScore,
-            lastTrustEditBy: editorUid,
-            lastTrustEditByName: editorName,
-            lastTrustEditNote: note || `Chỉnh sửa uy tín: ${_trustEditOriginalScore} → ${newScore}`,
-            lastTrustEditAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-
-        showToast(`✓ Đã cập nhật điểm uy tín: ${_trustEditOriginalScore} → ${newScore}`, 'success');
-        _trustEditOriginalScore = newScore;
-
-        // Cập nhật UI trực tiếp
-        const scoreEl = getElem('readerDetailTrustScore');
-        if (scoreEl) scoreEl.textContent = newScore;
-
-        const bar = getElem('readerDetailTrustBar');
-        if (bar) bar.style.width = `${newScore}%`;
-
-        getElem('readerDetailTrustEditPanel')?.classList.add('hidden');
-    } catch (error) {
-        showToast('Lỗi: ' + (error?.message || 'Không thể cập nhật điểm uy tín'), 'error');
     }
 };
 
 const openReaderEdit = (uid, userData) => {
-    state.selectedReaderId = uid;
-
-    if (getElem('editReaderId')) getElem('editReaderId').value = uid;
-    if (getElem('editReaderName')) getElem('editReaderName').value = userData?.displayName || userData?.fullName || '';
-    if (getElem('editReaderPhone')) getElem('editReaderPhone').value = userData?.phone || userData?.phoneNumber || '';
-    if (getElem('editReaderEmail')) getElem('editReaderEmail').value = userData?.email || '';
-
-    getElem('readerDetailModal')?.classList.add('hidden');
+    getElem('editReaderId').value = uid;
+    getElem('editReaderName').value = userData?.displayName || userData?.fullName || '';
+    getElem('editReaderPhone').value = userData?.phone || '';
+    getElem('editReaderEmail').value = userData?.email || '';
     getElem('readerEditModal')?.classList.remove('hidden');
 };
 
 const toggleLockReader = async (uid) => {
-    const readerItem = state.readers.find((r) => r.id === uid);
-    if (!readerItem) return;
-
-    const currentlyBlocked = isBlockedUser(readerItem.data);
-    const nextBlocked = !currentlyBlocked;
-    const actionLabel = nextBlocked ? 'khóa' : 'mở khóa';
-    let nextStatus = nextBlocked ? 'locked' : 'active';
-
-    if (nextBlocked) {
-        const shouldBanForever = window.confirm('Bạn có muốn khóa vĩnh viễn tài khoản này không?\nChọn OK để khóa vĩnh viễn, Cancel để chỉ khóa tạm.');
-        if (shouldBanForever) nextStatus = 'banned';
-    }
-
+    const reader = state.readers.find(r => r.id === uid);
+    if (!reader) return;
+    const isLocked = isBlockedUser(reader.data);
+    if (!window.confirm(`Bạn có chắc muốn ${isLocked ? 'Mở khóa' : 'Khóa'} tài khoản này?`)) return;
     try {
-        await updateDoc(doc(db, 'users', uid), {
-            status: nextStatus,
-            isBlocked: nextBlocked,
-            updatedAt: serverTimestamp()
-        });
-
-        const msg = nextStatus === 'banned'
-            ? 'Đã khóa vĩnh viễn tài khoản thành công.'
-            : `Đã ${actionLabel} tài khoản thành công.`;
-        showToast(msg, 'success');
+        await updateDoc(doc(db, 'users', uid), { status: isLocked ? 'active' : 'locked', isBlocked: !isLocked, updatedAt: serverTimestamp() });
+        showToast('Thành công!', 'success');
         getElem('readerDetailModal')?.classList.add('hidden');
-    } catch (error) {
-        showToast(error?.message || `Không thể ${actionLabel} tài khoản.`, 'error');
-    }
+    } catch (e) { showToast(e.message, 'error'); }
 };
 
 const settleReaderDebt = async (uid) => {
-    if (!uid) return;
-    const confirmed = window.confirm('Xác nhận đã thu đủ khoản nợ phạt của độc giả này?');
-    if (!confirmed) return;
-
+    if (!window.confirm('Xác nhận đã thu đủ tiền phạt?')) return;
     try {
-        const [unpaidSnap, borrowSnap, allFineSnap] = await Promise.all([
-            getDocs(
-                query(
-                    collection(db, 'fines'),
-                    where('userId', '==', uid),
-                    where('status', '==', 'unpaid')
-                )
-            ),
-            getDocs(
-                query(
-                    collection(db, 'borrowRecords'),
-                    where('userId', '==', uid)
-                )
-            ),
-            getDocs(
-                query(
-                    collection(db, 'fines'),
-                    where('userId', '==', uid)
-                )
-            )
-        ]);
-
-        const fineRecordIdSet = new Set(
-            allFineSnap.docs
-                .map((snap) => (snap.data()?.recordId || '').toString().trim())
-                .filter(Boolean)
-        );
-
-        const legacyDebtRecords = borrowSnap.docs.filter((snap) => {
-            const data = snap.data() || {};
-            const legacyDebt = Number(data.fineOverdue || 0) + Number(data.fineDamage || 0);
-            if (legacyDebt <= 0) return false;
-            const recordId = (data.recordId || '').toString().trim();
-            // Chỉ xử lý debt legacy chưa có phiếu fines tương ứng
-            return !recordId || !fineRecordIdSet.has(recordId);
-        });
-
-        if (unpaidSnap.empty && legacyDebtRecords.length === 0) {
-            showToast('Độc giả hiện không có khoản nợ chưa thanh toán.', 'info');
-            return;
-        }
-
+        const snap = await getDocs(query(collection(db, 'fines'), where('userId', '==', uid), where('status', '==', 'unpaid')));
         const batch = writeBatch(db);
-        unpaidSnap.docs.forEach((snap) => {
-            batch.update(snap.ref, {
-                status: 'paid',
-                paidAt: serverTimestamp()
-            });
-        });
-        legacyDebtRecords.forEach((snap) => {
-            batch.update(snap.ref, {
-                fineOverdue: 0,
-                fineDamage: 0,
-                updatedAt: serverTimestamp()
-            });
-        });
+        snap.forEach(d => batch.update(d.ref, { status: 'paid', paidAt: serverTimestamp() }));
         await batch.commit();
-
-        // Sau commit, kiểm tra lại còn nợ không để quyết định mở khóa.
-        const unpaidAfterSnap = await getDocs(
-            query(
-                collection(db, 'fines'),
-                where('userId', '==', uid),
-                where('status', '==', 'unpaid')
-            )
-        );
-
-        const userRef = doc(db, 'users', uid);
-        const userSnap = await getDoc(userRef);
-        const userData = userSnap.data() || {};
-        const status = (userData.status || '').toString().toLowerCase();
-        const score = typeof userData.reputationScore === 'number'
-            ? userData.reputationScore
-            : (typeof userData.trustScore === 'number' ? userData.trustScore : 100);
-        const isPermanentBlocked = ['banned', 'permanent_ban', 'permanently_banned'].includes(status);
-        if (!isPermanentBlocked && score >= 40 && unpaidAfterSnap.empty) {
-            await updateDoc(userRef, {
-                status: 'active',
-                isBlocked: false,
-                updatedAt: serverTimestamp()
-            });
-        }
-
-        const totalHandled = unpaidSnap.size + legacyDebtRecords.length;
-        showToast(`Đã xử lý ${totalHandled} khoản nợ (${unpaidSnap.size} phiếu phạt + ${legacyDebtRecords.length} nợ legacy).`, 'success');
-    } catch (error) {
-        showToast(error?.message || 'Không thể xác nhận thanh toán nợ.', 'error');
-    }
-};
-
-const bindReaderModals = () => {
-    const detailCloseBtn = getElem('closeReaderDetailModal');
-    if (detailCloseBtn && detailCloseBtn.dataset.bound !== '1') {
-        detailCloseBtn.addEventListener('click', () => {
-            getElem('readerDetailModal')?.classList.add('hidden');
-            state.selectedReaderId = '';
-        });
-        detailCloseBtn.dataset.bound = '1';
-    }
-
-    const closeEditBtn = getElem('closeReaderEditModal');
-    if (closeEditBtn && closeEditBtn.dataset.bound !== '1') {
-        closeEditBtn.addEventListener('click', () => getElem('readerEditModal')?.classList.add('hidden'));
-        closeEditBtn.dataset.bound = '1';
-    }
-
-    const cancelEditBtn = getElem('cancelReaderEditBtn');
-    if (cancelEditBtn && cancelEditBtn.dataset.bound !== '1') {
-        cancelEditBtn.addEventListener('click', () => getElem('readerEditModal')?.classList.add('hidden'));
-        cancelEditBtn.dataset.bound = '1';
-    }
-
-    const editForm = getElem('readerEditForm');
-    if (editForm && editForm.dataset.bound !== '1') {
-        editForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const uid = getElem('editReaderId')?.value;
-            if (!uid) return;
-
-            const displayName = (getElem('editReaderName')?.value || '').trim();
-            const phone = (getElem('editReaderPhone')?.value || '').trim();
-            const email = (getElem('editReaderEmail')?.value || '').trim();
-
-            if (!displayName) {
-                showToast('Vui lòng nhập họ tên.', 'error');
-                return;
-            }
-
-            try {
-                await updateDoc(doc(db, 'users', uid), {
-                    displayName,
-                    phone,
-                    email,
-                    updatedAt: serverTimestamp()
-                });
-                showToast('Đã cập nhật thông tin độc giả thành công.', 'success');
-                getElem('readerEditModal')?.classList.add('hidden');
-            } catch (error) {
-                showToast(error?.message || 'Không thể cập nhật thông tin.', 'error');
-            }
-        });
-        editForm.dataset.bound = '1';
-    }
-};
-
-const createGuestReader = async (fullName, phone, cccd, email = '', note = '') => {
-    if (!fullName?.trim() || !phone?.trim() || !cccd?.trim()) {
-        showToast('Vui lòng điền đầy đủ Họ tên, Số điện thoại và CCCD.', 'error');
-        return;
-    }
-
-    try {
-        // BIZ-05: Guest readers được admin tạo thủ công nên đánh dấu isVerified = true
-        // để admin có thể tạo direct borrow cho họ
-        const docRef = await addDoc(collection(db, 'users'), {
-            displayName: fullName.trim(),
-            email: email.trim() || '',
-            phone: phone.trim(),
-            role: 'user',
-            status: 'active',
-            isBlocked: false,
-            accountType: 'guest',
-            isVerified: true,
-            reputationScore: 100,
-            trustScore: 100,
-            userDetails: {
-                fullName: fullName.trim(),
-                phone: phone.trim(),
-                cccd: cccd.trim(),
-                email: email.trim() || ''
-            },
-            guestNote: note.trim() || '',
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-
-        showToast(`✓ Tạo độc giả vãng lai thành công! ID: ${docRef.id}`, 'success');
-        getElem('guestReaderModal')?.classList.add('hidden');
-        getElem('guestReaderForm')?.reset();
-        return docRef.id;
-    } catch (error) {
-        showToast('Lỗi: ' + (error?.message || 'Không thể tạo độc giả'), 'error');
-    }
-};
-
-const bindGuestReaderModal = () => {
-    const openBtn = getElem('addGuestReaderBtn');
-    const closeBtn = getElem('closeGuestReaderModal');
-    const cancelBtn = getElem('cancelGuestReaderBtn');
-    const modal = getElem('guestReaderModal');
-    const form = getElem('guestReaderForm');
-
-    if (form?.dataset.bound === '1') return;
-
-    if (openBtn) {
-        openBtn.addEventListener('click', () => {
-            modal?.classList.remove('hidden');
-            form?.reset();
-        });
-    }
-
-    const closeModal = () => modal?.classList.add('hidden');
-    closeBtn?.addEventListener('click', closeModal);
-    cancelBtn?.addEventListener('click', closeModal);
-
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const fullName = getElem('guestFullName')?.value || '';
-            const phone = getElem('guestPhone')?.value || '';
-            const cccd = getElem('guestCccd')?.value || '';
-            const email = getElem('guestEmail')?.value || '';
-            const note = getElem('guestNote')?.value || '';
-
-            await createGuestReader(fullName, phone, cccd, email, note);
-        });
-        form.dataset.bound = '1';
-    }
-};
-
-const bindSearch = () => {
-    const searchInput = getElem('readerSearchInput');
-    if (!searchInput || searchInput.dataset.bound === '1') return;
-
-    searchInput.addEventListener('input', () => {
-        state.searchTerm = (searchInput.value || '').trim();
-        state.currentPage = 1;
-        renderTable();
-    });
-
-    searchInput.dataset.bound = '1';
-};
-
-const bindFilterTabs = () => {
-    const tabsHost = getElem('readerFilterTabs');
-    if (!tabsHost || tabsHost.dataset.bound === '1') return;
-
-    tabsHost.querySelectorAll('.reader-filter-tab').forEach((tab) => {
-        tab.addEventListener('click', () => {
-            state.activeFilter = tab.getAttribute('data-filter') || 'all';
-            state.currentPage = 1;
-            setFilterTabUI();
-            renderTable();
-        });
-    });
-
-    tabsHost.dataset.bound = '1';
-    setFilterTabUI();
-};
-
-const renderAll = () => {
-    try {
-        computeReaderMetrics();
-    } catch (error) {
-        console.error('computeReaderMetrics error:', error);
-        // Fallback: keep minimal metrics so table can still render.
-        const fallbackMap = new Map();
-        state.readers.forEach((reader) => {
-            fallbackMap.set(reader.id, {
-                borrowCount: 0,
-                overdueItems: 0,
-                unpaidFine: 0,
-                violationCount: 0,
-                activeBorrowItems: [],
-                finesHistory: [],
-                trustScore: 100,
-                isBlocked: isBlockedUser(reader.data),
-                trustMeta: getTrustRankMeta(100),
-                statusMeta: getReaderStatusMeta({ isBlocked: isBlockedUser(reader.data), unpaidFine: 0, overdueItems: 0 }),
-                trustTimeline: []
-            });
-        });
-        state.readerMetricsByUser = fallbackMap;
-    }
-
-    renderStats();
-    setFilterTabUI();
-    renderTable();
-};
-
-// ============ PROMOTE TO LIBRARIAN ============
-
-const bindPromoteLibrarianModal = () => {
-    const openBtn = getElem('promoteLibrarianBtn');
-    const closeBtn = getElem('closePromoteLibrarianModal');
-    const cancelBtn = getElem('cancelPromoteLibrarianBtn');
-    const modal = getElem('promoteLibrarianModal');
-    const form = getElem('promoteLibrarianForm');
-    const searchInput = getElem('promoteUserSearch');
-    const dropdown = getElem('promoteUserDropdown');
-    const selectedBox = getElem('promoteUserSelected');
-    const clearBtn = getElem('promoteUserClear');
-    const hiddenId = getElem('promoteUserId');
-
-    if (!form || form.dataset.bound === '1') return;
-
-    const closeModal = () => {
-        modal?.classList.add('hidden');
-        form?.reset();
-        hiddenId.value = '';
-        selectedBox?.classList.add('hidden');
-        searchInput.value = '';
-        dropdown?.classList.add('hidden');
-    };
-
-    openBtn?.addEventListener('click', () => modal?.classList.remove('hidden'));
-    closeBtn?.addEventListener('click', closeModal);
-    cancelBtn?.addEventListener('click', closeModal);
-
-    // Search users
-    let debounceTimer = null;
-    searchInput?.addEventListener('input', () => {
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            const term = normalizeText(searchInput.value);
-            if (!term || term.length < 2) {
-                dropdown?.classList.add('hidden');
-                return;
-            }
-
-            // Filter eligible users (only 'user' role, not already admin/librarian)
-            const eligible = state.readers.filter(item => {
-                const role = (item.data?.role || 'user').toLowerCase();
-                if (role !== 'user') return false;
-                const name = normalizeText(item.data?.displayName || item.data?.fullName || '');
-                const email = normalizeText(item.data?.email || '');
-                const phone = normalizeText(item.data?.phone || '');
-                return name.includes(term) || email.includes(term) || phone.includes(term);
-            });
-
-            if (!eligible.length) {
-                dropdown.innerHTML = '<p class="px-4 py-3 text-sm text-slate-500">Không tìm thấy tài khoản phù hợp</p>';
-            } else {
-                dropdown.innerHTML = eligible.slice(0, 8).map(item => {
-                    const name = item.data?.displayName || item.data?.email || 'Không tên';
-                    const email = item.data?.email || '--';
-                    return `
-                        <button type="button" data-uid="${item.id}" 
-                            class="promote-user-option w-full text-left px-4 py-2.5 hover:bg-violet-50 flex items-center gap-3 transition-colors">
-                            <div class="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
-                                ${escapeHtml(makeInitials(name, email))}
-                            </div>
-                            <div class="min-w-0">
-                                <p class="text-sm font-medium text-slate-800 truncate">${escapeHtml(name)}</p>
-                                <p class="text-xs text-slate-500 truncate">${escapeHtml(email)}</p>
-                            </div>
-                        </button>
-                    `;
-                }).join('');
-            }
-            dropdown?.classList.remove('hidden');
-
-            // Bind click handlers
-            dropdown.querySelectorAll('.promote-user-option').forEach(opt => {
-                opt.addEventListener('click', () => {
-                    const uid = opt.dataset.uid;
-                    const reader = state.readers.find(r => r.id === uid);
-                    if (!reader) return;
-
-                    hiddenId.value = uid;
-                    getElem('promoteUserAvatar').textContent = makeInitials(reader.data?.displayName || '', reader.data?.email || '');
-                    getElem('promoteUserName').textContent = reader.data?.displayName || reader.data?.email || '--';
-                    getElem('promoteUserEmail').textContent = reader.data?.email || '--';
-                    selectedBox?.classList.remove('hidden');
-                    searchInput.value = '';
-                    dropdown?.classList.add('hidden');
-                });
-            });
-        }, 250);
-    });
-
-    // Clear selection
-    clearBtn?.addEventListener('click', () => {
-        hiddenId.value = '';
-        selectedBox?.classList.add('hidden');
-    });
-
-    // Close dropdown on outside click
-    document.addEventListener('click', (e) => {
-        if (!dropdown?.contains(e.target) && e.target !== searchInput) {
-            dropdown?.classList.add('hidden');
-        }
-    });
-
-    // Form submit → promote
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const uid = hiddenId?.value;
-        if (!uid) {
-            showToast('Vui lòng chọn tài khoản cần nâng cấp.', 'error');
-            return;
-        }
-
-        const permissions = Array.from(form.querySelectorAll('input[name="perm"]:checked')).map(cb => cb.value);
-        const note = (getElem('promoteNote')?.value || '').trim();
-
-        const cachedUser = JSON.parse(localStorage.getItem('lib_user') || '{}');
-        const adminUid = cachedUser?.uid || '';
-
-        try {
-            await updateDoc(doc(db, 'users', uid), {
-                role: 'librarian',
-                permissions,
-                assignedBy: adminUid,
-                assignedAt: serverTimestamp(),
-                promoteNote: note,
-                updatedAt: serverTimestamp()
-            });
-
-            showToast('✓ Đã nâng cấp tài khoản thành Thủ thư thành công!', 'success');
-            closeModal();
-        } catch (error) {
-            showToast('Lỗi: ' + (error?.message || 'Không thể nâng cấp tài khoản'), 'error');
-        }
-    });
-
-    form.dataset.bound = '1';
-};
-
-// ============ DEMOTE LIBRARIAN ============
-
-const demoteLibrarian = async (uid) => {
-    if (!uid) return;
-    const confirmed = window.confirm('Bạn có chắc muốn hạ cấp tài khoản này từ Thủ thư về Độc giả?');
-    if (!confirmed) return;
-
-    try {
-        await updateDoc(doc(db, 'users', uid), {
-            role: 'user',
-            permissions: [],
-            demotedAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-        });
-        showToast('Đã hạ cấp tài khoản về Độc giả thành công.', 'success');
-        getElem('readerDetailModal')?.classList.add('hidden');
-    } catch (error) {
-        showToast('Lỗi: ' + (error?.message || 'Không thể hạ cấp tài khoản'), 'error');
-    }
-};
-
-// ============ EXPORT EXCEL ============
-
-const exportReadersToExcel = () => {
-    if (typeof XLSX === 'undefined') {
-        showToast('Thư viện SheetJS chưa được tải. Vui lòng tải lại trang.', 'error');
-        return;
-    }
-
-    const term = normalizeText(state.searchTerm);
-    const filtered = state.readers.filter((item) => {
-        const user = item.data || {};
-        const uid = item.id;
-        const metric = state.readerMetricsByUser.get(uid);
-        if (!passesFilter(item, metric)) return false;
-        if (!term) return true;
-        const displayName = normalizeText(user.displayName || '');
-        const email = normalizeText(user.email || '');
-        return displayName.includes(term) || email.includes(term);
-    });
-
-    const rows = filtered.map((item, idx) => {
-        const user = item.data || {};
-        const metric = state.readerMetricsByUser.get(item.id) || {};
-        const role = (user.role || 'user').toLowerCase();
-        let roleLabel = 'Độc giả';
-        if (role === 'librarian') roleLabel = 'Thủ thư';
-        if ((user.accountType || '').toLowerCase() === 'guest') roleLabel = 'Vãng lai';
-
-        return {
-            'STT': idx + 1,
-            'Họ Tên': user.displayName || user.fullName || '--',
-            'Email': user.email || '--',
-            'Số Điện Thoại': user.phone || user.phoneNumber || '--',
-            'Mã Độc Giả': makeReaderCode(item.id, user),
-            'Vai Trò': roleLabel,
-            'Đang Mượn': metric.borrowCount || 0,
-            'Nợ Phạt (VNĐ)': metric.unpaidFine || 0,
-            'Điểm Uy Tín': metric.trustScore ?? 100,
-            'Trạng Thái': metric.statusMeta?.label || 'Hoạt động',
-            'Ngày Tham Gia': formatDate(user.createdAt)
-        };
-    });
-
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Danh sách Độc giả');
-
-    // Auto-width columns
-    const colWidths = Object.keys(rows[0] || {}).map(key => ({
-        wch: Math.max(key.length, ...rows.map(r => String(r[key] || '').length)) + 2
-    }));
-    ws['!cols'] = colWidths;
-
-    const filterLabel = state.activeFilter === 'all' ? '' : `_${state.activeFilter}`;
-    const fileName = `DanhSachDocGia${filterLabel}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-    showToast(`✓ Đã xuất ${rows.length} dòng ra file ${fileName}`, 'success');
-};
-
-const bindExportButton = () => {
-    const btn = getElem('exportReadersBtn');
-    if (!btn || btn.dataset.bound === '1') return;
-    btn.addEventListener('click', exportReadersToExcel);
-    btn.dataset.bound = '1';
+        showToast('Đã thu nợ thành công!', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
 };
 
 const initReaders = () => {
-    bindSearch();
-    bindFilterTabs();
-    bindGuestReaderModal();
-    bindReaderModals();
-    bindPromoteLibrarianModal();
-    bindExportButton();
+    getElem('readerSearchInput')?.addEventListener('input', (e) => { state.searchTerm = e.target.value; state.currentPage = 1; renderTable(); });
+    document.querySelectorAll('.reader-filter-tab').forEach(tab => {
+        tab.onclick = () => {
+            state.activeFilter = tab.dataset.filter; state.currentPage = 1;
+            document.querySelectorAll('.reader-filter-tab').forEach(t => t.classList.remove('bg-primary-600', 'text-white'));
+            tab.classList.add('bg-primary-600', 'text-white');
+            renderTable();
+        };
+    });
+    getElem('closeReaderDetailModal').onclick = () => getElem('readerDetailModal').classList.add('hidden');
+    getElem('closeReaderEditModal').onclick = () => getElem('readerEditModal').classList.add('hidden');
+    getElem('cancelReaderEditBtn').onclick = () => getElem('readerEditModal').classList.add('hidden');
 
-    if (unsubscribeUsers) unsubscribeUsers();
-    if (unsubscribeBorrowRecords) unsubscribeBorrowRecords();
-    if (unsubscribeFines) unsubscribeFines();
-
-    unsubscribeUsers = onSnapshot(
-        collection(db, 'users'),
-        (snapshot) => {
-            const allDocs = snapshot.docs.map((docSnap) => ({ id: docSnap.id, data: docSnap.data() || {} }));
-            state.allUsers = allDocs;
-            state.readers = allDocs.filter((item) => {
-                const role = (item.data.role || '').toString().toLowerCase();
-                return role !== 'admin'; // Hiển thị cả user và librarian
-            });
-            renderAll();
-        },
-        (error) => {
-            console.error('users snapshot error:', error);
-            showToast('Không tải được danh sách người dùng.', 'error');
-        }
-    );
-
-    unsubscribeBorrowRecords = onSnapshot(
-        collection(db, 'borrowRecords'),
-        (snapshot) => {
-            state.borrowRecords = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }));
-            renderAll();
-        },
-        (error) => {
-            console.error('borrowRecords snapshot error:', error);
-        }
-    );
-
-    unsubscribeFines = onSnapshot(
-        collection(db, 'fines'),
-        (snapshot) => {
-            state.fines = snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...(docSnap.data() || {}) }));
-            renderAll();
-        },
-        (error) => {
-            console.error('fines snapshot error:', error);
-            // Keep page usable even if fines are temporarily unavailable.
-            state.fines = [];
-            renderAll();
-        }
-    );
+    onSnapshot(collection(db, 'users'), snap => {
+        const docs = snap.docs.map(d => ({ id: d.id, data: d.data() }));
+        state.allUsers = docs;
+        state.readers = docs.filter(u => (u.data.role || '').toLowerCase() !== 'admin');
+        computeReaderMetrics(); renderStats(); renderTable();
+    });
+    onSnapshot(collection(db, 'borrowRecords'), snap => {
+        state.borrowRecords = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        computeReaderMetrics(); renderStats(); renderTable();
+    });
+    onSnapshot(collection(db, 'fines'), snap => {
+        state.fines = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        computeReaderMetrics(); renderStats(); renderTable();
+    });
 };
 
-const guardedInit = () => requireAdmin(() => initReaders());
-document.addEventListener('turbo:load', guardedInit);
-document.addEventListener('turbo:render', guardedInit);
-if (document.readyState !== 'loading') guardedInit();
-else document.addEventListener('DOMContentLoaded', guardedInit);
+requireAdmin(() => initReaders());

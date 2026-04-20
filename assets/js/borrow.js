@@ -130,7 +130,7 @@ const ensureUserDetails = (userDetails) => {
     return { fullName, phone, cccd };
 };
 
-const ensureCartItems = (cartItems) => {
+const ensureCartItems = async (cartItems) => {
     if (!Array.isArray(cartItems) || cartItems.length === 0) {
         throw new Error('Giỏ mượn đang trống.');
     }
@@ -307,7 +307,7 @@ export const handleCheckout = async (userData, cartItems) => {
 
     let books;
     try {
-        books = ensureCartItems(cartItems);
+        books = await ensureCartItems(cartItems);
         // Validate userDetails từ identity (không cần form input nữa)
         if (!userDetails.fullName || !userDetails.phone) {
             throw new Error('Thông tin người dùng chưa đầy đủ. Vui lòng xác minh lại.');
