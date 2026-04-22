@@ -30,7 +30,7 @@ const initDashboard = () => {
         if (statElem) statElem.innerText = totalBorrowing.toLocaleString();
     });
 
-    // 3. Độc giả thẻ
+    // 3. Độc giả
     const readersQuery = query(collection(db, 'users'), where('role', '==', 'user'));
     onSnapshot(readersQuery, (snap) => {
         const totalReaders = snap.size;

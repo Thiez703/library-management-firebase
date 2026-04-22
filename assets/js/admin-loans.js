@@ -86,9 +86,18 @@ const normalizeText = (value = '') => value
 const getFiltered = () => {
     const term = normalizeText(state.search);
 
+
     const byTab = state.tickets.filter((ticket) => {
         const view = getTicketStatusView(ticket);
-        if (state.activeTab === 'pending') return ticket.status === 'pending';
+        if (state.activeTab === 'pending') {
+            if (ticket.status !== 'pending') return false;
+            // Chỉ hiển thị nếu requestDate chưa quá 24h
+            const reqMs = toMs(ticket.requestDate);
+            if (!reqMs) return false;
+            const diffMs = Date.now() - reqMs;
+            if (diffMs >= 24 * 60 * 60 * 1000) return false;
+            return true;
+        }
         if (state.activeTab === 'borrowing') return view === 'borrowing';
         if (state.activeTab === 'overdue') return view === 'overdue';
         if (state.activeTab === 'returned') return ticket.status === 'returned';
